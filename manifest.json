@@ -1,8 +1,8 @@
 {
-  "name": "Homebrew TTRPG System",
+  "name": "Foxyverse",
   "version": "1.0.0",
   "manifest_version": 1,
-  "description": "A simple homebrew TTRPG system with character sheets, dice rolling, and inventory management",
+  "description": "Foxyverse integration for Owlbear.Rodeo",
   "author": "Custom Plugin",
   "icon": "/icon.svg",
   "action": {
