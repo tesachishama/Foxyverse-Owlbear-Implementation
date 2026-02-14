@@ -1,5 +1,15 @@
 {
-  "name": "Custom Character Sheet",
-  "version": "0.1.0",
-  "entry": "assets/index.js"
+  "name": "Homebrew TTRPG System",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "A simple homebrew TTRPG system with character sheets, dice rolling, and inventory management",
+  "author": "Custom Plugin",
+  "icon": "/icon.svg",
+  "action": {
+    "title": "Character Sheet",
+    "icon": "/icon.svg",
+    "popover": "/index.html",
+    "height": 600,
+    "width": 400
+  }
 }
