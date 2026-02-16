@@ -1,0 +1,15 @@
+{
+  "name": "Foxyverse Owlbear Implementation",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "A Foxyverse integration for Owlbear.Rodeo",
+  "author": "Custom Plugin",
+  "icon": "./icon.svg",
+  "action": {
+    "title": "Character Sheet",
+    "icon": "./icon.svg",
+    "popover": "./index.html",
+    "height": 600,
+    "width": 400
+  }
+}
