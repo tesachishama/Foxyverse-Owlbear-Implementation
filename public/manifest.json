@@ -7,7 +7,7 @@
   "icon": "/icon.png",
   "action": {
     "title": "Foxyverse",
-    "icon": "/icon.png",
+    "icon": "/icon.svg",
     "popover": "/index.html",
     "width": 420,
     "height": 600
