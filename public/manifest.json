@@ -4,7 +4,7 @@
   "manifest_version": 1,
   "author": "Tesachi",
   "description": "A Foxyverse integration for Owlbear.Rodeo",
-  "icon": "/icon.svg",
+  "icon": "/Foxyverse-Owlbear-Implementation/icon.svg",
   "action": {
     "title": "Foxyverse",
     "icon": "/Foxyverse-Owlbear-Implementation/icon.svg",
