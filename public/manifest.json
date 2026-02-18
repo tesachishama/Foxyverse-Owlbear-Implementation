@@ -8,7 +8,7 @@
   "action": {
     "title": "Foxyverse",
     "icon": "/icon.png",
-    "popup": "/index.html",
+    "popover": "/index.html",
     "width": 420,
     "height": 600
   }
