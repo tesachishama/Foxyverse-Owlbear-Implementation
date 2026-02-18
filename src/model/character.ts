@@ -1,36 +1,40 @@
-export type StatBlock = {
-  base: number;
-  xp: number;
-  passive: number;
-};
-
-export type Stats = Record<
+export type StatName =
   | "constitution"
   | "force"
   | "intelligence"
   | "perception"
   | "social"
   | "agility"
-  | "focus",
-  StatBlock
->;
+  | "focus";
 
-export type Character = {
-  id: string;
-  schemaVersion: number;
+export interface StatBlock {
+  base: number;
+  xp: number;
+  item: number;
+  passive: number;
+}
 
+export interface CharacterIdentity {
   name: string;
   surname: string;
   element: string;
   classe: string;
-
   level: number;
+}
 
-  stats: Stats;
+export interface CharacterResources {
+  hpCurrent: number;
+  mpCurrent: number;
+  faveurCurrent: number;
+}
 
-  currentHP: number;
-  currentMP: number;
-  currentFaveur: number;
+export interface CharacterSheet {
+  id: string;
 
-  notes: string;
-};
+  ownerIds: string[];
+  linkedTokenIds: string[];
+
+  identity: CharacterIdentity;
+  stats: Record<StatName, StatBlock>;
+  resources: CharacterResources;
+}

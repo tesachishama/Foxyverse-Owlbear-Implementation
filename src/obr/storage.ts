@@ -1,12 +1,14 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { STORAGE_KEYS } from "./constants";
-import type { Character } from "../model/character";
+import { CharacterSheet } from "../model/character";
 
-export async function loadCharacters(): Promise<Record<string, Character>> {
-  const data = await OBR.storage.getItem("global", STORAGE_KEYS.CHARACTERS);
-  return (data ?? {}) as Record<string, Character>;
+export async function loadCharacters(): Promise<CharacterSheet[]> {
+  const metadata = await OBR.room.getMetadata();
+  return (metadata[STORAGE_KEYS.CHARACTERS] as CharacterSheet[]) ?? [];
 }
 
-export async function saveCharacters(chars: Record<string, Character>) {
-  await OBR.storage.setItem("global", STORAGE_KEYS.CHARACTERS, chars);
+export async function saveCharacters(characters: CharacterSheet[]) {
+  await OBR.room.setMetadata({
+    [STORAGE_KEYS.CHARACTERS]: characters,
+  });
 }
