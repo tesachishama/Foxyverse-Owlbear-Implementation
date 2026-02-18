@@ -1,24 +1,21 @@
-export type StatBlock = {
-  base: number;
-  xp: number;
-  passive: number;
-};
-
-export type Stats = Record<
+export type StatKey =
   | "constitution"
   | "force"
   | "intelligence"
   | "perception"
   | "social"
   | "agility"
-  | "focus",
-  StatBlock
->;
+  | "focus";
 
-export type Character = {
-  id: string;
-  schemaVersion: number;
+export interface StatBlock {
+  base: number;
+  xp: number;
+  item: number;
+  passive: number;
+}
 
+export interface Character {
+  id: string; // uuid
   name: string;
   surname: string;
   element: string;
@@ -26,11 +23,9 @@ export type Character = {
 
   level: number;
 
-  stats: Stats;
-
   currentHP: number;
   currentMP: number;
-  currentFaveur: number;
+  faveur: number;
 
-  notes: string;
-};
+  stats: Record<StatKey, StatBlock>;
+}
