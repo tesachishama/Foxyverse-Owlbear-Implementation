@@ -5,19 +5,6 @@
     <title>Foxyverse System Integration</title>
   </head>
   <body>
-    <script>
-  fetch("index.html")
-    .then(r => console.log("INDEX OK", r.status))
-    .catch(e => console.error("INDEX FAIL", e));
-
-  fetch("manifest.json")
-    .then(r => console.log("MANIFEST OK", r.status))
-    .catch(e => console.error("MANIFEST FAIL", e));
-
-  fetch("assets")
-    .then(r => console.log("ASSETS OK?", r.status))
-    .catch(e => console.error("ASSETS FAIL", e));
-</script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
