@@ -1,15 +1,16 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { renderApp } from "./ui/app";
 
-async function init() {
-  await OBR.waitUntilReady();
-
-  const root = document.getElementById("app");
-  if (!root) throw new Error("App root missing");
-
-  await renderApp(root);
-
+OBR.onReady(() => {
   console.log("Foxyverse extension loaded");
-}
 
-init();
+  document.body.innerHTML = `
+    <div style="
+      color: white;
+      padding: 20px;
+      font-size: 18px;
+      background: #222;
+    ">
+      Extension loaded successfully.
+    </div>
+  `;
+});
