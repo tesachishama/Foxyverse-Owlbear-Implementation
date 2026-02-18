@@ -7,8 +7,8 @@
   "icon": "/icon.svg",
   "action": {
     "title": "Foxyverse",
-    "icon": "/icon.svg",
-    "popover": "/index.html",
+    "icon": "/Foxyverse-Owlbear-Implementation/icon.svg",
+    "popover": "/Foxyverse-Owlbear-Implementation/index.html",
     "width": 420,
     "height": 600
   }
