@@ -1,0 +1,15 @@
+{
+  "name": "Foxyverse Owlbear Implementation",
+  "version": "0.1.0",
+  "manifest_version": 1,
+  "author": "Tesachi",
+  "description": "A Foxyverse integration for Owlbear.Rodeo",
+  "icon": "/icon.png",
+  "action": {
+    "title": "Foxyverse",
+    "icon": "/icon.svg",
+    "popover": "/index.html",
+    "width": 420,
+    "height": 600
+  }
+}
