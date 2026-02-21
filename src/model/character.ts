@@ -23,9 +23,24 @@ export interface CharacterIdentity {
 }
 
 export interface CharacterResources {
+  hpTemp: number;
   hpCurrent: number;
+  hpMax: number;
   mpCurrent: number;
-  faveurCurrent: number;
+  mpMax: number;
+  favorCurrent: number;
+  favorMax: number;
+}
+
+export interface CharacterDerived {
+  /** Manual speed modifier */
+  speedModifier: number;
+
+  /** Manual action bonus */
+  actionBonus: number;
+
+  /** Calculated maximum number of actions */
+  actionMax: number;
 }
 
 export interface CharacterSheet {
@@ -37,4 +52,7 @@ export interface CharacterSheet {
   identity: CharacterIdentity;
   stats: Record<StatName, StatBlock>;
   resources: CharacterResources;
+  
+  /** Derived & computed stats */
+  derived: CharacterDerived;
 }
