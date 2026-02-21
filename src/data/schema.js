@@ -168,7 +168,7 @@ export function getDisplayName(sheet) {
   return n || s || "Unnamed";
 }
 
-function findItemById(sheet, itemId) {
+export function findItemById(sheet, itemId) {
   const lists = [sheet.weapons, sheet.armor, sheet.consumables, sheet.others, sheet.bags].filter(Boolean);
   for (const list of lists) {
     const item = list.find((i) => i.id === itemId);
@@ -177,22 +177,28 @@ function findItemById(sheet, itemId) {
   return null;
 }
 
-/** Sum Defense from all equipped armor. */
+/** Sum Defense from all equipped armor (each item counted once). */
 export function getSheetDefense(sheet) {
   let sum = 0;
   const equipped = sheet.equipped || {};
+  const seen = new Set();
   for (const itemId of Object.values(equipped)) {
+    if (seen.has(itemId)) continue;
+    seen.add(itemId);
     const item = findItemById(sheet, itemId);
     if (item && item.defense != null) sum += Number(item.defense) || 0;
   }
   return sum;
 }
 
-/** Sum Magical Defense from all equipped armor. */
+/** Sum Magical Defense from all equipped armor (each item counted once). */
 export function getSheetMagicalDefense(sheet) {
   let sum = 0;
   const equipped = sheet.equipped || {};
+  const seen = new Set();
   for (const itemId of Object.values(equipped)) {
+    if (seen.has(itemId)) continue;
+    seen.add(itemId);
     const item = findItemById(sheet, itemId);
     if (item && item.magicalDefense != null) sum += Number(item.magicalDefense) || 0;
   }

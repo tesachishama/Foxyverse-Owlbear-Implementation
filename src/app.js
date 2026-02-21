@@ -13,7 +13,10 @@ import {
   getActionCount,
   getSpeedFormula,
   getStatTotal,
+  evalModifier,
   STAT_IDS,
+  SLOT_IDS,
+  findItemById,
   getSheetDefense,
   getSheetMagicalDefense,
 } from "./data/schema.js";
@@ -117,6 +120,9 @@ function renderHeader() {
     )
     .join("");
   const canAdd = state.isGM || visible.length === 0;
+  const linkedToThis = state.activeSheetId
+    ? Object.entries(state.tokenToSheet || {}).filter(([, sid]) => sid === state.activeSheetId)
+    : [];
   return `
     <header class="app-header">
       <div class="header-row">
@@ -125,11 +131,18 @@ function renderHeader() {
           ${options}
         </select>
         ${canAdd ? `<button type="button" id="btn-new-sheet" class="btn-icon" title="${t("newSheet")}">+</button>` : ""}
+        ${state.activeSheetId ? `<button type="button" id="btn-link-token" class="btn-sm" title="${t("linkTokenToSheet")}">${t("linkToken")}</button>` : ""}
         <div class="lang-flags">
           <button type="button" class="flag ${state.locale === "en" ? "active" : ""}" data-lang="en" title="English" aria-label="English">EN</button>
           <button type="button" class="flag ${state.locale === "fr" ? "active" : ""}" data-lang="fr" title="Français" aria-label="Français">FR</button>
         </div>
       </div>
+      ${linkedToThis.length > 0 ? `
+        <div class="linked-tokens">
+          <span class="label">${t("linkedTokens")}:</span>
+          ${linkedToThis.map(([tid]) => `<span class="linked-token-id">${tid.slice(0, 8)}</span> <button type="button" class="btn-sm btn-unlink" data-token-id="${tid}">${t("unlink")}</button>`).join(" ")}
+        </div>
+      ` : ""}
     </header>
   `;
 }
@@ -220,6 +233,7 @@ function renderStatsTab() {
       <span class="label">${t("speed")}</span>
       <span class="formula">${speedFormula}</span>
       ${editable ? `<input type="text" placeholder="${t("speedModifier")}" value="${escapeAttr(s.speedModifier)}" data-field="speedModifier" class="short-input" />` : ""}
+      <button type="button" id="btn-roll-speed" class="btn-sm">${t("rollSpeed")}</button>
     </div>
   `;
 
@@ -330,10 +344,44 @@ function renderSpellsTab() {
   `;
 }
 
+function slotLabel(slotId) {
+  const key = "slot" + slotId;
+  return t(key) || slotId;
+}
+
+function itemsForSlot(sheet, slotId) {
+  const weaponSlots = ["Weapon1", "Weapon2", "Weapon3"];
+  if (weaponSlots.includes(slotId)) {
+    return (sheet.weapons || []).map((it) => ({ id: it.id, name: it.name || it.id?.slice(0, 8) }));
+  }
+  if (slotId === "Other") {
+    const out = [];
+    (sheet.weapons || []).forEach((it) => out.push({ id: it.id, name: (it.name || it.id?.slice(0, 8)) + " (W)" }));
+    (sheet.armor || []).forEach((it) => out.push({ id: it.id, name: (it.name || it.id?.slice(0, 8)) + " (A)" }));
+    (sheet.others || []).forEach((it) => out.push({ id: it.id, name: (it.name || it.id?.slice(0, 8)) + " (O)" }));
+    return out;
+  }
+  return (sheet.armor || []).filter((it) => {
+    const slots = it.equippableSlots || [];
+    return slots.length === 0 || slots.includes(slotId);
+  }).map((it) => ({ id: it.id, name: it.name || it.id?.slice(0, 8) }));
+}
+
 function renderInventoryTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
   const editable = canEdit(s.id);
+  const equipped = s.equipped || {};
+  const equippedRows = SLOT_IDS.map((slotId) => {
+    const currentId = equipped[slotId];
+    const options = itemsForSlot(s, slotId);
+    return `<div class="equip-row"><span class="equip-slot-label">${slotLabel(slotId)}</span><select class="equip-select" data-slot="${slotId}" ${editable ? "" : "disabled"}><option value="">—</option>${options.map((it) => `<option value="${it.id}" ${currentId === it.id ? "selected" : ""}>${escapeAttr(it.name)}</option>`).join("")}</select></div>`;
+  }).join("");
+  let html = `
+    <div class="card"><h2>${t("tabInventory")}</h2>
+    <h3>${t("equipped")}</h3>
+    <div class="equipped-grid">${equippedRows}</div>
+  `;
   const sections = [
     { key: "consumables", label: t("consumables") },
     { key: "others", label: t("others") },
@@ -341,7 +389,6 @@ function renderInventoryTab() {
     { key: "armor", label: t("armor") },
     { key: "bags", label: t("bags") },
   ];
-  let html = `<div class="card"><h2>${t("tabInventory")}</h2>`;
   sections.forEach(({ key, label }) => {
     const items = s[key] || [];
     html += `
@@ -356,8 +403,10 @@ function renderInventoryTab() {
             <span class="item-toggle" data-toggle-item="${key}-${i}" title="${t("itemDescription")}">▼</span>
             <div class="item-detail hidden" id="item-detail-${key}-${i}">
               <textarea data-item-desc="${key}-${i}" ${editable ? "" : "readonly"} placeholder="${t("itemDescription")}">${escapeAttr(it.description)}</textarea>
-              ${it.defense != null ? `<span>${t("defense")}: ${it.defense}</span>` : ""}
-              ${it.magicalDefense != null ? `<span> ${t("magicalDefense")}: ${it.magicalDefense}</span>` : ""}
+              ${key === "weapons" ? `<label>${t("weaponSlots")}: <input type="number" min="1" data-item-weapon-slots="${key}-${i}" value="${it.weaponSlots ?? 1}" ${editable ? "" : "readonly"} /></label>` : ""}
+              ${key === "armor" ? `<label>${t("defense")}: <input type="number" data-item-defense="${key}-${i}" value="${it.defense ?? ""}" ${editable ? "" : "readonly"} /></label><label>${t("magicalDefense")}: <input type="number" data-item-magdef="${key}-${i}" value="${it.magicalDefense ?? ""}" ${editable ? "" : "readonly"} /></label><label>${t("equippableSlots")}: <input type="text" data-item-equip-slots="${key}-${i}" value="${Array.isArray(it.equippableSlots) ? it.equippableSlots.join(", ") : (it.equippableSlots || "")}" placeholder="Hat, Face" ${editable ? "" : "readonly"} /></label>` : ""}
+              ${it.defense != null && key !== "armor" ? `<span>${t("defense")}: ${it.defense}</span>` : ""}
+              ${it.magicalDefense != null && key !== "armor" ? `<span> ${t("magicalDefense")}: ${it.magicalDefense}</span>` : ""}
             </div>
             ${editable ? `<button type="button" class="btn-sm" data-remove-item="${key}-${i}">${t("remove")}</button>` : ""}
           </li>
@@ -520,6 +569,27 @@ function bindEvents() {
     render();
   });
 
+  app.querySelector("#btn-link-token")?.addEventListener("click", async () => {
+    const ids = await OBR.player.getSelection();
+    if (!ids?.length) {
+      OBR.notification.show(t("noTokenSelected"));
+      return;
+    }
+    await storage.linkTokenToSheet(ids[0], state.activeSheetId);
+    const roomData = await storage.getRoomData();
+    state.tokenToSheet = roomData.tokenToSheet || {};
+    render();
+  });
+
+  app.querySelectorAll(".btn-unlink[data-token-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await storage.linkTokenToSheet(btn.dataset.tokenId, null);
+      const roomData = await storage.getRoomData();
+      state.tokenToSheet = roomData.tokenToSheet || {};
+      render();
+    });
+  });
+
   app.querySelectorAll(".flag[data-lang]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const lang = btn.dataset.lang;
@@ -616,6 +686,17 @@ function bindEvents() {
   });
   app.querySelector("#stat-roll-cancel")?.addEventListener("click", () => {
     document.getElementById("stat-roll-modal")?.classList.add("hidden");
+  });
+
+  app.querySelector("#btn-roll-speed")?.addEventListener("click", () => {
+    if (!state.sheet) return;
+    const agi = getStatTotal(state.sheet, "agility");
+    const d6 = Math.floor(Math.random() * 6) + 1;
+    const mod = evalModifier(state.sheet.speedModifier || "");
+    const value = Math.floor(agi / 4) + d6 + mod;
+    state.lastRoll = { kind: "roll", value, rolls: [d6] };
+    state.lastRollPayload = null;
+    showRollResult(state.lastRoll);
   });
 
   app.querySelectorAll(".quick-mods button").forEach((btn) => {
@@ -771,6 +852,32 @@ function bindEvents() {
   });
 
   // Inventory
+  app.querySelectorAll(".equip-select").forEach((el) => {
+    el.addEventListener("change", (e) => {
+      const slotId = el.dataset.slot;
+      const itemId = e.target.value || null;
+      if (!state.sheet) return;
+      const eq = { ...(state.sheet.equipped || {}) };
+      if (itemId) {
+        Object.keys(eq).forEach((s) => { if (eq[s] === itemId) delete eq[s]; });
+        eq[slotId] = itemId;
+        const item = findItemById(state.sheet, itemId);
+        if (item?.equippableSlots?.length) {
+          item.equippableSlots.forEach((s) => { eq[s] = itemId; });
+        }
+      } else {
+        const prevId = eq[slotId];
+        delete eq[slotId];
+        if (prevId) {
+          Object.keys(eq).forEach((s) => { if (eq[s] === prevId) delete eq[s]; });
+        }
+      }
+      state.sheet.equipped = eq;
+      saveSheet();
+      render();
+    });
+  });
+
   app.querySelectorAll("[data-toggle-item]").forEach((el) => {
     el.addEventListener("click", () => {
       const id = el.dataset.toggleItem;
@@ -799,6 +906,32 @@ function bindEvents() {
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
       if (!state.sheet?.[section]?.[idx]) return;
       state.sheet[section][idx].description = e.target.value;
+      saveSheet();
+    });
+  });
+  app.querySelectorAll("[data-item-weapon-slots], [data-item-defense], [data-item-magdef]").forEach((el) => {
+    el.addEventListener("change", (e) => {
+      const key = (el.dataset.itemWeaponSlots || el.dataset.itemDefense || el.dataset.itemMagdef || "");
+      const lastHyphen = key.lastIndexOf("-");
+      const section = key.slice(0, lastHyphen);
+      const idx = parseInt(key.slice(lastHyphen + 1), 10);
+      if (!state.sheet?.[section]?.[idx]) return;
+      const it = state.sheet[section][idx];
+      if (el.dataset.itemWeaponSlots !== undefined) it.weaponSlots = parseInt(e.target.value, 10) || 1;
+      if (el.dataset.itemDefense !== undefined) it.defense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
+      if (el.dataset.itemMagdef !== undefined) it.magicalDefense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
+      saveSheet();
+    });
+  });
+  app.querySelectorAll("[data-item-equip-slots]").forEach((el) => {
+    el.addEventListener("change", (e) => {
+      const key = el.dataset.itemEquipSlots;
+      const lastHyphen = key.lastIndexOf("-");
+      const section = key.slice(0, lastHyphen);
+      const idx = parseInt(key.slice(lastHyphen + 1), 10);
+      if (!state.sheet?.[section]?.[idx]) return;
+      const raw = (e.target.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+      state.sheet[section][idx].equippableSlots = raw;
       saveSheet();
     });
   });
