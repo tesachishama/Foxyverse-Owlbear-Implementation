@@ -6,8 +6,8 @@
   "author": "Foxyverse",
   "action": {
     "title": "Foxyverse",
-    "icon": "icon.svg",
-    "popover": ".",
+    "icon": "https://tesachishama.github.io/Foxyverse-Owlbear-Implementation/icon.svg",
+    "popover": "https://tesachishama.github.io/Foxyverse-Owlbear-Implementation/",
     "height": 560,
     "width": 380
   }
