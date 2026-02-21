@@ -5,7 +5,7 @@
 export const translations = {
   en: {
     appTitle: "Foxyverse TTRPG",
-    appSubtitle: "Homebrew system",
+    appSubtitle: "A Foxyverse integration for Owlbear.Rodeo",
 
     // Sheet selector & permissions
     selectSheet: "Select character sheet",
@@ -372,7 +372,7 @@ export const translations = {
   },
 };
 
-let currentLocale = "en";
+let currentLocale = "fr";
 
 export function setLocale(locale) {
   if (translations[locale]) currentLocale = locale;
