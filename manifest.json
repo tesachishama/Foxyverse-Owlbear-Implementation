@@ -1,0 +1,14 @@
+{
+  "name": "Foxyverse TTRPG",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "Homebrew TTRPG system integration for Owlbear Rodeo",
+  "author": "Foxyverse",
+  "action": {
+    "title": "Foxyverse",
+    "icon": "icon.svg",
+    "popover": ".",
+    "height": 560,
+    "width": 380
+  }
+}
