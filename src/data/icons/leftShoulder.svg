@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Inventory" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #4b002c;
+      }
+    </style>
+  </defs>
+  <path id="LShoulder" class="cls-1" d="M44.61,59.44c-12.26-.13-14.88-14.23-14.86-21.84,0,0,40.88-1.54,40.51,24.26-13.2,2.06-14.41-2.42-25.65-2.42Z"/>
+</svg>

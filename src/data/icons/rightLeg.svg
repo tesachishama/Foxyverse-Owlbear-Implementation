@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Inventory" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #4b002c;
+      }
+    </style>
+  </defs>
+  <path id="RLeg" class="cls-1" d="M61.43,95.02h-23.46s-12.71-76.96-1.5-88.87c.72-.77,1.75-1.17,2.8-1.17h28.03c.47,0,.86.38.86.86-.1,38.61-6.72,89.18-6.72,89.18Z"/>
+</svg>

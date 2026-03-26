@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Inventory" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #4b002c;
+      }
+    </style>
+  </defs>
+  <path id="RFoot" class="cls-1" d="M38.96,38.19v12.57c0,6.1,4.94,11.04,11.04,11.04s11.04-4.94,11.04-11.04v-12.57h-22.09Z"/>
+</svg>

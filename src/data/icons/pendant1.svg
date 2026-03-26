@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Inventory" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #4b002c;
+      }
+    </style>
+  </defs>
+  <ellipse id="Pendant_1" data-name="Pendant 1" class="cls-1" cx="50" cy="50" rx="3.84" ry="2.11" transform="translate(-18.3 68.3) rotate(-60)"/>
+</svg>

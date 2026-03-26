@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Inventory" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #4b002c;
+      }
+    </style>
+  </defs>
+  <rect id="LIndex" class="cls-1" x="48.12" y="40.56" width="3.76" height="18.88" rx="1.61" ry="1.61" transform="translate(100 100) rotate(180)"/>
+</svg>
