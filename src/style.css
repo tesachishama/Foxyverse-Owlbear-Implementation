@@ -208,6 +208,11 @@ body {
   transform: translate(-50%, -50%);
 }
 
+.tab-foreground-icon-stats {
+  width: calc(100% - 0.7rem);
+  height: calc(100% - 0.7rem);
+}
+
 .tab-content {
   font-size: 0.9rem;
 }

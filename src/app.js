@@ -227,7 +227,7 @@ function renderTabs() {
     (tab) =>
       `<button type="button" class="tab-icon-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}" title="${TAB_META[tab].label}" aria-label="${TAB_META[tab].label}">
         ${inlineSvg(tabIcon, "inline-svg tab-bg-icon-svg", state.activeTab === tab ? "var(--text)" : "var(--accent)")}
-        ${inlineSvg(TAB_META[tab].icon, "inline-svg tab-foreground-icon-svg", "var(--bg)")}
+        ${inlineSvg(TAB_META[tab].icon, `inline-svg tab-foreground-icon-svg ${tab === "stats" ? "tab-foreground-icon-stats" : ""}`, "var(--bg)")}
       </button>`
   ).join("");
   return `<nav class="tabs">${tabsHtml}</nav>`;
