@@ -65,6 +65,11 @@ function defaultStats() {
 export function createEmptySheet(id = crypto.randomUUID()) {
   return {
     id,
+    theme: {
+      bg: "#4b002c",
+      ui: "#ffdbff",
+      text: "#eba5ff",
+    },
     bio: {
       name: "",
       surname: "",

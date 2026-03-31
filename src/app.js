@@ -72,19 +72,20 @@ const state = {
     ui: "#ffdbff",
     text: "#eba5ff",
   },
+  playerDirectory: {},
 };
 
 function canView(sheetId) {
   if (state.isGM) return true;
   const per = state.permissions[state.playerId];
-  if (!per || !per.view || per.view.length === 0) return true;
+  if (!per || !per.view) return false;
   return per.view.includes(sheetId);
 }
 
 function canEdit(sheetId) {
   if (state.isGM) return true;
   const per = state.permissions[state.playerId];
-  if (!per || !per.edit || per.edit.length === 0) return true;
+  if (!per || !per.edit) return false;
   return per.edit.includes(sheetId);
 }
 
@@ -107,6 +108,7 @@ async function loadRoomData() {
   );
   state.permissions = roomData.permissions || {};
   state.tokenToSheet = roomData.tokenToSheet || {};
+  state.playerDirectory = roomData.playerDirectory || {};
   state.isGM = (await storage.getPlayerRole()) === "GM";
   state.playerId = await storage.getPlayerId();
   const locale = roomData.locale || localStorage.getItem("foxyverse_locale") || "en";
@@ -127,6 +129,10 @@ async function loadSheet(sheetId) {
     storage.saveSheetToStorage(state.roomId, sheet);
     await storage.addSheetToRoom(sheetId, "Name Surname");
   }
+  if (!sheet.theme) {
+    sheet.theme = { ...state.colors };
+    storage.saveSheetToStorage(state.roomId, sheet);
+  }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
 }
@@ -139,6 +145,32 @@ function saveSheet() {
 
 function pickRandom(max) {
   return Math.floor(Math.random() * max) + 1;
+}
+
+function getSheetTheme(sheet = state.sheet) {
+  return {
+    bg: sheet?.theme?.bg || state.colors.bg,
+    ui: sheet?.theme?.ui || state.colors.ui,
+    text: sheet?.theme?.text || state.colors.text,
+  };
+}
+
+function getKnownPlayers() {
+  const connected = new Map((state.partyPlayers || []).map((p) => [p.id, p]));
+  const knownIds = new Set([
+    ...Object.keys(state.playerDirectory || {}),
+    ...Object.keys(state.permissions || {}),
+    ...connected.keys(),
+  ]);
+  return [...knownIds].map((id) => {
+    const live = connected.get(id);
+    const saved = state.playerDirectory?.[id] || {};
+    return {
+      id,
+      name: live?.name || saved.name || id,
+      role: live?.role || saved.role || "PLAYER",
+    };
+  });
 }
 
 function inlineSvg(svg, className = "", color = "var(--text)") {
@@ -543,39 +575,55 @@ function renderNotesTab() {
 }
 
 function renderSettingsTab() {
-  const c = state.colors;
+  const c = getSheetTheme();
   const editable = canEdit(state.activeSheetId);
-  const permsSection = state.isGM && state.partyPlayers?.length
+  const players = getKnownPlayers();
+  const activeSheetId = state.activeSheetId;
+  const permsSection = state.isGM && activeSheetId
     ? `
-      <h3>${t("permissions")}</h3>
-      <p class="muted small">${t("gmOnly")}</p>
-      <div class="permissions-grid" id="permissions-grid">
-        ${state.sheetIds.map((sheetId) => `
-          <div class="perm-sheet">
-            <strong>${escapeAttr(state.sheetNames[sheetId] || sheetId.slice(0, 8))}</strong>
-            ${state.partyPlayers.map((p) => `
-              <label><input type="checkbox" data-perm-view="${sheetId}" data-player="${p.id}" ${(state.permissions[p.id]?.view || []).includes(sheetId) ? "checked" : ""} /> ${escapeAttr(p.name || p.id)} ${t("view")}</label>
-              <label><input type="checkbox" data-perm-edit="${sheetId}" data-player="${p.id}" ${(state.permissions[p.id]?.edit || []).includes(sheetId) ? "checked" : ""} /> ${t("edit")}</label>
-            `).join("")}
-          </div>
-        `).join("")}
+      <h3 class="settings-section-title">${t("sheetPermissions")}</h3>
+      <div class="permissions-panel">
+        <div class="permissions-header-row">
+          <span></span>
+          <span>${t("canSee")}</span>
+          <span>${t("canEdit")}</span>
+        </div>
+        ${players.map((p) => {
+          const isGMRow = p.role === "GM";
+          const canSeeSelected = isGMRow || (state.permissions[p.id]?.view || []).includes(activeSheetId) || (state.permissions[p.id]?.edit || []).includes(activeSheetId);
+          const canEditSelected = isGMRow || (state.permissions[p.id]?.edit || []).includes(activeSheetId);
+          return `
+            <div class="permissions-player-row">
+              <span class="permissions-player-name">${escapeAttr(p.name)}</span>
+              <button type="button" class="perm-circle-btn ${canSeeSelected ? "selected" : ""}" data-perm-mode="view" data-player="${p.id}" ${isGMRow ? "disabled" : ""} aria-label="${t("canSee")}"></button>
+              <button type="button" class="perm-circle-btn ${canEditSelected ? "selected" : ""}" data-perm-mode="edit" data-player="${p.id}" ${isGMRow ? "disabled" : ""} aria-label="${t("canEdit")}"></button>
+            </div>
+          `;
+        }).join("")}
       </div>
     `
     : "";
   return `
-    <div class="card">
-      <h2>${t("tabSettings")}</h2>
-      <h3>${t("uiColors")}</h3>
-      <div class="color-grid">
-        <label>${t("color1")}<input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
-        <label>${t("color5")}<input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
-        <label>${t("color4")}<input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
+    <div class="card settings-card">
+      <h2 class="settings-title">${t("tabSettings")}</h2>
+      <div class="settings-color-row">
+        <span class="settings-pill-label">${t("uiColors")}</span>
+        <div class="settings-color-strip">
+          <label class="settings-color-stop"><input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
+          <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
+          <label class="settings-color-stop"><input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
+        </div>
+      </div>
+      <div class="settings-actions settings-actions-top">
+        <button type="button" id="btn-import-sheet" class="settings-pill-btn">${t("importSheet")}</button>
+        <button type="button" id="btn-export-sheet" class="settings-pill-btn">${t("exportSheet")}</button>
+        <input type="file" id="import-file-input" accept=".json" class="hidden" />
       </div>
       ${permsSection}
-      <div class="settings-actions">
-        <button type="button" id="btn-export-sheet">${t("exportSheet")}</button>
-        <button type="button" id="btn-import-sheet">${t("importSheet")}</button>
-        <input type="file" id="import-file-input" accept=".json" class="hidden" />
+      <div class="settings-actions settings-actions-bottom">
+        <button type="button" id="btn-import-all" class="settings-pill-btn" ${state.isGM ? "" : "disabled"}>${t("importEverything")}</button>
+        <button type="button" id="btn-export-all" class="settings-pill-btn" ${state.isGM ? "" : "disabled"}>${t("exportEverything")}</button>
+        <input type="file" id="import-all-file-input" accept=".json" class="hidden" />
       </div>
     </div>
   `;
@@ -603,13 +651,14 @@ function renderTabContent() {
 }
 
 function applyColors() {
+  const theme = getSheetTheme();
   const root = document.documentElement;
-  root.style.setProperty("--bg", state.colors.bg);
-  root.style.setProperty("--surface", state.colors.bg);
-  root.style.setProperty("--border", state.colors.ui);
-  root.style.setProperty("--text", state.colors.text);
-  root.style.setProperty("--accent", state.colors.ui);
-  root.style.setProperty("--muted", state.colors.text);
+  root.style.setProperty("--bg", theme.bg);
+  root.style.setProperty("--surface", theme.bg);
+  root.style.setProperty("--border", theme.ui);
+  root.style.setProperty("--text", theme.text);
+  root.style.setProperty("--accent", theme.ui);
+  root.style.setProperty("--muted", theme.text);
 }
 
 function render() {
@@ -1100,27 +1149,47 @@ function bindEvents() {
   // Settings
   app.querySelectorAll("[data-color]").forEach((input) => {
     input.addEventListener("input", (e) => {
-      state.colors[e.target.dataset.color] = e.target.value;
+      if (!state.sheet) return;
+      state.sheet.theme = {
+        ...getSheetTheme(),
+        [e.target.dataset.color]: e.target.value,
+      };
       applyColors();
-      localStorage.setItem("foxyverse_colors", JSON.stringify(state.colors));
+      saveSheet();
     });
   });
-  app.querySelectorAll("[data-perm-view], [data-perm-edit]").forEach((el) => {
-    el.addEventListener("change", async (e) => {
+  app.querySelectorAll("[data-perm-mode]").forEach((el) => {
+    el.addEventListener("click", async () => {
       if (!state.isGM) return;
+      const sheetId = state.activeSheetId;
+      if (!sheetId) return;
       const playerId = el.dataset.player;
-      const sheetId = el.dataset.permView ?? el.dataset.permEdit;
-      const kind = el.dataset.permView !== undefined ? "view" : "edit";
+      const kind = el.dataset.permMode;
       const perms = JSON.parse(JSON.stringify(state.permissions));
       if (!perms[playerId]) perms[playerId] = { view: [], edit: [] };
-      const arr = perms[playerId][kind] || [];
-      if (e.target.checked) {
-        if (!arr.includes(sheetId)) perms[playerId][kind] = [...arr, sheetId];
+      const currentView = new Set(perms[playerId].view || []);
+      const currentEdit = new Set(perms[playerId].edit || []);
+      if (kind === "edit") {
+        if (currentEdit.has(sheetId)) {
+          currentEdit.delete(sheetId);
+          currentView.add(sheetId);
+        } else {
+          currentEdit.add(sheetId);
+          currentView.add(sheetId);
+        }
       } else {
-        perms[playerId][kind] = arr.filter((id) => id !== sheetId);
+        if (currentView.has(sheetId) && !currentEdit.has(sheetId)) {
+          currentView.delete(sheetId);
+        } else {
+          currentView.add(sheetId);
+          currentEdit.delete(sheetId);
+        }
       }
+      perms[playerId].view = [...currentView];
+      perms[playerId].edit = [...currentEdit];
       await storage.setPermissions(perms);
       state.permissions = perms;
+      render();
     });
   });
 
@@ -1134,6 +1203,24 @@ function bindEvents() {
     URL.revokeObjectURL(a.href);
   });
   app.querySelector("#btn-import-sheet")?.addEventListener("click", () => document.getElementById("import-file-input")?.click());
+  app.querySelector("#btn-export-all")?.addEventListener("click", async () => {
+    if (!state.isGM || !state.roomId) return;
+    const sheets = state.sheetIds
+      .map((sheetId) => storage.getSheetFromStorage(state.roomId, sheetId))
+      .filter(Boolean);
+    const payload = {
+      exportedAt: Date.now(),
+      roomId: state.roomId,
+      sheets,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "foxyverse-all-sheets.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  app.querySelector("#btn-import-all")?.addEventListener("click", () => document.getElementById("import-all-file-input")?.click());
   app.addEventListener("click", (e) => {
     const btn = e.target.closest(".inline-roll-btn");
     if (!btn || !state.sheet) return;
@@ -1151,6 +1238,7 @@ function bindEvents() {
     try {
       const sheet = JSON.parse(text);
       if (!sheet.id) sheet.id = crypto.randomUUID();
+      if (!sheet.theme) sheet.theme = { ...state.colors };
       storage.saveSheetToStorage(state.roomId, sheet);
       await storage.addSheetToRoom(sheet.id, [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname");
       state.sheetIds = await storage.getSheetList();
@@ -1163,34 +1251,53 @@ function bindEvents() {
     }
     e.target.value = "";
   });
+  app.querySelector("#import-all-file-input")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !state.roomId || !state.isGM) return;
+    const text = await file.text();
+    try {
+      const parsed = JSON.parse(text);
+      const sheets = Array.isArray(parsed) ? parsed : parsed.sheets;
+      if (!Array.isArray(sheets)) throw new Error("Invalid bundle");
+      for (const sheet of sheets) {
+        if (!sheet?.id) sheet.id = crypto.randomUUID();
+        if (!sheet.theme) {
+          sheet.theme = { ...state.colors };
+        }
+        storage.saveSheetToStorage(state.roomId, sheet);
+        await storage.addSheetToRoom(
+          sheet.id,
+          [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname"
+        );
+      }
+      await loadRoomData();
+      if (!state.activeSheetId && state.sheetIds.length) {
+        await loadSheet(state.sheetIds[0]);
+      } else if (state.activeSheetId) {
+        await loadSheet(state.activeSheetId);
+      }
+      render();
+    } catch (_) {
+      OBR.notification.show("Invalid file");
+    }
+    e.target.value = "";
+  });
 }
 
 export async function initApp() {
   await loadRoomData();
-  const storedColors = localStorage.getItem("foxyverse_colors");
-  if (storedColors) {
-    try {
-      const parsed = JSON.parse(storedColors);
-      // Migration from old 5-color theme -> 3-color theme
-      if (parsed && typeof parsed === "object") {
-        if ("surface" in parsed || "border" in parsed || "accent" in parsed) {
-          state.colors = {
-            bg: parsed.bg ?? state.colors.bg,
-            ui: parsed.accent ?? parsed.border ?? state.colors.ui,
-            text: parsed.text ?? state.colors.text,
-          };
-        } else {
-          state.colors = { ...state.colors, ...parsed };
-        }
-      }
-    } catch (_) {}
-  }
   state.playerName = await storage.getPlayerName();
   try {
     state.partyPlayers = await OBR.party.getPlayers();
   } catch (_) {
     state.partyPlayers = [];
   }
+  const updatedDirectory = {
+    ...state.playerDirectory,
+    ...Object.fromEntries((state.partyPlayers || []).map((p) => [p.id, { name: p.name, role: p.role }])),
+  };
+  state.playerDirectory = updatedDirectory;
+  await storage.setRoomData({ playerDirectory: updatedDirectory });
   const chatKey = state.chatHistoryKey + state.roomId;
   try {
     const saved = localStorage.getItem(chatKey);
@@ -1222,6 +1329,16 @@ export async function initApp() {
 
   OBR.room.onMetadataChange(async () => {
     await loadRoomData();
+    render();
+  });
+  OBR.party.onChange(async (players) => {
+    state.partyPlayers = players || [];
+    const updatedDirectory = {
+      ...state.playerDirectory,
+      ...Object.fromEntries((state.partyPlayers || []).map((p) => [p.id, { name: p.name, role: p.role }])),
+    };
+    state.playerDirectory = updatedDirectory;
+    await storage.setRoomData({ playerDirectory: updatedDirectory });
     render();
   });
 }

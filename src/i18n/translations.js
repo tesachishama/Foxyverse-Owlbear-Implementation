@@ -174,12 +174,17 @@ export const translations = {
 
     // Settings
     uiColors: "UI colors",
+    sheetPermissions: "Sheet's Permissions",
+    canSee: "Can see",
+    canEdit: "Can edit",
     color1: "Background",
     color3: "Border",
     color4: "Text",
     color5: "Accent",
     exportSheet: "Export sheet",
     importSheet: "Import sheet",
+    exportEverything: "Export everything",
+    importEverything: "Import everything",
     importFile: "Import from file",
 
     // Common
@@ -352,12 +357,17 @@ export const translations = {
     notesPlaceholder: "Notes...",
 
     uiColors: "Couleurs de l'interface",
+    sheetPermissions: "Permissions de la fiche",
+    canSee: "Peut voir",
+    canEdit: "Peut modifier",
     color1: "Fond",
     color3: "Bordure",
     color4: "Texte",
     color5: "Accent",
     exportSheet: "Exporter la fiche",
     importSheet: "Importer la fiche",
+    exportEverything: "Tout exporter",
+    importEverything: "Tout importer",
     importFile: "Importer un fichier",
 
     add: "Ajouter",
