@@ -153,8 +153,8 @@
           </button>
           ${l.sheetMenuOpen?`<div class="sheet-menu">${e}</div>`:""}
         </div>
-        ${l.isGM?`<button type="button" id="btn-new-sheet" class="header-icon-btn" title="${m("newSheet")}">${fe(Os,"inline-svg header-icon-svg","var(--text)")}</button>`:""}
-        ${l.isGM?`<button type="button" id="btn-delete-sheet" class="header-icon-btn" title="${m("remove")}">${fe(bs,"inline-svg header-icon-svg","var(--text)")}</button>`:""}
+        ${l.isGM?`<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn" title="${m("newSheet")}">${fe(Os,"inline-svg header-icon-svg plus-minus-icon-svg","var(--text)")}</button>`:""}
+        ${l.isGM?`<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn" title="${m("remove")}">${fe(bs,"inline-svg header-icon-svg plus-minus-icon-svg","var(--text)")}</button>`:""}
         <div class="lang-flags">
           <button type="button" class="flag-icon-btn ${l.locale==="fr"?"active":""}" data-lang="fr" title="Français" aria-label="Français"><img src="${Ns}" alt="Français" class="flag-img" /></button>
           <button type="button" class="flag-icon-btn ${l.locale==="en"?"active":""}" data-lang="en" title="English" aria-label="English"><img src="${Ls}" alt="English" class="flag-img" /></button>
