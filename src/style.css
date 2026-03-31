@@ -199,8 +199,8 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: calc(100% - 0.24rem);
-  height: calc(100% - 0.24rem);
+  width: calc(100% - 0.48rem);
+  height: calc(100% - 0.48rem);
   transform: translate(-50%, -50%);
 }
 
