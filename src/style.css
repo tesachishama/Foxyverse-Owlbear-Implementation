@@ -75,6 +75,14 @@ body {
   color: var(--text);
 }
 
+.flag-icon-btn {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
 .sheet-arrow-btn {
   border: 0;
   background: transparent;
@@ -133,7 +141,6 @@ body {
   width: 1.4rem;
   height: 1.4rem;
   display: block;
-  border-radius: 50%;
 }
 
 .tabs {

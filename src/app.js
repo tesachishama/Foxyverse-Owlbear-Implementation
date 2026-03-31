@@ -39,6 +39,7 @@ import { evaluateExpression, statValuesFromSheet, rollStatCheck } from "./dice/p
 
 const ROOT_ID = "app";
 const TABS = ["bio", "stats", "spells", "inventory", "chat", "notes", "settings"];
+let svgInstanceCounter = 0;
 const TAB_META = {
   bio: { icon: bioIcon, label: "Bio" },
   stats: { icon: statsIcon, label: "Stats" },
@@ -133,12 +134,25 @@ function pickRandom(max) {
 }
 
 function inlineSvg(svg, className = "", color = "var(--text)") {
-  const cleaned = svg
+  const prefix = `fvsvg${svgInstanceCounter++}`;
+  const idMap = new Map();
+  let cleaned = svg
     .replace(/<\?xml[\s\S]*?\?>/g, "")
     .replace(/<svg\b/, `<svg class="${className}" style="color:${color};"`)
     .replace(/fill:\s*currentColor/g, "fill:currentColor")
     .replace(/fill="currentColor"/g, 'fill="currentColor"')
     .replace(/stroke="currentColor"/g, 'stroke="currentColor"');
+  cleaned = cleaned.replace(/\sid="([^"]+)"/g, (match, id) => {
+    const nextId = `${prefix}-${id}`;
+    idMap.set(id, nextId);
+    return ` id="${nextId}"`;
+  });
+  idMap.forEach((nextId, oldId) => {
+    const refPattern = new RegExp(`url\\(#${oldId}\\)`, "g");
+    cleaned = cleaned.replace(refPattern, `url(#${nextId})`);
+    const hrefPattern = new RegExp(`(["'])#${oldId}\\1`, "g");
+    cleaned = cleaned.replace(hrefPattern, `"#${nextId}"`);
+  });
   return cleaned;
 }
 
