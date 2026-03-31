@@ -110,6 +110,7 @@ export const BroadcastType = {
   CHAT: "chat",
   ROLL: "roll",
   REQUEST_SHEET: "request_sheet",
+  PERMISSIONS_UPDATED: "permissions_updated",
 };
 
 export async function broadcastSheet(roomId, sheet) {
@@ -136,6 +137,13 @@ export async function requestSheet(roomId, sheetId) {
     type: BroadcastType.REQUEST_SHEET,
     roomId,
     sheetId,
+  });
+}
+
+export async function broadcastPermissionsUpdated(roomId) {
+  await OBR.broadcast.sendMessage(BROADCAST_CHANNEL, {
+    type: BroadcastType.PERMISSIONS_UPDATED,
+    roomId,
   });
 }
 

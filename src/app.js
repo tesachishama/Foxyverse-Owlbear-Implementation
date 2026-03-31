@@ -75,6 +75,7 @@ const state = {
   playerDirectory: {},
   incomingSheets: {},
   pendingSheetId: null,
+  pendingSheetTimer: null,
 };
 
 function canView(sheetId) {
@@ -124,6 +125,7 @@ async function loadSheet(sheetId) {
     state.sheet = null;
     state.activeSheetId = sheetId;
     state.pendingSheetId = null;
+    clearPendingSheetTimeout();
     return;
   }
   let sheet = storage.getSheetFromStorage(state.roomId, sheetId);
@@ -135,6 +137,7 @@ async function loadSheet(sheetId) {
     } else {
       state.pendingSheetId = sheetId;
       state.sheet = null;
+      startPendingSheetTimeout(sheetId);
       storage.requestSheet(state.roomId, sheetId).catch(() => {});
       return;
     }
@@ -146,6 +149,7 @@ async function loadSheet(sheetId) {
   state.sheet = sheet;
   state.activeSheetId = sheetId;
   state.pendingSheetId = null;
+  clearPendingSheetTimeout();
 }
 
 function saveSheet() {
@@ -249,6 +253,22 @@ function requestVisibleSheets() {
       storage.requestSheet(state.roomId, sheetId).catch(() => {});
     }
   });
+}
+
+function startPendingSheetTimeout(sheetId) {
+  if (state.pendingSheetTimer) clearTimeout(state.pendingSheetTimer);
+  state.pendingSheetTimer = setTimeout(() => {
+    if (state.pendingSheetId === sheetId) {
+      state.pendingSheetId = null;
+      render();
+    }
+  }, 3000);
+}
+
+function clearPendingSheetTimeout() {
+  if (!state.pendingSheetTimer) return;
+  clearTimeout(state.pendingSheetTimer);
+  state.pendingSheetTimer = null;
 }
 
 function renderHeader() {
@@ -1218,6 +1238,10 @@ function bindEvents() {
       perms[playerId].edit = [...currentEdit];
       await storage.setPermissions(perms);
       state.permissions = perms;
+      await storage.broadcastPermissionsUpdated(state.roomId);
+      if (state.sheet) {
+        await storage.broadcastSheet(state.roomId, state.sheet);
+      }
       render();
     });
   });
@@ -1349,6 +1373,7 @@ export async function initApp() {
         state.sheet = data.sheet;
         state.activeSheetId = data.sheet.id;
         state.pendingSheetId = null;
+        clearPendingSheetTimeout();
         render();
       } else if (data.sheet.id === state.activeSheetId) {
         state.sheet = data.sheet;
@@ -1373,6 +1398,7 @@ export async function initApp() {
             state.sheet = sheet;
             state.activeSheetId = sheet.id;
             state.pendingSheetId = null;
+            clearPendingSheetTimeout();
             render();
           } else if (sheet.id === state.activeSheetId) {
             state.sheet = sheet;
@@ -1387,6 +1413,21 @@ export async function initApp() {
       if (localSheet) {
         storage.broadcastSheet(state.roomId, localSheet).catch(() => {});
       }
+      return;
+    }
+    if (data?.type === "permissions_updated" && data.roomId === state.roomId) {
+      loadRoomData().then(async () => {
+        requestVisibleSheets();
+        const visible = getVisibleSheets();
+        const selectedSheetId = state.pendingSheetId || state.activeSheetId;
+        if (!selectedSheetId || !canView(selectedSheetId)) {
+          state.pendingSheetId = null;
+          await loadSheet(visible[0] || null);
+        } else if (selectedSheetId && !state.sheet) {
+          await loadSheet(selectedSheetId);
+        }
+        render();
+      }).catch(() => {});
       return;
     }
     if (data?.type === "chat") {
