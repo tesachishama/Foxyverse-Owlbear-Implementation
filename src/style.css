@@ -156,7 +156,8 @@ body {
   padding: 0.45rem 0.8rem;
 }
 
-.sheet-menu-item.active {
+.sheet-menu-item.active,
+.sheet-menu-item:hover {
   background: var(--accent);
   color: var(--bg);
 }
@@ -233,6 +234,12 @@ button {
 
 button:hover {
   background: inherit;
+  opacity: 0.9;
+}
+
+.sheet-menu-item:hover,
+.sheet-menu-item.active {
+  opacity: 1;
 }
 
 button:disabled {
