@@ -133,7 +133,7 @@ function pickRandom(max) {
 }
 
 function iconMask(path, className = "", color = "var(--text)") {
-  return `<span class="icon-mask ${className}" style="--icon-url:url('${path}'); color:${color};"></span>`;
+  return `<span class="icon-mask ${className}" style="color:${color}; -webkit-mask-image:url(${path}); mask-image:url(${path});"></span>`;
 }
 
 function getSheetTitle() {

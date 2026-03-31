@@ -77,7 +77,6 @@ body {
 
 .sheet-arrow-btn {
   border: 0;
-  border-left: 1px solid var(--border);
   background: transparent;
   width: 1.9rem;
   margin-right: 0.15rem;
@@ -88,14 +87,13 @@ body {
   width: 1.15rem;
   height: 1.15rem;
   background-color: currentColor;
-  -webkit-mask-image: var(--icon-url);
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;
   -webkit-mask-size: contain;
-  mask-image: var(--icon-url);
   mask-repeat: no-repeat;
   mask-position: center;
   mask-size: contain;
+  flex: 0 0 auto;
 }
 
 .header-icon {
@@ -142,6 +140,7 @@ body {
   width: 1.4rem;
   height: 1.4rem;
   display: block;
+  border-radius: 50%;
 }
 
 .tabs {
