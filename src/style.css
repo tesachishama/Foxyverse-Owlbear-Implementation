@@ -123,6 +123,10 @@ body {
   transform: rotate(180deg);
 }
 
+.sheet-arrow-btn.open .header-icon-svg {
+  transform: rotate(0deg);
+}
+
 .plus-minus-icon-svg {
   width: 2.15rem;
   height: 2.15rem;

@@ -117,7 +117,7 @@ async function loadSheet(sheetId) {
   if (!sheet) {
     sheet = createEmptySheet(sheetId);
     storage.saveSheetToStorage(state.roomId, sheet);
-    await storage.addSheetToRoom(sheetId, getDisplayName(sheet));
+    await storage.addSheetToRoom(sheetId, [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname");
   }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
@@ -179,16 +179,18 @@ function inlineSvg(svg, className = "", color = "var(--text)") {
 }
 
 function getSheetTitle() {
-  const name = (state.sheet?.bio?.name || "").trim() || "Name";
-  return `${escapeAttr(name)}'s Sheet`;
+  const name = (state.sheet?.bio?.name || "").trim();
+  const surname = (state.sheet?.bio?.surname || "").trim();
+  const display = [name, surname].filter(Boolean).join(" ");
+  return escapeAttr(display || "Name Surname");
 }
 
 function renderHeader() {
   const visible = getVisibleSheets();
   const menuItems = visible
     .map((id) => {
-      const name = escapeAttr(state.sheetNames[id] || "Name");
-      return `<button type="button" class="sheet-menu-item ${id === state.activeSheetId ? "active" : ""}" data-sheet-id="${id}">${name}'s Sheet</button>`;
+      const name = escapeAttr(state.sheetNames[id] || "Name Surname");
+      return `<button type="button" class="sheet-menu-item ${id === state.activeSheetId ? "active" : ""}" data-sheet-id="${id}">${name}</button>`;
     })
     .join("");
   return `
@@ -196,7 +198,7 @@ function renderHeader() {
       <div class="header-top">
         <div class="sheet-picker">
           <div class="sheet-title">${getSheetTitle()}</div>
-          <button type="button" id="btn-sheet-menu" class="header-icon-btn sheet-arrow-btn" aria-label="${t("selectSheet")}">
+          <button type="button" id="btn-sheet-menu" class="header-icon-btn sheet-arrow-btn ${state.sheetMenuOpen ? "open" : ""}" aria-label="${t("selectSheet")}">
             ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
           </button>
           ${state.sheetMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
@@ -635,9 +637,9 @@ function bindEvents() {
     const sheet = createEmptySheet();
     state.roomId = state.roomId || await storage.getRoomId();
     storage.saveSheetToStorage(state.roomId, sheet);
-    await storage.addSheetToRoom(sheet.id, sheet.bio?.name || "Name");
+    await storage.addSheetToRoom(sheet.id, "Name Surname");
     state.sheetIds = await storage.getSheetList();
-    state.sheetNames = { ...state.sheetNames, [sheet.id]: sheet.bio?.name || "Name" };
+    state.sheetNames = { ...state.sheetNames, [sheet.id]: "Name Surname" };
     await loadSheet(sheet.id);
     render();
   });
@@ -705,15 +707,16 @@ function bindEvents() {
         const key = field.split(".")[1];
         if (!state.sheet.bio) state.sheet.bio = {};
         state.sheet.bio[key] = val;
-        if (key === "name" && state.activeSheetId) {
-          state.sheetNames[state.activeSheetId] = val || "Name";
-          await storage.setSheetNameInRoom(state.activeSheetId, val || "Name");
+        if ((key === "name" || key === "surname") && state.activeSheetId) {
+          const displayName = [state.sheet.bio?.name || "", state.sheet.bio?.surname || ""].join(" ").trim() || "Name Surname";
+          state.sheetNames[state.activeSheetId] = displayName;
+          await storage.setSheetNameInRoom(state.activeSheetId, displayName);
         }
       } else {
         state.sheet[field] = isNaN(Number(val)) ? val : Number(val);
       }
       saveSheet();
-      if (field === "bio.name") render();
+      if (field === "bio.name" || field === "bio.surname") render();
     });
   });
 
@@ -1141,7 +1144,7 @@ function bindEvents() {
       const sheet = JSON.parse(text);
       if (!sheet.id) sheet.id = crypto.randomUUID();
       storage.saveSheetToStorage(state.roomId, sheet);
-      await storage.addSheetToRoom(sheet.id, getDisplayName(sheet));
+      await storage.addSheetToRoom(sheet.id, [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname");
       state.sheetIds = await storage.getSheetList();
       const names = await storage.getRoomData();
       state.sheetNames = names.sheetNames || {};
