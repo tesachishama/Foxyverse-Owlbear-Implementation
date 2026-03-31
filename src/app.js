@@ -4,19 +4,19 @@
  */
 import OBR from "@owlbear-rodeo/sdk";
 import { t, setLocale } from "./i18n/translations.js";
-import addIcon from "./data/icons/add.svg?raw";
-import removeIcon from "./data/icons/remove.svg?raw";
-import arrowIcon from "./data/icons/arrow.svg?raw";
-import tabIcon from "./data/icons/tab.svg?raw";
-import bioIcon from "./data/icons/bio.svg?raw";
-import statsIcon from "./data/icons/stats.svg?raw";
-import magicIcon from "./data/icons/magic.svg?raw";
-import inventoryIcon from "./data/icons/inventory.svg?raw";
-import chatIcon from "./data/icons/chat.svg?raw";
-import notesIcon from "./data/icons/notes.svg?raw";
-import settingsIcon from "./data/icons/settings.svg?raw";
-import frenchFlagIcon from "./data/icons/francais.svg";
-import englishFlagIcon from "./data/icons/anglais.svg";
+import addIcon from "./data/icons/Icons_add.svg?raw";
+import removeIcon from "./data/icons/Icons_remove.svg?raw";
+import arrowIcon from "./data/icons/Icons_arrow.svg?raw";
+import tabIcon from "./data/icons/Icons_tab.svg?raw";
+import bioIcon from "./data/icons/Icons_bio.svg?raw";
+import statsIcon from "./data/icons/Icons_stats.svg?raw";
+import magicIcon from "./data/icons/Icons_magic.svg?raw";
+import inventoryIcon from "./data/icons/Icons_inventory.svg?raw";
+import chatIcon from "./data/icons/Icons_chat.svg?raw";
+import notesIcon from "./data/icons/Icons_notes.svg?raw";
+import settingsIcon from "./data/icons/Icons_settings.svg?raw";
+import frenchFlagIcon from "./data/icons/Icons_francais.svg";
+import englishFlagIcon from "./data/icons/Icons_anglais.svg";
 import {
   createEmptySheet,
   getDisplayName,
@@ -140,6 +140,7 @@ function inlineSvg(svg, className = "", color = "var(--text)") {
   let cleaned = svg
     .replace(/<\?xml[\s\S]*?\?>/g, "")
     .replace(/<svg\b/, `<svg class="${className}" style="color:${color};"`)
+    .replace(/#4b002c/gi, "currentColor")
     .replace(/fill:\s*currentColor/g, "fill:currentColor")
     .replace(/fill="currentColor"/g, 'fill="currentColor"')
     .replace(/stroke="currentColor"/g, 'stroke="currentColor"');

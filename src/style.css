@@ -192,12 +192,12 @@ body {
 
 .tab-bg-icon-svg {
   position: absolute;
-  inset: -0.14rem -0.08rem -0.04rem -0.08rem;
+  inset: 0;
 }
 
 .tab-foreground-icon-svg {
   position: absolute;
-  inset: 0.42rem 0.54rem 0.42rem 0.54rem;
+  inset: 0;
 }
 
 .tab-content {
