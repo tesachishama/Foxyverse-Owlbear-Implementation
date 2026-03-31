@@ -230,7 +230,17 @@ function getSheetTitle() {
   const name = (state.sheet?.bio?.name || "").trim();
   const surname = (state.sheet?.bio?.surname || "").trim();
   const display = [name, surname].filter(Boolean).join(" ");
-  return escapeAttr(display || "Name Surname");
+  const fallback = state.sheetNames[state.activeSheetId] || "Name Surname";
+  return escapeAttr(display || fallback);
+}
+
+function requestVisibleSheets() {
+  if (state.isGM || !state.roomId) return;
+  getVisibleSheets().forEach((sheetId) => {
+    if (!storage.getSheetFromStorage(state.roomId, sheetId)) {
+      storage.requestSheet(state.roomId, sheetId).catch(() => {});
+    }
+  });
 }
 
 function renderHeader() {
@@ -628,11 +638,13 @@ function renderSettingsTab() {
         <input type="file" id="import-file-input" accept=".json" class="hidden" />
       </div>
       ${permsSection}
-      <div class="settings-actions settings-actions-bottom">
-        <button type="button" id="btn-import-all" class="settings-pill-btn" ${state.isGM ? "" : "disabled"}>${t("importEverything")}</button>
-        <button type="button" id="btn-export-all" class="settings-pill-btn" ${state.isGM ? "" : "disabled"}>${t("exportEverything")}</button>
-        <input type="file" id="import-all-file-input" accept=".json" class="hidden" />
-      </div>
+      ${state.isGM ? `
+        <div class="settings-actions settings-actions-bottom">
+          <button type="button" id="btn-import-all" class="settings-pill-btn">${t("importEverything")}</button>
+          <button type="button" id="btn-export-all" class="settings-pill-btn">${t("exportEverything")}</button>
+          <input type="file" id="import-all-file-input" accept=".json" class="hidden" />
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -1307,6 +1319,7 @@ export async function initApp() {
   };
   state.playerDirectory = updatedDirectory;
   await storage.setRoomData({ playerDirectory: updatedDirectory });
+  requestVisibleSheets();
   const chatKey = state.chatHistoryKey + state.roomId;
   try {
     const saved = localStorage.getItem(chatKey);
@@ -1367,6 +1380,7 @@ export async function initApp() {
 
   OBR.room.onMetadataChange(async () => {
     await loadRoomData();
+    requestVisibleSheets();
     const visible = getVisibleSheets();
     if (!state.activeSheetId || !canView(state.activeSheetId)) {
       await loadSheet(visible[0] || null);
@@ -1383,6 +1397,7 @@ export async function initApp() {
     };
     state.playerDirectory = updatedDirectory;
     await storage.setRoomData({ playerDirectory: updatedDirectory });
+    requestVisibleSheets();
     render();
   });
 }
