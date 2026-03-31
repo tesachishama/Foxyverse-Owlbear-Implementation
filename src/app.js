@@ -136,6 +136,7 @@ function pickRandom(max) {
 function inlineSvg(svg, className = "", color = "var(--text)") {
   const prefix = `fvsvg${svgInstanceCounter++}`;
   const idMap = new Map();
+  const classMap = new Map();
   let cleaned = svg
     .replace(/<\?xml[\s\S]*?\?>/g, "")
     .replace(/<svg\b/, `<svg class="${className}" style="color:${color};"`)
@@ -147,11 +148,31 @@ function inlineSvg(svg, className = "", color = "var(--text)") {
     idMap.set(id, nextId);
     return ` id="${nextId}"`;
   });
+  cleaned = cleaned.replace(/\sclass="([^"]+)"/g, (match, classNames) => {
+    const nextClasses = classNames
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((classNamePart) => {
+        if (classNamePart.startsWith("cls-")) {
+          if (!classMap.has(classNamePart)) {
+            classMap.set(classNamePart, `${prefix}-${classNamePart}`);
+          }
+          return classMap.get(classNamePart);
+        }
+        return classNamePart;
+      })
+      .join(" ");
+    return ` class="${nextClasses}"`;
+  });
   idMap.forEach((nextId, oldId) => {
     const refPattern = new RegExp(`url\\(#${oldId}\\)`, "g");
     cleaned = cleaned.replace(refPattern, `url(#${nextId})`);
     const hrefPattern = new RegExp(`(["'])#${oldId}\\1`, "g");
     cleaned = cleaned.replace(hrefPattern, `"#${nextId}"`);
+  });
+  classMap.forEach((nextClass, oldClass) => {
+    const classSelectorPattern = new RegExp(`\\.${oldClass}\\b`, "g");
+    cleaned = cleaned.replace(classSelectorPattern, `.${nextClass}`);
   });
   return cleaned;
 }
