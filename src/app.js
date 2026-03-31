@@ -74,6 +74,7 @@ const state = {
   },
   playerDirectory: {},
   incomingSheets: {},
+  pendingSheetId: null,
 };
 
 function canView(sheetId) {
@@ -122,6 +123,7 @@ async function loadSheet(sheetId) {
   if (!sheetId || !state.roomId) {
     state.sheet = null;
     state.activeSheetId = sheetId;
+    state.pendingSheetId = null;
     return;
   }
   let sheet = storage.getSheetFromStorage(state.roomId, sheetId);
@@ -131,8 +133,8 @@ async function loadSheet(sheetId) {
       storage.saveSheetToStorage(state.roomId, sheet);
       await storage.addSheetToRoom(sheetId, "Name Surname");
     } else {
+      state.pendingSheetId = sheetId;
       state.sheet = null;
-      state.activeSheetId = sheetId;
       storage.requestSheet(state.roomId, sheetId).catch(() => {});
       return;
     }
@@ -143,6 +145,7 @@ async function loadSheet(sheetId) {
   }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
+  state.pendingSheetId = null;
 }
 
 function saveSheet() {
@@ -230,7 +233,8 @@ function getSheetTitle() {
   const name = (state.sheet?.bio?.name || "").trim();
   const surname = (state.sheet?.bio?.surname || "").trim();
   const display = [name, surname].filter(Boolean).join(" ");
-  const fallback = state.sheetNames[state.activeSheetId] || "Name Surname";
+  const fallbackId = state.pendingSheetId || state.activeSheetId;
+  const fallback = state.sheetNames[fallbackId] || "Name Surname";
   return escapeAttr(display || fallback);
 }
 
@@ -248,7 +252,7 @@ function renderHeader() {
   const menuItems = visible
     .map((id) => {
       const name = escapeAttr(state.sheetNames[id] || "Name Surname");
-      return `<button type="button" class="sheet-menu-item ${id === state.activeSheetId ? "active" : ""}" data-sheet-id="${id}">${name}</button>`;
+      return `<button type="button" class="sheet-menu-item ${id === (state.pendingSheetId || state.activeSheetId) ? "active" : ""}" data-sheet-id="${id}">${name}</button>`;
     })
     .join("");
   return `
@@ -285,7 +289,7 @@ function renderTabs() {
 
 function renderBioTab() {
   const s = state.sheet;
-  if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
+  if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const b = s.bio || {};
   return `
     <div class="card">
@@ -497,7 +501,7 @@ function itemsForSlot(sheet, slotId) {
 
 function renderInventoryTab() {
   const s = state.sheet;
-  if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
+  if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const editable = canEdit(s.id);
   const equipped = s.equipped || {};
   const equippedRows = SLOT_IDS.map((slotId) => {
@@ -582,6 +586,7 @@ function renderChatBody(body) {
 
 function renderNotesTab() {
   const s = state.sheet;
+  if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const notes = s?.notes ?? "";
   const editable = canEdit(state.activeSheetId);
   return `
@@ -1335,7 +1340,12 @@ export async function initApp() {
   storage.onBroadcast((msg) => {
     if (msg.data?.type === "sheet_full" && msg.data.roomId === state.roomId && msg.data.sheet) {
       storage.saveSheetToStorage(state.roomId, msg.data.sheet);
-      if (msg.data.sheet.id === state.activeSheetId) {
+      if (msg.data.sheet.id === state.pendingSheetId) {
+        state.sheet = msg.data.sheet;
+        state.activeSheetId = msg.data.sheet.id;
+        state.pendingSheetId = null;
+        render();
+      } else if (msg.data.sheet.id === state.activeSheetId) {
         state.sheet = msg.data.sheet;
         render();
       }
@@ -1354,7 +1364,12 @@ export async function initApp() {
           const sheet = JSON.parse(bucket.parts.join(""));
           storage.saveSheetToStorage(state.roomId, sheet);
           delete state.incomingSheets[msg.data.sheetId];
-          if (sheet.id === state.activeSheetId) {
+          if (sheet.id === state.pendingSheetId) {
+            state.sheet = sheet;
+            state.activeSheetId = sheet.id;
+            state.pendingSheetId = null;
+            render();
+          } else if (sheet.id === state.activeSheetId) {
             state.sheet = sheet;
             render();
           }
@@ -1382,10 +1397,12 @@ export async function initApp() {
     await loadRoomData();
     requestVisibleSheets();
     const visible = getVisibleSheets();
-    if (!state.activeSheetId || !canView(state.activeSheetId)) {
+    const selectedSheetId = state.pendingSheetId || state.activeSheetId;
+    if (!selectedSheetId || !canView(selectedSheetId)) {
+      state.pendingSheetId = null;
       await loadSheet(visible[0] || null);
-    } else if (state.activeSheetId && !state.sheet) {
-      await loadSheet(state.activeSheetId);
+    } else if (selectedSheetId && !state.sheet) {
+      await loadSheet(selectedSheetId);
     }
     render();
   });
