@@ -28,7 +28,7 @@ body {
 }
 
 .app-header {
-  margin-bottom: 0.28rem;
+  margin-bottom: 0.56rem;
 }
 
 .header-top {
@@ -58,7 +58,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.98rem;
+  font-size: 1.2em;
   line-height: 1;
   text-align: center;
 }
@@ -160,7 +160,7 @@ body {
 
 .lang-flags {
   display: flex;
-  gap: 0;
+  gap: 0.08rem;
   margin-left: 0.02rem;
   align-items: center;
 }
@@ -197,7 +197,7 @@ body {
 
 .tab-foreground-icon-svg {
   position: absolute;
-  inset: 0;
+  inset: 0.12rem;
 }
 
 .tab-content {
