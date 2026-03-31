@@ -185,6 +185,9 @@ body {
   padding: 0;
   background: transparent;
   border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tab-bg-icon-svg {
@@ -194,7 +197,7 @@ body {
 
 .tab-foreground-icon-svg {
   position: absolute;
-  inset: 0.42rem 0.58rem 0.42rem 0.58rem;
+  inset: 0.42rem 0.54rem 0.42rem 0.54rem;
 }
 
 .tab-content {

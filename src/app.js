@@ -200,8 +200,8 @@ function renderHeader() {
           </button>
           ${state.sheetMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
         </div>
-        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn" title="${t("newSheet")}">${inlineSvg(addIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--text)")}</button>` : ""}
-        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--text)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn" title="${t("newSheet")}">${inlineSvg(addIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--accent)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--accent)")}</button>` : ""}
         <div class="lang-flags">
           <button type="button" class="flag-icon-btn ${state.locale === "fr" ? "active" : ""}" data-lang="fr" title="Français" aria-label="Français"><img src="${frenchFlagIcon}" alt="Français" class="flag-img" /></button>
           <button type="button" class="flag-icon-btn ${state.locale === "en" ? "active" : ""}" data-lang="en" title="English" aria-label="English"><img src="${englishFlagIcon}" alt="English" class="flag-img" /></button>
@@ -215,7 +215,7 @@ function renderTabs() {
   const tabsHtml = TABS.map(
     (tab) =>
       `<button type="button" class="tab-icon-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}" title="${TAB_META[tab].label}" aria-label="${TAB_META[tab].label}">
-        ${inlineSvg(tabIcon, "inline-svg tab-bg-icon-svg", state.activeTab === tab ? "var(--accent)" : "var(--text)")}
+        ${inlineSvg(tabIcon, "inline-svg tab-bg-icon-svg", state.activeTab === tab ? "var(--text)" : "var(--accent)")}
         ${inlineSvg(TAB_META[tab].icon, "inline-svg tab-foreground-icon-svg", "var(--bg)")}
       </button>`
   ).join("");
