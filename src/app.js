@@ -96,7 +96,15 @@ async function loadRoomData() {
   state.roomId = await storage.getRoomId();
   state.sheetIds = await storage.getSheetList();
   const roomData = await storage.getRoomData();
-  state.sheetNames = roomData.sheetNames || {};
+  state.sheetNames = Object.fromEntries(
+    Object.entries(roomData.sheetNames || {}).map(([id, name]) => {
+      const normalized = String(name || "").trim();
+      if (!normalized || normalized === "Name" || normalized === "Unnamed") {
+        return [id, "Name Surname"];
+      }
+      return [id, normalized];
+    })
+  );
   state.permissions = roomData.permissions || {};
   state.tokenToSheet = roomData.tokenToSheet || {};
   state.isGM = (await storage.getPlayerRole()) === "GM";
@@ -117,7 +125,7 @@ async function loadSheet(sheetId) {
   if (!sheet) {
     sheet = createEmptySheet(sheetId);
     storage.saveSheetToStorage(state.roomId, sheet);
-    await storage.addSheetToRoom(sheetId, [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname");
+    await storage.addSheetToRoom(sheetId, "Name Surname");
   }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
