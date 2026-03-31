@@ -4,6 +4,19 @@
  */
 import OBR from "@owlbear-rodeo/sdk";
 import { t, setLocale } from "./i18n/translations.js";
+import addIcon from "./data/icons/add.svg";
+import removeIcon from "./data/icons/remove.svg";
+import arrowIcon from "./data/icons/arrow.svg";
+import tabIcon from "./data/icons/tab.svg";
+import bioIcon from "./data/icons/bio.svg";
+import statsIcon from "./data/icons/stats.svg";
+import magicIcon from "./data/icons/magic.svg";
+import inventoryIcon from "./data/icons/inventory.svg";
+import chatIcon from "./data/icons/chat.svg";
+import notesIcon from "./data/icons/notes.svg";
+import settingsIcon from "./data/icons/settings.svg";
+import frenchFlagIcon from "./data/icons/francais.svg";
+import englishFlagIcon from "./data/icons/anglais.svg";
 import {
   createEmptySheet,
   getDisplayName,
@@ -26,6 +39,15 @@ import { evaluateExpression, statValuesFromSheet, rollStatCheck } from "./dice/p
 
 const ROOT_ID = "app";
 const TABS = ["bio", "stats", "spells", "inventory", "chat", "notes", "settings"];
+const TAB_META = {
+  bio: { icon: bioIcon, label: "Bio" },
+  stats: { icon: statsIcon, label: "Stats" },
+  spells: { icon: magicIcon, label: "Spells" },
+  inventory: { icon: inventoryIcon, label: "Inventory" },
+  chat: { icon: chatIcon, label: "Chat" },
+  notes: { icon: notesIcon, label: "Notes" },
+  settings: { icon: settingsIcon, label: "Settings" },
+};
 
 const state = {
   locale: "en",
@@ -43,6 +65,7 @@ const state = {
   chatHistoryKey: "foxyverse_chat_",
   lastRoll: null,
   lastRollPayload: null,
+  sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
     ui: "#eba5ff",
@@ -109,38 +132,40 @@ function pickRandom(max) {
   return Math.floor(Math.random() * max) + 1;
 }
 
+function iconMask(path, className = "", color = "var(--text)") {
+  return `<span class="icon-mask ${className}" style="--icon-url:url('${path}'); color:${color};"></span>`;
+}
+
+function getSheetTitle() {
+  const name = (state.sheet?.bio?.name || "").trim() || "Name";
+  return `${escapeAttr(name)}'s Sheet`;
+}
+
 function renderHeader() {
   const visible = getVisibleSheets();
-  const options = visible
-    .map(
-      (id) =>
-        `<option value="${id}" ${id === state.activeSheetId ? "selected" : ""}>${state.sheetNames[id] || id.slice(0, 8)}</option>`
-    )
+  const menuItems = visible
+    .map((id) => {
+      const name = escapeAttr(state.sheetNames[id] || "Name");
+      return `<button type="button" class="sheet-menu-item ${id === state.activeSheetId ? "active" : ""}" data-sheet-id="${id}">${name}'s Sheet</button>`;
+    })
     .join("");
-  const canAdd = state.isGM || visible.length === 0;
-  const linkedToThis = state.activeSheetId
-    ? Object.entries(state.tokenToSheet || {}).filter(([, sid]) => sid === state.activeSheetId)
-    : [];
   return `
     <header class="app-header">
-      <div class="header-row">
-        <select id="sheet-select" class="sheet-select" aria-label="${t("selectSheet")}">
-          <option value="">${t("noSheet")}</option>
-          ${options}
-        </select>
-        ${canAdd ? `<button type="button" id="btn-new-sheet" class="btn-icon" title="${t("newSheet")}">+</button>` : ""}
-        ${state.activeSheetId ? `<button type="button" id="btn-link-token" class="btn-sm" title="${t("linkTokenToSheet")}">${t("linkToken")}</button>` : ""}
+      <div class="header-top">
+        <div class="sheet-picker">
+          <div class="sheet-title">${getSheetTitle()}</div>
+          <button type="button" id="btn-sheet-menu" class="header-icon-btn sheet-arrow-btn" aria-label="${t("selectSheet")}">
+            ${iconMask(arrowIcon, "header-icon", "var(--text)")}
+          </button>
+          ${state.sheetMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
+        </div>
+        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn" title="${t("newSheet")}">${iconMask(addIcon, "header-icon", "var(--text)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn" title="${t("remove")}">${iconMask(removeIcon, "header-icon", "var(--text)")}</button>` : ""}
         <div class="lang-flags">
-          <button type="button" class="flag ${state.locale === "en" ? "active" : ""}" data-lang="en" title="English" aria-label="English">EN</button>
-          <button type="button" class="flag ${state.locale === "fr" ? "active" : ""}" data-lang="fr" title="Français" aria-label="Français">FR</button>
+          <button type="button" class="flag-icon-btn ${state.locale === "fr" ? "active" : ""}" data-lang="fr" title="Français" aria-label="Français"><img src="${frenchFlagIcon}" alt="Français" class="flag-img" /></button>
+          <button type="button" class="flag-icon-btn ${state.locale === "en" ? "active" : ""}" data-lang="en" title="English" aria-label="English"><img src="${englishFlagIcon}" alt="English" class="flag-img" /></button>
         </div>
       </div>
-      ${linkedToThis.length > 0 ? `
-        <div class="linked-tokens">
-          <span class="label">${t("linkedTokens")}:</span>
-          ${linkedToThis.map(([tid]) => `<span class="linked-token-id">${tid.slice(0, 8)}</span> <button type="button" class="btn-sm btn-unlink" data-token-id="${tid}">${t("unlink")}</button>`).join(" ")}
-        </div>
-      ` : ""}
     </header>
   `;
 }
@@ -148,7 +173,10 @@ function renderHeader() {
 function renderTabs() {
   const tabsHtml = TABS.map(
     (tab) =>
-      `<button type="button" class="tab ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}">${t("tab" + tab.charAt(0).toUpperCase() + tab.slice(1))}</button>`
+      `<button type="button" class="tab-icon-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}" title="${TAB_META[tab].label}" aria-label="${TAB_META[tab].label}">
+        ${iconMask(tabIcon, "tab-bg-icon", state.activeTab === tab ? "var(--accent)" : "var(--text)")}
+        ${iconMask(TAB_META[tab].icon, "tab-foreground-icon", "var(--bg)")}
+      </button>`
   ).join("");
   return `<nav class="tabs">${tabsHtml}</nav>`;
 }
@@ -547,21 +575,40 @@ function bindEvents() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
 
-  app.querySelector("#sheet-select")?.addEventListener("change", async (e) => {
-    const id = e.target.value || null;
-    await loadSheet(id);
-    saveSheet();
+  app.querySelector("#btn-sheet-menu")?.addEventListener("click", () => {
+    state.sheetMenuOpen = !state.sheetMenuOpen;
     render();
+  });
+
+  app.querySelectorAll("[data-sheet-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      state.sheetMenuOpen = false;
+      await loadSheet(btn.dataset.sheetId || null);
+      render();
+    });
   });
 
   app.querySelector("#btn-new-sheet")?.addEventListener("click", async () => {
     const sheet = createEmptySheet();
     state.roomId = state.roomId || await storage.getRoomId();
     storage.saveSheetToStorage(state.roomId, sheet);
-    await storage.addSheetToRoom(sheet.id, getDisplayName(sheet));
+    await storage.addSheetToRoom(sheet.id, sheet.bio?.name || "Name");
     state.sheetIds = await storage.getSheetList();
-    state.sheetNames = { ...state.sheetNames, [sheet.id]: getDisplayName(sheet) };
+    state.sheetNames = { ...state.sheetNames, [sheet.id]: sheet.bio?.name || "Name" };
     await loadSheet(sheet.id);
+    render();
+  });
+
+  app.querySelector("#btn-delete-sheet")?.addEventListener("click", async () => {
+    if (!state.isGM || !state.activeSheetId || !state.roomId) return;
+    const confirmed = window.confirm(`Delete ${getSheetTitle()}?`);
+    if (!confirmed) return;
+    const deletedId = state.activeSheetId;
+    storage.removeSheetFromStorage(state.roomId, deletedId);
+    await storage.removeSheetFromRoom(deletedId);
+    await loadRoomData();
+    const nextSheetId = getVisibleSheets()[0] || null;
+    await loadSheet(nextSheetId);
     render();
   });
 
@@ -586,7 +633,7 @@ function bindEvents() {
     });
   });
 
-  app.querySelectorAll(".flag[data-lang]").forEach((btn) => {
+  app.querySelectorAll(".flag-icon-btn[data-lang]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const lang = btn.dataset.lang;
       setLocale(lang);
@@ -606,7 +653,7 @@ function bindEvents() {
 
   // Bio inputs
   app.querySelectorAll("[data-field]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       if (!state.sheet) return;
       const field = e.target.dataset.field;
       let val = e.target.value;
@@ -615,10 +662,15 @@ function bindEvents() {
         const key = field.split(".")[1];
         if (!state.sheet.bio) state.sheet.bio = {};
         state.sheet.bio[key] = val;
+        if (key === "name" && state.activeSheetId) {
+          state.sheetNames[state.activeSheetId] = val || "Name";
+          await storage.setSheetNameInRoom(state.activeSheetId, val || "Name");
+        }
       } else {
         state.sheet[field] = isNaN(Number(val)) ? val : Number(val);
       }
       saveSheet();
+      if (field === "bio.name") render();
     });
   });
 
