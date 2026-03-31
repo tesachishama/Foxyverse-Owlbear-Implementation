@@ -131,6 +131,14 @@ export function onBroadcast(callback) {
   return OBR.broadcast.onMessage(BROADCAST_CHANNEL, callback);
 }
 
+export async function requestSheet(roomId, sheetId) {
+  await OBR.broadcast.sendMessage(BROADCAST_CHANNEL, {
+    type: BroadcastType.REQUEST_SHEET,
+    roomId,
+    sheetId,
+  });
+}
+
 export async function getPlayerId() {
   return OBR.player.id;
 }

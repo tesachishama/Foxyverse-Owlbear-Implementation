@@ -73,6 +73,7 @@ const state = {
     text: "#eba5ff",
   },
   playerDirectory: {},
+  incomingSheets: {},
 };
 
 function canView(sheetId) {
@@ -125,9 +126,16 @@ async function loadSheet(sheetId) {
   }
   let sheet = storage.getSheetFromStorage(state.roomId, sheetId);
   if (!sheet) {
-    sheet = createEmptySheet(sheetId);
-    storage.saveSheetToStorage(state.roomId, sheet);
-    await storage.addSheetToRoom(sheetId, "Name Surname");
+    if (state.isGM) {
+      sheet = createEmptySheet(sheetId);
+      storage.saveSheetToStorage(state.roomId, sheet);
+      await storage.addSheetToRoom(sheetId, "Name Surname");
+    } else {
+      state.sheet = null;
+      state.activeSheetId = sheetId;
+      storage.requestSheet(state.roomId, sheetId).catch(() => {});
+      return;
+    }
   }
   if (!sheet.theme) {
     sheet.theme = { ...state.colors };
@@ -610,8 +618,8 @@ function renderSettingsTab() {
         <span class="settings-pill-label">${t("uiColors")}</span>
         <div class="settings-color-strip">
           <label class="settings-color-stop"><input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
-          <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
           <label class="settings-color-stop"><input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
+        <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
         </div>
       </div>
       <div class="settings-actions settings-actions-top">
@@ -1260,14 +1268,15 @@ function bindEvents() {
       const sheets = Array.isArray(parsed) ? parsed : parsed.sheets;
       if (!Array.isArray(sheets)) throw new Error("Invalid bundle");
       for (const sheet of sheets) {
-        if (!sheet?.id) sheet.id = crypto.randomUUID();
-        if (!sheet.theme) {
-          sheet.theme = { ...state.colors };
+        const nextSheet = structuredClone(sheet);
+        if (!nextSheet?.id || state.sheetIds.includes(nextSheet.id)) nextSheet.id = crypto.randomUUID();
+        if (!nextSheet.theme) {
+          nextSheet.theme = { ...state.colors };
         }
-        storage.saveSheetToStorage(state.roomId, sheet);
+        storage.saveSheetToStorage(state.roomId, nextSheet);
         await storage.addSheetToRoom(
-          sheet.id,
-          [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname"
+          nextSheet.id,
+          [nextSheet.bio?.name || "", nextSheet.bio?.surname || ""].join(" ").trim() || "Name Surname"
         );
       }
       await loadRoomData();
@@ -1317,6 +1326,35 @@ export async function initApp() {
         state.sheet = msg.data.sheet;
         render();
       }
+      return;
+    }
+    if (msg.data?.type === "sheet_part" && msg.data.roomId === state.roomId && msg.data.sheetId) {
+      const bucket = state.incomingSheets[msg.data.sheetId] || {
+        totalParts: msg.data.totalParts,
+        parts: new Array(msg.data.totalParts),
+      };
+      bucket.parts[msg.data.partIndex] = msg.data.data;
+      bucket.totalParts = msg.data.totalParts;
+      state.incomingSheets[msg.data.sheetId] = bucket;
+      if (bucket.parts.filter(Boolean).length === bucket.totalParts) {
+        try {
+          const sheet = JSON.parse(bucket.parts.join(""));
+          storage.saveSheetToStorage(state.roomId, sheet);
+          delete state.incomingSheets[msg.data.sheetId];
+          if (sheet.id === state.activeSheetId) {
+            state.sheet = sheet;
+            render();
+          }
+        } catch (_) {}
+      }
+      return;
+    }
+    if (msg.data?.type === "request_sheet" && msg.data.roomId === state.roomId && msg.data.sheetId) {
+      const localSheet = storage.getSheetFromStorage(state.roomId, msg.data.sheetId);
+      if (localSheet) {
+        storage.broadcastSheet(state.roomId, localSheet).catch(() => {});
+      }
+      return;
     }
     if (msg.data?.type === "chat") {
       state.chatMessages.push({ from: msg.data.from, body: msg.data.body });
@@ -1329,6 +1367,12 @@ export async function initApp() {
 
   OBR.room.onMetadataChange(async () => {
     await loadRoomData();
+    const visible = getVisibleSheets();
+    if (!state.activeSheetId || !canView(state.activeSheetId)) {
+      await loadSheet(visible[0] || null);
+    } else if (state.activeSheetId && !state.sheet) {
+      await loadSheet(state.activeSheetId);
+    }
     render();
   });
   OBR.party.onChange(async (players) => {
