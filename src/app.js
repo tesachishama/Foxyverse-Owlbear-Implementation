@@ -230,6 +230,10 @@ function inlineSvg(svg, className = "", color = "var(--text)") {
 }
 
 function getSheetTitle() {
+  const visible = getVisibleSheets();
+  if (!state.sheet && !state.pendingSheetId && visible.length === 0) {
+    return escapeAttr(t("noAvailableSheet"));
+  }
   const name = (state.sheet?.bio?.name || "").trim();
   const surname = (state.sheet?.bio?.surname || "").trim();
   const display = [name, surname].filter(Boolean).join(" ");
@@ -1338,32 +1342,33 @@ export async function initApp() {
   render();
 
   storage.onBroadcast((msg) => {
-    if (msg.data?.type === "sheet_full" && msg.data.roomId === state.roomId && msg.data.sheet) {
-      storage.saveSheetToStorage(state.roomId, msg.data.sheet);
-      if (msg.data.sheet.id === state.pendingSheetId) {
-        state.sheet = msg.data.sheet;
-        state.activeSheetId = msg.data.sheet.id;
+    const data = msg?.data || msg;
+    if (data?.type === "sheet_full" && data.roomId === state.roomId && data.sheet) {
+      storage.saveSheetToStorage(state.roomId, data.sheet);
+      if (data.sheet.id === state.pendingSheetId) {
+        state.sheet = data.sheet;
+        state.activeSheetId = data.sheet.id;
         state.pendingSheetId = null;
         render();
-      } else if (msg.data.sheet.id === state.activeSheetId) {
-        state.sheet = msg.data.sheet;
+      } else if (data.sheet.id === state.activeSheetId) {
+        state.sheet = data.sheet;
         render();
       }
       return;
     }
-    if (msg.data?.type === "sheet_part" && msg.data.roomId === state.roomId && msg.data.sheetId) {
-      const bucket = state.incomingSheets[msg.data.sheetId] || {
-        totalParts: msg.data.totalParts,
-        parts: new Array(msg.data.totalParts),
+    if (data?.type === "sheet_part" && data.roomId === state.roomId && data.sheetId) {
+      const bucket = state.incomingSheets[data.sheetId] || {
+        totalParts: data.totalParts,
+        parts: new Array(data.totalParts),
       };
-      bucket.parts[msg.data.partIndex] = msg.data.data;
-      bucket.totalParts = msg.data.totalParts;
-      state.incomingSheets[msg.data.sheetId] = bucket;
+      bucket.parts[data.partIndex] = data.data;
+      bucket.totalParts = data.totalParts;
+      state.incomingSheets[data.sheetId] = bucket;
       if (bucket.parts.filter(Boolean).length === bucket.totalParts) {
         try {
           const sheet = JSON.parse(bucket.parts.join(""));
           storage.saveSheetToStorage(state.roomId, sheet);
-          delete state.incomingSheets[msg.data.sheetId];
+          delete state.incomingSheets[data.sheetId];
           if (sheet.id === state.pendingSheetId) {
             state.sheet = sheet;
             state.activeSheetId = sheet.id;
@@ -1377,18 +1382,18 @@ export async function initApp() {
       }
       return;
     }
-    if (msg.data?.type === "request_sheet" && msg.data.roomId === state.roomId && msg.data.sheetId) {
-      const localSheet = storage.getSheetFromStorage(state.roomId, msg.data.sheetId);
+    if (data?.type === "request_sheet" && data.roomId === state.roomId && data.sheetId) {
+      const localSheet = storage.getSheetFromStorage(state.roomId, data.sheetId);
       if (localSheet) {
         storage.broadcastSheet(state.roomId, localSheet).catch(() => {});
       }
       return;
     }
-    if (msg.data?.type === "chat") {
-      state.chatMessages.push({ from: msg.data.from, body: msg.data.body });
+    if (data?.type === "chat") {
+      state.chatMessages.push({ from: data.from, body: data.body });
       const msgsEl = document.getElementById("chat-messages");
       if (msgsEl && state.activeTab === "chat") {
-        msgsEl.innerHTML += `<div class="chat-msg"><strong>${escapeAttr(msg.data.from)}:</strong> ${escapeAttr(msg.data.body)}</div>`;
+        msgsEl.innerHTML += `<div class="chat-msg"><strong>${escapeAttr(data.from)}:</strong> ${escapeAttr(data.body)}</div>`;
       }
     }
   });
