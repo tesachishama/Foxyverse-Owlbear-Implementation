@@ -4,17 +4,17 @@
  */
 import OBR from "@owlbear-rodeo/sdk";
 import { t, setLocale } from "./i18n/translations.js";
-import addIcon from "./data/icons/add.svg";
-import removeIcon from "./data/icons/remove.svg";
-import arrowIcon from "./data/icons/arrow.svg";
-import tabIcon from "./data/icons/tab.svg";
-import bioIcon from "./data/icons/bio.svg";
-import statsIcon from "./data/icons/stats.svg";
-import magicIcon from "./data/icons/magic.svg";
-import inventoryIcon from "./data/icons/inventory.svg";
-import chatIcon from "./data/icons/chat.svg";
-import notesIcon from "./data/icons/notes.svg";
-import settingsIcon from "./data/icons/settings.svg";
+import addIcon from "./data/icons/add.svg?raw";
+import removeIcon from "./data/icons/remove.svg?raw";
+import arrowIcon from "./data/icons/arrow.svg?raw";
+import tabIcon from "./data/icons/tab.svg?raw";
+import bioIcon from "./data/icons/bio.svg?raw";
+import statsIcon from "./data/icons/stats.svg?raw";
+import magicIcon from "./data/icons/magic.svg?raw";
+import inventoryIcon from "./data/icons/inventory.svg?raw";
+import chatIcon from "./data/icons/chat.svg?raw";
+import notesIcon from "./data/icons/notes.svg?raw";
+import settingsIcon from "./data/icons/settings.svg?raw";
 import frenchFlagIcon from "./data/icons/francais.svg";
 import englishFlagIcon from "./data/icons/anglais.svg";
 import {
@@ -132,8 +132,14 @@ function pickRandom(max) {
   return Math.floor(Math.random() * max) + 1;
 }
 
-function iconMask(path, className = "", color = "var(--text)") {
-  return `<span class="icon-mask ${className}" style="color:${color}; -webkit-mask-image:url(${path}); mask-image:url(${path});"></span>`;
+function inlineSvg(svg, className = "", color = "var(--text)") {
+  const cleaned = svg
+    .replace(/<\?xml[\s\S]*?\?>/g, "")
+    .replace(/<svg\b/, `<svg class="${className}" style="color:${color};"`)
+    .replace(/fill:\s*currentColor/g, "fill:currentColor")
+    .replace(/fill="currentColor"/g, 'fill="currentColor"')
+    .replace(/stroke="currentColor"/g, 'stroke="currentColor"');
+  return cleaned;
 }
 
 function getSheetTitle() {
@@ -155,12 +161,12 @@ function renderHeader() {
         <div class="sheet-picker">
           <div class="sheet-title">${getSheetTitle()}</div>
           <button type="button" id="btn-sheet-menu" class="header-icon-btn sheet-arrow-btn" aria-label="${t("selectSheet")}">
-            ${iconMask(arrowIcon, "header-icon", "var(--text)")}
+            ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
           </button>
           ${state.sheetMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
         </div>
-        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn" title="${t("newSheet")}">${iconMask(addIcon, "header-icon", "var(--text)")}</button>` : ""}
-        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn" title="${t("remove")}">${iconMask(removeIcon, "header-icon", "var(--text)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn" title="${t("newSheet")}">${inlineSvg(addIcon, "inline-svg header-icon-svg", "var(--text)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg header-icon-svg", "var(--text)")}</button>` : ""}
         <div class="lang-flags">
           <button type="button" class="flag-icon-btn ${state.locale === "fr" ? "active" : ""}" data-lang="fr" title="Français" aria-label="Français"><img src="${frenchFlagIcon}" alt="Français" class="flag-img" /></button>
           <button type="button" class="flag-icon-btn ${state.locale === "en" ? "active" : ""}" data-lang="en" title="English" aria-label="English"><img src="${englishFlagIcon}" alt="English" class="flag-img" /></button>
@@ -174,8 +180,8 @@ function renderTabs() {
   const tabsHtml = TABS.map(
     (tab) =>
       `<button type="button" class="tab-icon-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}" title="${TAB_META[tab].label}" aria-label="${TAB_META[tab].label}">
-        ${iconMask(tabIcon, "tab-bg-icon", state.activeTab === tab ? "var(--accent)" : "var(--text)")}
-        ${iconMask(TAB_META[tab].icon, "tab-foreground-icon", "var(--bg)")}
+        ${inlineSvg(tabIcon, "inline-svg tab-bg-icon-svg", state.activeTab === tab ? "var(--accent)" : "var(--text)")}
+        ${inlineSvg(TAB_META[tab].icon, "inline-svg tab-foreground-icon-svg", "var(--bg)")}
       </button>`
   ).join("");
   return `<nav class="tabs">${tabsHtml}</nav>`;
@@ -644,7 +650,7 @@ function bindEvents() {
     });
   });
 
-  app.querySelectorAll(".tab[data-tab]").forEach((btn) => {
+  app.querySelectorAll(".tab-icon-btn[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.activeTab = btn.dataset.tab;
       render();
