@@ -153,8 +153,8 @@
           </button>
           ${l.sheetMenuOpen?`<div class="sheet-menu">${e}</div>`:""}
         </div>
-        ${l.isGM?`<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn" title="${m("newSheet")}">${fe(Os,"inline-svg header-icon-svg plus-minus-icon-svg","var(--text)")}</button>`:""}
-        ${l.isGM?`<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn" title="${m("remove")}">${fe(bs,"inline-svg header-icon-svg plus-minus-icon-svg","var(--text)")}</button>`:""}
+        ${l.isGM?`<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn" title="${m("newSheet")}">${fe(Os,"inline-svg header-icon-svg plus-minus-icon-svg","var(--accent)")}</button>`:""}
+        ${l.isGM?`<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn" title="${m("remove")}">${fe(bs,"inline-svg header-icon-svg plus-minus-icon-svg","var(--accent)")}</button>`:""}
         <div class="lang-flags">
           <button type="button" class="flag-icon-btn ${l.locale==="fr"?"active":""}" data-lang="fr" title="Français" aria-label="Français"><img src="${Ns}" alt="Français" class="flag-img" /></button>
           <button type="button" class="flag-icon-btn ${l.locale==="en"?"active":""}" data-lang="en" title="English" aria-label="English"><img src="${Ls}" alt="English" class="flag-img" /></button>
@@ -162,7 +162,7 @@
       </div>
     </header>
   `}function To(){return`<nav class="tabs">${_o.map(e=>`<button type="button" class="tab-icon-btn ${l.activeTab===e?"active":""}" data-tab="${e}" title="${ke[e].label}" aria-label="${ke[e].label}">
-        ${fe(As,"inline-svg tab-bg-icon-svg",l.activeTab===e?"var(--accent)":"var(--text)")}
+        ${fe(As,"inline-svg tab-bg-icon-svg",l.activeTab===e?"var(--text)":"var(--accent)")}
         ${fe(ke[e].icon,"inline-svg tab-foreground-icon-svg","var(--bg)")}
       </button>`).join("")}</nav>`}function Nt(){const t=l.sheet;if(!t)return`<div class="card"><p>${m("noSheet")}</p></div>`;const e=t.bio||{};return`
     <div class="card">
