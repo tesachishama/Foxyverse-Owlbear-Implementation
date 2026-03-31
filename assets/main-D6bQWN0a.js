@@ -18,7 +18,7 @@
     </header>
   `}function Oo(){return`<nav class="tabs">${go.map(e=>`<button type="button" class="tab-icon-btn ${c.activeTab===e?"active":""}" data-tab="${e}" title="${ke[e].label}" aria-label="${ke[e].label}">
         ${fe(Ts,"inline-svg tab-bg-icon-svg",c.activeTab===e?"var(--text)":"var(--accent)")}
-        ${fe(ke[e].icon,"inline-svg tab-foreground-icon-svg","var(--bg)")}
+        ${fe(ke[e].icon,`inline-svg tab-foreground-icon-svg ${e==="stats"?"tab-foreground-icon-stats":""}`,"var(--bg)")}
       </button>`).join("")}</nav>`}function Nt(){const t=c.sheet;if(!t)return`<div class="card"><p>${m("noSheet")}</p></div>`;const e=t.bio||{};return`
     <div class="card">
       <h2>${m("tabBio")}</h2>
