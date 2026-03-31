@@ -69,8 +69,8 @@ const state = {
   sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
-    ui: "#eba5ff",
-    text: "#ffdbff",
+    ui: "#ffdbff",
+    text: "#eba5ff",
   },
 };
 
@@ -598,6 +598,7 @@ function applyColors() {
   root.style.setProperty("--border", state.colors.ui);
   root.style.setProperty("--text", state.colors.text);
   root.style.setProperty("--accent", state.colors.ui);
+  root.style.setProperty("--muted", state.colors.text);
 }
 
 function render() {
