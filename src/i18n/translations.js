@@ -175,7 +175,6 @@ export const translations = {
     // Settings
     uiColors: "UI colors",
     color1: "Background",
-    color2: "Surface",
     color3: "Border",
     color4: "Text",
     color5: "Accent",
@@ -354,7 +353,6 @@ export const translations = {
 
     uiColors: "Couleurs de l'interface",
     color1: "Fond",
-    color2: "Surface",
     color3: "Bordure",
     color4: "Texte",
     color5: "Accent",

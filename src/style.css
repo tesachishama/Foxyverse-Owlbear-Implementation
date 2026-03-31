@@ -3,13 +3,14 @@
 }
 
 :root {
-  --bg: #1a1b1e;
-  --surface: #25262b;
-  --border: #373a40;
-  --text: #e8e9ed;
-  --muted: #909296;
-  --accent: #7950f2;
-  --accent-hover: #9370db;
+  /* Foxyverse default palette (3 colors) */
+  --bg: #4b002c;
+  --surface: #4b002c;
+  --border: #eba5ff;
+  --text: #ffdbff;
+  --muted: #ffdbff;
+  --accent: #eba5ff;
+  --accent-hover: #ffdbff;
 }
 
 body {

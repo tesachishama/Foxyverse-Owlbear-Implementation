@@ -44,11 +44,9 @@ const state = {
   lastRoll: null,
   lastRollPayload: null,
   colors: {
-    bg: "#1a1b1e",
-    surface: "#25262b",
-    border: "#373a40",
-    text: "#e8e9ed",
-    accent: "#7950f2",
+    bg: "#4b002c",
+    ui: "#eba5ff",
+    text: "#ffdbff",
   },
 };
 
@@ -490,10 +488,8 @@ function renderSettingsTab() {
       <h3>${t("uiColors")}</h3>
       <div class="color-grid">
         <label>${t("color1")}<input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
-        <label>${t("color2")}<input type="color" value="${c.surface}" data-color="surface" ${editable ? "" : "disabled"} /></label>
-        <label>${t("color3")}<input type="color" value="${c.border}" data-color="border" ${editable ? "" : "disabled"} /></label>
+        <label>${t("color5")}<input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
         <label>${t("color4")}<input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
-        <label>${t("color5")}<input type="color" value="${c.accent}" data-color="accent" ${editable ? "" : "disabled"} /></label>
       </div>
       ${permsSection}
       <div class="settings-actions">
@@ -529,10 +525,10 @@ function renderTabContent() {
 function applyColors() {
   const root = document.documentElement;
   root.style.setProperty("--bg", state.colors.bg);
-  root.style.setProperty("--surface", state.colors.surface);
-  root.style.setProperty("--border", state.colors.border);
+  root.style.setProperty("--surface", state.colors.bg);
+  root.style.setProperty("--border", state.colors.ui);
   root.style.setProperty("--text", state.colors.text);
-  root.style.setProperty("--accent", state.colors.accent);
+  root.style.setProperty("--accent", state.colors.ui);
 }
 
 function render() {
@@ -1068,7 +1064,19 @@ export async function initApp() {
   const storedColors = localStorage.getItem("foxyverse_colors");
   if (storedColors) {
     try {
-      state.colors = { ...state.colors, ...JSON.parse(storedColors) };
+      const parsed = JSON.parse(storedColors);
+      // Migration from old 5-color theme -> 3-color theme
+      if (parsed && typeof parsed === "object") {
+        if ("surface" in parsed || "border" in parsed || "accent" in parsed) {
+          state.colors = {
+            bg: parsed.bg ?? state.colors.bg,
+            ui: parsed.accent ?? parsed.border ?? state.colors.ui,
+            text: parsed.text ?? state.colors.text,
+          };
+        } else {
+          state.colors = { ...state.colors, ...parsed };
+        }
+      }
     } catch (_) {}
   }
   state.playerName = await storage.getPlayerName();
