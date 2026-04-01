@@ -300,6 +300,10 @@ function getLockOwner(lockId) {
   return state.fieldLocks?.[lockId] || null;
 }
 
+function hasOwnedFieldLock() {
+  return Object.values(state.fieldLocks || {}).some((owner) => owner?.playerId === state.playerId);
+}
+
 function isLockedByOther(lockId) {
   const owner = getLockOwner(lockId);
   return owner && owner.playerId !== state.playerId;
@@ -1487,6 +1491,7 @@ export async function initApp() {
     render();
 
     storage.subscribeToRoom(state.roomId, async () => {
+      if (hasOwnedFieldLock()) return;
       await loadRoomData();
       const visible = getVisibleSheets();
       const selectedSheetId = state.pendingSheetId || state.activeSheetId;
