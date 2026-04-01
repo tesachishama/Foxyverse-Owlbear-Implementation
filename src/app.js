@@ -128,7 +128,7 @@ async function loadSheet(sheetId) {
     clearPendingSheetTimeout();
     return;
   }
-  let sheet = storage.getSheetFromStorage(state.roomId, sheetId);
+  let sheet = await storage.getSheet(state.roomId, sheetId);
   if (!sheet) {
     if (state.isGM) {
       sheet = createEmptySheet(sheetId);
@@ -138,8 +138,9 @@ async function loadSheet(sheetId) {
       state.pendingSheetId = sheetId;
       state.sheet = null;
       startPendingSheetTimeout(sheetId);
-      storage.requestSheet(state.roomId, sheetId).catch(() => {});
-      return;
+      sheet = await storage.getSheet(state.roomId, sheetId);
+      if (!sheet) return;
+      storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
     }
   }
   if (!sheet.theme) {
@@ -155,7 +156,6 @@ async function loadSheet(sheetId) {
 function saveSheet() {
   if (!state.sheet || !state.roomId) return;
   storage.saveSheetToStorage(state.roomId, state.sheet);
-  storage.broadcastSheet(state.roomId, state.sheet).catch(() => {});
 }
 
 function pickRandom(max) {
@@ -250,7 +250,7 @@ function requestVisibleSheets() {
   if (state.isGM || !state.roomId) return;
   getVisibleSheets().forEach((sheetId) => {
     if (!storage.getSheetFromStorage(state.roomId, sheetId)) {
-      storage.requestSheet(state.roomId, sheetId).catch(() => {});
+      storage.getSheet(state.roomId, sheetId).catch(() => {});
     }
   });
 }
@@ -1238,10 +1238,6 @@ function bindEvents() {
       perms[playerId].edit = [...currentEdit];
       await storage.setPermissions(perms);
       state.permissions = perms;
-      await storage.broadcastPermissionsUpdated(state.roomId);
-      if (state.sheet) {
-        await storage.broadcastSheet(state.roomId, state.sheet);
-      }
       render();
     });
   });
@@ -1258,9 +1254,7 @@ function bindEvents() {
   app.querySelector("#btn-import-sheet")?.addEventListener("click", () => document.getElementById("import-file-input")?.click());
   app.querySelector("#btn-export-all")?.addEventListener("click", async () => {
     if (!state.isGM || !state.roomId) return;
-    const sheets = state.sheetIds
-      .map((sheetId) => storage.getSheetFromStorage(state.roomId, sheetId))
-      .filter(Boolean);
+    const sheets = await storage.getAllSheets(state.roomId);
     const payload = {
       exportedAt: Date.now(),
       roomId: state.roomId,
@@ -1365,78 +1359,17 @@ export async function initApp() {
   }
   render();
 
-  storage.onBroadcast((msg) => {
-    const data = msg?.data || msg;
-    if (data?.type === "sheet_full" && data.roomId === state.roomId && data.sheet) {
-      storage.saveSheetToStorage(state.roomId, data.sheet);
-      if (data.sheet.id === state.pendingSheetId) {
-        state.sheet = data.sheet;
-        state.activeSheetId = data.sheet.id;
-        state.pendingSheetId = null;
-        clearPendingSheetTimeout();
-        render();
-      } else if (data.sheet.id === state.activeSheetId) {
-        state.sheet = data.sheet;
-        render();
-      }
-      return;
+  storage.subscribeToRoom(state.roomId, async () => {
+    await loadRoomData();
+    const visible = getVisibleSheets();
+    const selectedSheetId = state.pendingSheetId || state.activeSheetId;
+    if (!selectedSheetId || !canView(selectedSheetId)) {
+      state.pendingSheetId = null;
+      await loadSheet(visible[0] || null);
+    } else {
+      await loadSheet(selectedSheetId);
     }
-    if (data?.type === "sheet_part" && data.roomId === state.roomId && data.sheetId) {
-      const bucket = state.incomingSheets[data.sheetId] || {
-        totalParts: data.totalParts,
-        parts: new Array(data.totalParts),
-      };
-      bucket.parts[data.partIndex] = data.data;
-      bucket.totalParts = data.totalParts;
-      state.incomingSheets[data.sheetId] = bucket;
-      if (bucket.parts.filter(Boolean).length === bucket.totalParts) {
-        try {
-          const sheet = JSON.parse(bucket.parts.join(""));
-          storage.saveSheetToStorage(state.roomId, sheet);
-          delete state.incomingSheets[data.sheetId];
-          if (sheet.id === state.pendingSheetId) {
-            state.sheet = sheet;
-            state.activeSheetId = sheet.id;
-            state.pendingSheetId = null;
-            clearPendingSheetTimeout();
-            render();
-          } else if (sheet.id === state.activeSheetId) {
-            state.sheet = sheet;
-            render();
-          }
-        } catch (_) {}
-      }
-      return;
-    }
-    if (data?.type === "request_sheet" && data.roomId === state.roomId && data.sheetId) {
-      const localSheet = storage.getSheetFromStorage(state.roomId, data.sheetId);
-      if (localSheet) {
-        storage.broadcastSheet(state.roomId, localSheet).catch(() => {});
-      }
-      return;
-    }
-    if (data?.type === "permissions_updated" && data.roomId === state.roomId) {
-      loadRoomData().then(async () => {
-        requestVisibleSheets();
-        const visible = getVisibleSheets();
-        const selectedSheetId = state.pendingSheetId || state.activeSheetId;
-        if (!selectedSheetId || !canView(selectedSheetId)) {
-          state.pendingSheetId = null;
-          await loadSheet(visible[0] || null);
-        } else if (selectedSheetId && !state.sheet) {
-          await loadSheet(selectedSheetId);
-        }
-        render();
-      }).catch(() => {});
-      return;
-    }
-    if (data?.type === "chat") {
-      state.chatMessages.push({ from: data.from, body: data.body });
-      const msgsEl = document.getElementById("chat-messages");
-      if (msgsEl && state.activeTab === "chat") {
-        msgsEl.innerHTML += `<div class="chat-msg"><strong>${escapeAttr(data.from)}:</strong> ${escapeAttr(data.body)}</div>`;
-      }
-    }
+    render();
   });
 
   OBR.room.onMetadataChange(async () => {

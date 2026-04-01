@@ -1,16 +1,64 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { supabase } from "./supabase.js";
 
 const ROOM_META_KEY = "foxyverse";
 const STORAGE_PREFIX = "foxyverse_sheet_";
-const CHUNK_SIZE = 14000; // under 16KB for broadcast
 
-/**
- * Room metadata (≤16KB): sheet list, permissions, locale, token links.
- * Full sheet data is in localStorage keyed by roomId + sheetId; we sync via broadcast.
- */
+function storageKey(roomId, sheetId) {
+  return `${STORAGE_PREFIX}${roomId}_${sheetId}`;
+}
+
+function normalizePermissions(rows) {
+  const permissions = {};
+  (rows || []).forEach((row) => {
+    if (!permissions[row.player_id]) permissions[row.player_id] = { view: [], edit: [] };
+    if (row.can_view) permissions[row.player_id].view.push(row.sheet_id);
+    if (row.can_edit) permissions[row.player_id].edit.push(row.sheet_id);
+  });
+  return permissions;
+}
+
+function getSheetName(sheet) {
+  return [sheet?.bio?.name || "", sheet?.bio?.surname || ""].join(" ").trim() || "Name Surname";
+}
+
+async function ensureRoom(roomId) {
+  const { error } = await supabase.from("rooms").upsert({ id: roomId });
+  if (error) throw error;
+}
+
+async function listSheets(roomId) {
+  const { data, error } = await supabase
+    .from("sheets")
+    .select("id,name,updated_at")
+    .eq("room_id", roomId)
+    .order("updated_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function listPermissionsForRoom(roomId) {
+  const { data, error } = await supabase
+    .from("sheet_permissions")
+    .select("sheet_id,player_id,can_view,can_edit,sheets!inner(room_id)")
+    .eq("sheets.room_id", roomId);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function getRoomData() {
-  const meta = await OBR.room.getMetadata();
-  return meta[ROOM_META_KEY] || {};
+  const roomId = await getRoomId();
+  const [meta, sheets, permissionRows] = await Promise.all([
+    OBR.room.getMetadata(),
+    listSheets(roomId),
+    listPermissionsForRoom(roomId),
+  ]);
+  return {
+    ...(meta[ROOM_META_KEY] || {}),
+    sheetIds: sheets.map((sheet) => sheet.id),
+    sheetNames: Object.fromEntries(sheets.map((sheet) => [sheet.id, sheet.name || "Name Surname"])),
+    permissions: normalizePermissions(permissionRows),
+  };
 }
 
 export async function setRoomData(update) {
@@ -21,46 +69,81 @@ export async function setRoomData(update) {
   });
 }
 
-/** Room data shape: { sheetIds: string[], permissions: { [playerId]: { view: string[], edit: string[] } }, tokenToSheet: { [tokenId]: sheetId }, locale?: string } */
 export async function getSheetList() {
-  const d = await getRoomData();
-  return d.sheetIds || [];
+  const roomId = await getRoomId();
+  const sheets = await listSheets(roomId);
+  return sheets.map((sheet) => sheet.id);
 }
 
 export async function addSheetToRoom(sheetId, name) {
-  const d = await getRoomData();
-  const ids = d.sheetIds || [];
-  if (ids.includes(sheetId)) return;
-  await setRoomData({ sheetIds: [...ids, sheetId], sheetNames: { ...(d.sheetNames || {}), [sheetId]: name || "Unnamed" } });
+  const roomId = await getRoomId();
+  await ensureRoom(roomId);
+  const sheet = getSheetFromStorage(roomId, sheetId);
+  const payload = {
+    id: sheetId,
+    room_id: roomId,
+    name: name || getSheetName(sheet),
+    sheet_data: sheet || {},
+  };
+  const { error } = await supabase.from("sheets").upsert(payload);
+  if (error) throw error;
 }
 
 export async function getSheetNameInRoom(sheetId) {
-  const d = await getRoomData();
-  return (d.sheetNames || {})[sheetId] ?? "Unnamed";
+  const { data, error } = await supabase.from("sheets").select("name").eq("id", sheetId).single();
+  if (error) throw error;
+  return data?.name ?? "Name Surname";
 }
 
 export async function setSheetNameInRoom(sheetId, name) {
-  const d = await getRoomData();
-  await setRoomData({ sheetNames: { ...(d.sheetNames || {}), [sheetId]: name } });
+  const { error } = await supabase.from("sheets").update({ name: name || "Name Surname" }).eq("id", sheetId);
+  if (error) throw error;
 }
 
 export async function removeSheetFromRoom(sheetId) {
-  const d = await getRoomData();
-  const ids = (d.sheetIds || []).filter((id) => id !== sheetId);
-  const names = { ...(d.sheetNames || {}) };
-  delete names[sheetId];
-  const tokenToSheet = { ...(d.tokenToSheet || {}) };
-  Object.keys(tokenToSheet).forEach((tid) => { if (tokenToSheet[tid] === sheetId) delete tokenToSheet[tid]; });
-  await setRoomData({ sheetIds: ids, sheetNames: names, tokenToSheet });
+  const roomId = await getRoomId();
+  const roomData = await getRoomData();
+  const tokenToSheet = { ...(roomData.tokenToSheet || {}) };
+  Object.keys(tokenToSheet).forEach((tid) => {
+    if (tokenToSheet[tid] === sheetId) delete tokenToSheet[tid];
+  });
+  await setRoomData({ tokenToSheet });
+  const { error } = await supabase.from("sheets").delete().eq("room_id", roomId).eq("id", sheetId);
+  if (error) throw error;
 }
 
 export async function getPermissions() {
-  const d = await getRoomData();
-  return d.permissions || {};
+  const roomId = await getRoomId();
+  return normalizePermissions(await listPermissionsForRoom(roomId));
 }
 
 export async function setPermissions(permissions) {
-  await setRoomData({ permissions: permissions });
+  const roomId = await getRoomId();
+  const sheets = await listSheets(roomId);
+  const sheetIds = new Set(sheets.map((sheet) => sheet.id));
+  const rows = [];
+  Object.entries(permissions || {}).forEach(([playerId, perms]) => {
+    const viewSet = new Set(perms?.view || []);
+    const editSet = new Set(perms?.edit || []);
+    [...new Set([...viewSet, ...editSet])].forEach((sheetId) => {
+      if (!sheetIds.has(sheetId)) return;
+      rows.push({
+        sheet_id: sheetId,
+        player_id: playerId,
+        can_view: viewSet.has(sheetId) || editSet.has(sheetId),
+        can_edit: editSet.has(sheetId),
+      });
+    });
+  });
+  const { error: deleteError } = await supabase
+    .from("sheet_permissions")
+    .delete()
+    .in("sheet_id", [...sheetIds]);
+  if (deleteError) throw deleteError;
+  if (rows.length > 0) {
+    const { error: insertError } = await supabase.from("sheet_permissions").insert(rows);
+    if (insertError) throw insertError;
+  }
 }
 
 export async function getTokenToSheet() {
@@ -80,10 +163,6 @@ export async function getRoomId() {
   return OBR.room.id;
 }
 
-function storageKey(roomId, sheetId) {
-  return `${STORAGE_PREFIX}${roomId}_${sheetId}`;
-}
-
 export function getSheetFromStorage(roomId, sheetId) {
   try {
     const raw = localStorage.getItem(storageKey(roomId, sheetId));
@@ -93,58 +172,98 @@ export function getSheetFromStorage(roomId, sheetId) {
   }
 }
 
-export function saveSheetToStorage(roomId, sheet) {
-  const key = storageKey(roomId, sheet.id);
-  sheet.updatedAt = Date.now();
-  localStorage.setItem(key, JSON.stringify(sheet));
+export async function getSheet(roomId, sheetId) {
+  const cached = getSheetFromStorage(roomId, sheetId);
+  if (cached) return cached;
+  const { data, error } = await supabase
+    .from("sheets")
+    .select("sheet_data")
+    .eq("room_id", roomId)
+    .eq("id", sheetId)
+    .single();
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  const sheet = data?.sheet_data || null;
+  if (sheet) saveSheetToStorage(roomId, sheet, { persistRemote: false });
+  return sheet;
+}
+
+export function saveSheetToStorage(roomId, sheet, options = {}) {
+  const { persistRemote = true } = options;
+  const nextSheet = { ...sheet, updatedAt: Date.now() };
+  localStorage.setItem(storageKey(roomId, sheet.id), JSON.stringify(nextSheet));
+  if (!persistRemote) return;
+  ensureRoom(roomId)
+    .then(() =>
+      supabase.from("sheets").upsert({
+        id: nextSheet.id,
+        room_id: roomId,
+        name: getSheetName(nextSheet),
+        sheet_data: nextSheet,
+      })
+    )
+    .catch((error) => {
+      console.error("Failed to persist sheet", error);
+    });
 }
 
 export function removeSheetFromStorage(roomId, sheetId) {
   localStorage.removeItem(storageKey(roomId, sheetId));
 }
 
-const BROADCAST_CHANNEL = "foxyverse";
-export const BroadcastType = {
-  SHEET_FULL: "sheet_full",
-  SHEET_PART: "sheet_part",
-  CHAT: "chat",
-  ROLL: "roll",
-  REQUEST_SHEET: "request_sheet",
-  PERMISSIONS_UPDATED: "permissions_updated",
-};
-
-export async function broadcastSheet(roomId, sheet) {
-  const str = JSON.stringify(sheet);
-  if (str.length <= CHUNK_SIZE) {
-    await OBR.broadcast.sendMessage(BROADCAST_CHANNEL, { type: BroadcastType.SHEET_FULL, roomId, sheet });
-    return;
-  }
-  const parts = [];
-  for (let i = 0; i < str.length; i += CHUNK_SIZE) {
-    parts.push(str.slice(i, i + CHUNK_SIZE));
-  }
-  for (let i = 0; i < parts.length; i++) {
-    await OBR.broadcast.sendMessage(BROADCAST_CHANNEL, { type: BroadcastType.SHEET_PART, roomId, sheetId: sheet.id, partIndex: i, totalParts: parts.length, data: parts[i] });
-  }
+export async function getAllSheets(roomId) {
+  const { data, error } = await supabase
+    .from("sheets")
+    .select("sheet_data")
+    .eq("room_id", roomId)
+    .order("updated_at", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((row) => row.sheet_data).filter(Boolean);
 }
 
-export function onBroadcast(callback) {
-  return OBR.broadcast.onMessage(BROADCAST_CHANNEL, callback);
+export function onBroadcast() {
+  return () => {};
 }
 
-export async function requestSheet(roomId, sheetId) {
-  await OBR.broadcast.sendMessage(BROADCAST_CHANNEL, {
-    type: BroadcastType.REQUEST_SHEET,
-    roomId,
-    sheetId,
-  });
-}
+export async function requestSheet() {}
 
-export async function broadcastPermissionsUpdated(roomId) {
-  await OBR.broadcast.sendMessage(BROADCAST_CHANNEL, {
-    type: BroadcastType.PERMISSIONS_UPDATED,
-    roomId,
-  });
+export async function broadcastSheet() {}
+
+export async function broadcastPermissionsUpdated() {}
+
+export function subscribeToRoom(roomId, callback) {
+  const channel = supabase
+    .channel(`foxyverse-room-${roomId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sheets", filter: `room_id=eq.${roomId}` },
+      callback
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sheet_permissions" },
+      async (payload) => {
+        const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id;
+        if (!sheetId) {
+          callback(payload);
+          return;
+        }
+        const { data, error } = await supabase
+          .from("sheets")
+          .select("room_id")
+          .eq("id", sheetId)
+          .single();
+        if (!error && data?.room_id === roomId) {
+          callback(payload);
+        }
+      }
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function getPlayerId() {
