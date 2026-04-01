@@ -117,8 +117,8 @@ div {
 .sheet-arrow-btn {
   border: 0;
   background: transparent;
-  width: 1.95rem;
-  margin-right: 0.2rem;
+  width: 2.1rem;
+  margin-right: 0.35rem;
   color: var(--text);
 }
 
@@ -130,8 +130,8 @@ div {
 }
 
 .header-icon-svg {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .sheet-arrow-btn .header-icon-svg {

@@ -296,6 +296,39 @@ function clearPendingSheetTimeout() {
   state.pendingSheetTimer = null;
 }
 
+function buildExportFilename(sheet, roomName = state.roomId || "Room") {
+  const name = (sheet?.bio?.name || "").replace(/\s+/g, "");
+  const surname = (sheet?.bio?.surname || "").replace(/\s+/g, "");
+  const person = `${name}${surname}` || "NameSurname";
+  const room = String(roomName || "Room").replace(/[^\w-]+/g, "");
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${person}_${room || "Room"}_${stamp}.json`;
+}
+
+function normalizeImportedSheet(raw) {
+  const base = createEmptySheet(raw?.id || crypto.randomUUID());
+  const next = {
+    ...base,
+    ...raw,
+    id: raw?.id || base.id,
+    theme: { ...base.theme, ...(raw?.theme || {}) },
+    bio: { ...base.bio, ...(raw?.bio || {}) },
+    stats: { ...base.stats, ...(raw?.stats || {}) },
+    knowledge: Array.isArray(raw?.knowledge) ? raw.knowledge : base.knowledge,
+    spells: Array.isArray(raw?.spells) ? raw.spells : base.spells,
+    consumables: Array.isArray(raw?.consumables) ? raw.consumables : base.consumables,
+    others: Array.isArray(raw?.others) ? raw.others : base.others,
+    weapons: Array.isArray(raw?.weapons) ? raw.weapons : base.weapons,
+    armor: Array.isArray(raw?.armor) ? raw.armor : base.armor,
+    bags: Array.isArray(raw?.bags) ? raw.bags : base.bags,
+    equipped: raw?.equipped && typeof raw.equipped === "object" ? raw.equipped : base.equipped,
+    currency: raw?.currency && typeof raw.currency === "object"
+      ? { gold: Number(raw.currency.gold) || 0, silver: Number(raw.currency.silver) || 0, copper: Number(raw.currency.copper) || 0 }
+      : { gold: 0, silver: 0, copper: 0 },
+  };
+  return next;
+}
+
 function getLockOwner(lockId) {
   return null;
 }
@@ -1336,7 +1369,7 @@ function bindEvents() {
     const blob = new Blob([JSON.stringify(state.sheet, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `foxyverse-${state.sheet.id}.json`;
+    a.download = buildExportFilename(state.sheet);
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -1352,7 +1385,7 @@ function bindEvents() {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "foxyverse-all-sheets.json";
+    a.download = buildExportFilename({ bio: { name: "All", surname: "Sheets" } });
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -1372,11 +1405,9 @@ function bindEvents() {
     if (!file || !state.roomId) return;
     const text = await file.text();
     try {
-      const sheet = JSON.parse(text);
-      if (!sheet.id) sheet.id = crypto.randomUUID();
-      if (!sheet.theme) sheet.theme = { ...state.colors };
-      storage.saveSheetToStorage(state.roomId, sheet);
-      await storage.addSheetToRoom(sheet.id, [sheet.bio?.name || "", sheet.bio?.surname || ""].join(" ").trim() || "Name Surname");
+      const sheet = normalizeImportedSheet(JSON.parse(text));
+      storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
+      await storage.persistSheet(state.roomId, sheet);
       state.sheetIds = await storage.getSheetList();
       const names = await storage.getRoomData();
       state.sheetNames = names.sheetNames || {};
@@ -1396,16 +1427,10 @@ function bindEvents() {
       const sheets = Array.isArray(parsed) ? parsed : parsed.sheets;
       if (!Array.isArray(sheets)) throw new Error("Invalid bundle");
       for (const sheet of sheets) {
-        const nextSheet = structuredClone(sheet);
+        const nextSheet = normalizeImportedSheet(structuredClone(sheet));
         if (!nextSheet?.id || state.sheetIds.includes(nextSheet.id)) nextSheet.id = crypto.randomUUID();
-        if (!nextSheet.theme) {
-          nextSheet.theme = { ...state.colors };
-        }
-        storage.saveSheetToStorage(state.roomId, nextSheet);
-        await storage.addSheetToRoom(
-          nextSheet.id,
-          [nextSheet.bio?.name || "", nextSheet.bio?.surname || ""].join(" ").trim() || "Name Surname"
-        );
+        storage.saveSheetToStorage(state.roomId, nextSheet, { persistRemote: false });
+        await storage.persistSheet(state.roomId, nextSheet);
       }
       await loadRoomData();
       if (!state.activeSheetId && state.sheetIds.length) {
