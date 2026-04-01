@@ -452,7 +452,17 @@ function renderBioTab() {
         </div>
         <div class="bio-level-row">
           <label class="label bio-level-label">${t("level")}</label>
-          <input type="number" min="1" class="bio-level-input" value="${Number(b.level) || 1}" data-field="bio.level" ${editable ? "" : "readonly"} />
+          <div class="bio-level-control ${editable ? "" : "readonly"}">
+            <input type="number" min="1" class="bio-level-input" value="${Number(b.level) || 1}" data-field="bio.level" ${editable ? "" : "readonly"} />
+            <div class="bio-level-arrows">
+              <button type="button" class="bio-level-arrow-btn bio-level-arrow-up" data-level-step="1" ${editable ? "" : "disabled"} aria-label="Increase level">
+                ${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)")}
+              </button>
+              <button type="button" class="bio-level-arrow-btn bio-level-arrow-down" data-level-step="-1" ${editable ? "" : "disabled"} aria-label="Decrease level">
+                ${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)")}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -971,6 +981,20 @@ function bindEvents() {
         await storage.setSheetNameInRoom(state.activeSheetId, displayName);
       }
       if (field === "bio.name" || field === "bio.surname") render();
+    });
+  });
+
+  app.querySelectorAll("[data-level-step]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!state.sheet) return;
+      const delta = Number(btn.dataset.levelStep) || 0;
+      const current = Number(state.sheet.bio?.level) || 1;
+      const nextLevel = Math.max(1, current + delta);
+      const next = await applySheetMutation((sheet) => {
+        if (!sheet.bio) sheet.bio = {};
+        sheet.bio.level = nextLevel;
+      });
+      if (next) render();
     });
   });
 

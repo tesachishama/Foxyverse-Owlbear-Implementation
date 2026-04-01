@@ -294,13 +294,13 @@ button:disabled {
 }
 
 .bio-card {
-  padding: 0.7rem 0.75rem 0.85rem;
+  padding: 0.82rem 0.85rem 0.95rem;
   border-radius: 18px;
 }
 
 .bio-fields {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.8rem;
 }
 
 .bio-field-group {
@@ -316,8 +316,8 @@ button:disabled {
 .bio-input,
 .bio-level-input {
   width: 100%;
-  min-height: 2.25rem;
-  padding: 0.25rem 0.85rem;
+  min-height: 2.55rem;
+  padding: 0.35rem 0.95rem;
   background: var(--bg);
   border: 3px solid var(--border);
   border-radius: 999px;
@@ -338,8 +338,60 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.bio-level-control {
+  position: relative;
+}
+
 .bio-level-input {
   text-align: center;
+  padding-right: 2.45rem;
+}
+
+.bio-level-control.readonly .bio-level-input {
+  padding-right: 0.95rem;
+}
+
+.bio-level-input::-webkit-outer-spin-button,
+.bio-level-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bio-level-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.bio-level-arrows {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 0.04rem;
+}
+
+.bio-level-arrow-btn {
+  width: 1.15rem;
+  height: 0.7rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bio-level-arrow-icon {
+  width: 0.85rem;
+  height: 0.55rem;
+}
+
+.bio-level-arrow-up .bio-level-arrow-icon {
+  transform: rotate(0deg);
+}
+
+.bio-level-arrow-down .bio-level-arrow-icon {
+  transform: rotate(180deg);
 }
 
 .short-input {
