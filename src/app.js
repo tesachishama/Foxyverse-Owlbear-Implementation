@@ -430,28 +430,30 @@ function renderBioTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const b = s.bio || {};
+  const editable = canEdit(s.id);
   return `
-    <div class="card">
-      <h2>${t("tabBio")}</h2>
-      <div class="form-group">
-        <label class="label">${t("name")}</label>
-        <input type="text" value="${escapeAttr(b.name)}" data-field="bio.name" ${canEdit(s.id) ? "" : "readonly"} />
-      </div>
-      <div class="form-group">
-        <label class="label">${t("surname")}</label>
-        <input type="text" value="${escapeAttr(b.surname)}" data-field="bio.surname" ${canEdit(s.id) ? "" : "readonly"} />
-      </div>
-      <div class="form-group">
-        <label class="label">${t("element")}</label>
-        <input type="text" value="${escapeAttr(b.element)}" data-field="bio.element" ${canEdit(s.id) ? "" : "readonly"} />
-      </div>
-      <div class="form-group">
-        <label class="label">${t("class")}</label>
-        <input type="text" value="${escapeAttr(b.class)}" data-field="bio.class" ${canEdit(s.id) ? "" : "readonly"} />
-      </div>
-      <div class="form-group">
-        <label class="label">${t("level")}</label>
-        <input type="number" min="1" value="${Number(b.level) || 1}" data-field="bio.level" ${canEdit(s.id) ? "" : "readonly"} />
+    <div class="card bio-card">
+      <div class="bio-fields">
+        <div class="bio-field-group">
+          <label class="label bio-label">${t("name")}</label>
+          <input type="text" class="bio-input" value="${escapeAttr(b.name)}" data-field="bio.name" ${editable ? "" : "readonly"} />
+        </div>
+        <div class="bio-field-group">
+          <label class="label bio-label">${t("surname")}</label>
+          <input type="text" class="bio-input" value="${escapeAttr(b.surname)}" data-field="bio.surname" ${editable ? "" : "readonly"} />
+        </div>
+        <div class="bio-field-group">
+          <label class="label bio-label">${t("element")}</label>
+          <input type="text" class="bio-input" value="${escapeAttr(b.element)}" data-field="bio.element" ${editable ? "" : "readonly"} />
+        </div>
+        <div class="bio-field-group">
+          <label class="label bio-label">${t("class")}</label>
+          <input type="text" class="bio-input" value="${escapeAttr(b.class)}" data-field="bio.class" ${editable ? "" : "readonly"} />
+        </div>
+        <div class="bio-level-row">
+          <label class="label bio-level-label">${t("level")}</label>
+          <input type="number" min="1" class="bio-level-input" value="${Number(b.level) || 1}" data-field="bio.level" ${editable ? "" : "readonly"} />
+        </div>
       </div>
     </div>
   `;
