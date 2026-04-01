@@ -346,7 +346,7 @@ button:disabled {
 .bio-level-input {
   text-align: center;
   padding-right: 2.35rem;
-  padding-left: 0.25rem;
+  padding-left: 0;
 }
 
 .bio-level-control.readonly .bio-level-input {
