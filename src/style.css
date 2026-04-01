@@ -366,7 +366,7 @@ button:disabled {
 .bio-level-arrows {
   position: absolute;
   top: 50%;
-  right: 0.2rem;
+  right: 0.75rem;
   transform: translateY(-50%);
   display: grid;
   gap: 0.08rem;
