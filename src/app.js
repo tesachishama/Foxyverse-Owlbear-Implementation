@@ -398,6 +398,7 @@ function renderHeader() {
     <header class="app-header">
       <div class="header-top">
         <div class="sheet-picker">
+          <div class="sheet-picker-spacer" aria-hidden="true"></div>
           <div class="sheet-title">${getSheetTitle()}</div>
           <button type="button" id="btn-sheet-menu" class="header-icon-btn sheet-arrow-btn ${state.sheetMenuOpen ? "open" : ""}" aria-label="${t("selectSheet")}">
             ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
