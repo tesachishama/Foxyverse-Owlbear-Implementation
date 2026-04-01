@@ -16,6 +16,7 @@
 body {
   margin: 0;
   font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+  font-size: 1.2em;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -425,14 +426,14 @@ button:disabled {
 .settings-title {
   margin: 0 0 0.35rem;
   text-align: center;
-  font-size: 1.05rem;
+  font-size: 1em;
   font-weight: 400;
 }
 
 .settings-section-title {
   margin: 0.35rem 0 0.35rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 1em;
   font-weight: 400;
 }
 
@@ -444,7 +445,7 @@ button:disabled {
   border: 3px solid var(--border);
   border-radius: 999px;
   padding: 0.16rem 0.18rem 0.16rem 0.16rem;
-  font-size: 1.2em;
+  font-size: 1em;
 }
 
 .settings-pill-label,
@@ -497,6 +498,23 @@ button:disabled {
   border: none;
   background: transparent;
   cursor: pointer;
+  display: block;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.settings-color-stop input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.settings-color-stop input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 999px;
+}
+
+.settings-color-stop input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 999px;
 }
 
 .settings-actions {
@@ -524,7 +542,7 @@ button:disabled {
   border: 3px solid var(--border);
   border-radius: 16px;
   padding: 0.45rem 0.65rem 0.55rem;
-  font-size: 1.2em;
+  font-size: 1em;
 }
 
 .permissions-header-row,
@@ -536,13 +554,13 @@ button:disabled {
 
 .permissions-header-row {
   margin-bottom: 0.2rem;
-  font-size: 1.2em;
+  font-size: 1em;
   text-align: center;
 }
 
 .permissions-player-row {
   min-height: 1.55rem;
-  font-size: 1.2em;
+  font-size: 1em;
 }
 
 .permissions-player-name {
