@@ -16,7 +16,7 @@
 body {
   margin: 0;
   font-family: "Franklin Gothic Medium", "Franklin Gothic", "Arial Narrow", "Arial", "Helvetica", sans-serif;
-  font-size: 1.2em;
+  font-size: 1.2rem;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -427,6 +427,11 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.settings-card,
+.settings-card * {
+  font-size: inherit;
+}
+
 .settings-title {
   margin: 0 0 0.35rem;
   text-align: center;
@@ -548,7 +553,8 @@ button:disabled {
 .permissions-header-row,
 .permissions-player-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem;
+  grid-template-columns: minmax(0, 1fr) 5.3rem 5.3rem;
+  column-gap: 0.6rem;
   align-items: center;
 }
 
