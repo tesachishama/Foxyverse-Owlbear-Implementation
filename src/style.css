@@ -327,16 +327,16 @@ button:disabled {
 
 .bio-level-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 8.1rem;
+  grid-template-columns: minmax(0, 1fr) 4.4rem;
   align-items: center;
   gap: 0.8rem;
   padding-top: 0.1rem;
 }
 
 .bio-level-label {
-  text-align: left;
+  text-align: right;
   margin-bottom: 0;
-  padding-left: 1.1rem;
+  padding-right: 0.1rem;
 }
 
 .bio-level-control {
