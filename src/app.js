@@ -120,7 +120,6 @@ async function loadRoomData() {
   const locale = roomData.locale || localStorage.getItem("foxyverse_locale") || "en";
   state.locale = locale;
   setLocale(locale);
-  await storage.setRoomData({ locale: state.locale });
 }
 
 async function loadSheet(sheetId, options = {}) {
