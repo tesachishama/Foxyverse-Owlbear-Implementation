@@ -327,8 +327,8 @@ async function acquireFieldLock(lockId) {
   if (owner && owner.playerId !== state.playerId) return false;
   const nextOwner = { playerId: state.playerId, playerName: state.playerName || "Player", at: Date.now() };
   state.fieldLocks = { ...state.fieldLocks, [lockId]: nextOwner };
-  await storage.setFieldLock(lockId, nextOwner);
   syncFieldLockStates();
+  storage.setFieldLock(lockId, nextOwner).catch(() => {});
   return true;
 }
 
@@ -339,8 +339,8 @@ async function releaseFieldLock(lockId) {
   const nextLocks = { ...state.fieldLocks };
   delete nextLocks[lockId];
   state.fieldLocks = nextLocks;
-  await storage.setFieldLock(lockId, null);
   syncFieldLockStates();
+  storage.setFieldLock(lockId, null).catch(() => {});
 }
 
 function syncFieldLockStates() {
