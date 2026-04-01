@@ -316,27 +316,45 @@ function getRoomLabel() {
   return state.roomId || "Room";
 }
 
-function normalizeImportedSheet(raw) {
+function normalizeImportedSheet(raw, options = {}) {
+  const { targetSheetId = null, regenerateNestedIds = false } = options;
   const base = createEmptySheet(raw?.id || crypto.randomUUID());
   const next = {
     ...base,
     ...raw,
-    id: raw?.id || base.id,
+    id: targetSheetId || raw?.id || base.id,
     theme: { ...base.theme, ...(raw?.theme || {}) },
     bio: { ...base.bio, ...(raw?.bio || {}) },
     stats: { ...base.stats, ...(raw?.stats || {}) },
-    knowledge: Array.isArray(raw?.knowledge) ? raw.knowledge : base.knowledge,
-    spells: Array.isArray(raw?.spells) ? raw.spells : base.spells,
-    consumables: Array.isArray(raw?.consumables) ? raw.consumables : base.consumables,
-    others: Array.isArray(raw?.others) ? raw.others : base.others,
-    weapons: Array.isArray(raw?.weapons) ? raw.weapons : base.weapons,
-    armor: Array.isArray(raw?.armor) ? raw.armor : base.armor,
-    bags: Array.isArray(raw?.bags) ? raw.bags : base.bags,
+    knowledge: Array.isArray(raw?.knowledge) ? raw.knowledge.map((entry) => ({ ...entry })) : base.knowledge,
+    spells: Array.isArray(raw?.spells) ? raw.spells.map((entry) => ({ ...entry })) : base.spells,
+    consumables: Array.isArray(raw?.consumables) ? raw.consumables.map((entry) => ({ ...entry })) : base.consumables,
+    others: Array.isArray(raw?.others) ? raw.others.map((entry) => ({ ...entry })) : base.others,
+    weapons: Array.isArray(raw?.weapons) ? raw.weapons.map((entry) => ({ ...entry })) : base.weapons,
+    armor: Array.isArray(raw?.armor) ? raw.armor.map((entry) => ({ ...entry })) : base.armor,
+    bags: Array.isArray(raw?.bags) ? raw.bags.map((entry) => ({ ...entry })) : base.bags,
     equipped: raw?.equipped && typeof raw.equipped === "object" ? raw.equipped : base.equipped,
     currency: raw?.currency && typeof raw.currency === "object"
       ? { gold: Number(raw.currency.gold) || 0, silver: Number(raw.currency.silver) || 0, copper: Number(raw.currency.copper) || 0 }
       : { gold: 0, silver: 0, copper: 0 },
   };
+
+  if (regenerateNestedIds) {
+    next.knowledge = next.knowledge.map((entry) => ({ ...entry, id: crypto.randomUUID() }));
+    next.spells = next.spells.map((entry) => ({ ...entry, id: crypto.randomUUID() }));
+    const itemIdMap = new Map();
+    ["consumables", "others", "weapons", "armor", "bags"].forEach((section) => {
+      next[section] = next[section].map((entry) => {
+        const nextId = crypto.randomUUID();
+        itemIdMap.set(entry.id, nextId);
+        return { ...entry, id: nextId };
+      });
+    });
+    next.equipped = Object.fromEntries(
+      Object.entries(next.equipped || {}).map(([slotId, itemId]) => [slotId, itemIdMap.get(itemId) || itemId])
+    );
+  }
+
   return next;
 }
 
@@ -1416,14 +1434,17 @@ function bindEvents() {
     if (!file || !state.roomId) return;
     const text = await file.text();
     try {
-      const imported = normalizeImportedSheet(JSON.parse(text));
+      const overwritingActive = !!state.activeSheetId;
+      const imported = normalizeImportedSheet(JSON.parse(text), {
+        targetSheetId: overwritingActive ? state.activeSheetId : null,
+        regenerateNestedIds: overwritingActive,
+      });
       if (state.activeSheetId) {
         const confirmed = window.confirm(`Overwrite ${getSheetTitle()} with imported sheet?`);
         if (!confirmed) {
           e.target.value = "";
           return;
         }
-        imported.id = state.activeSheetId;
       }
       storage.saveSheetToStorage(state.roomId, imported, { persistRemote: false });
       await storage.persistSheet(state.roomId, imported);
@@ -1446,8 +1467,11 @@ function bindEvents() {
       const sheets = Array.isArray(parsed) ? parsed : parsed.sheets;
       if (!Array.isArray(sheets)) throw new Error("Invalid bundle");
       for (const sheet of sheets) {
-        const nextSheet = normalizeImportedSheet(structuredClone(sheet));
-        if (!nextSheet?.id || state.sheetIds.includes(nextSheet.id)) nextSheet.id = crypto.randomUUID();
+        const sheetIdConflict = !!sheet?.id && state.sheetIds.includes(sheet.id);
+        const nextSheet = normalizeImportedSheet(structuredClone(sheet), {
+          targetSheetId: sheetIdConflict || !sheet?.id ? crypto.randomUUID() : null,
+          regenerateNestedIds: true,
+        });
         storage.saveSheetToStorage(state.roomId, nextSheet, { persistRemote: false });
         await storage.persistSheet(state.roomId, nextSheet);
       }
