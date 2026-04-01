@@ -1500,28 +1500,37 @@ export async function initApp() {
     });
 
     OBR.room.onMetadataChange(async () => {
-      const prevFieldLocks = JSON.stringify(state.fieldLocks || {});
-      const prevSheetIds = JSON.stringify(state.sheetIds || []);
-      const prevPermissions = JSON.stringify(state.permissions || {});
-      await loadRoomData();
-      const onlyLocksChanged =
-        prevSheetIds === JSON.stringify(state.sheetIds || [])
-        && prevPermissions === JSON.stringify(state.permissions || {})
-        && prevFieldLocks !== JSON.stringify(state.fieldLocks || {});
-      if (onlyLocksChanged) {
-        syncFieldLockStates();
+      const meta = await OBR.room.getMetadata();
+      const roomMeta = meta?.foxyverse || {};
+
+      const nextLocale = roomMeta.locale || localStorage.getItem("foxyverse_locale") || state.locale;
+      const nextTokenToSheet = roomMeta.tokenToSheet || {};
+      const nextPlayerDirectory = roomMeta.playerDirectory || {};
+      const nextFieldLocks = roomMeta.fieldLocks || {};
+
+      const localeChanged = nextLocale !== state.locale;
+      const tokenChanged = JSON.stringify(nextTokenToSheet) !== JSON.stringify(state.tokenToSheet || {});
+      const directoryChanged = JSON.stringify(nextPlayerDirectory) !== JSON.stringify(state.playerDirectory || {});
+      const lockChanged = JSON.stringify(nextFieldLocks) !== JSON.stringify(state.fieldLocks || {});
+
+      state.tokenToSheet = nextTokenToSheet;
+      state.playerDirectory = nextPlayerDirectory;
+      state.fieldLocks = nextFieldLocks;
+
+      if (localeChanged) {
+        state.locale = nextLocale;
+        setLocale(nextLocale);
+        render();
         return;
       }
-      requestVisibleSheets();
-      const visible = getVisibleSheets();
-      const selectedSheetId = state.pendingSheetId || state.activeSheetId;
-      if (!selectedSheetId || !canView(selectedSheetId)) {
-        state.pendingSheetId = null;
-        await loadSheet(visible[0] || null);
-      } else if (selectedSheetId && !state.sheet) {
-        await loadSheet(selectedSheetId);
+
+      if (lockChanged) {
+        syncFieldLockStates();
       }
-      render();
+
+      if (tokenChanged || directoryChanged) {
+        render();
+      }
     });
     OBR.party.onChange(async (players) => {
       state.partyPlayers = players || [];
