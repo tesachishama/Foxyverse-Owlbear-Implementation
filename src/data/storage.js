@@ -38,10 +38,13 @@ async function listSheets(roomId) {
 }
 
 async function listPermissionsForRoom(roomId) {
+  const sheets = await listSheets(roomId);
+  const sheetIds = sheets.map((sheet) => sheet.id);
+  if (sheetIds.length === 0) return [];
   const { data, error } = await supabase
     .from("sheet_permissions")
-    .select("sheet_id,player_id,can_view,can_edit,sheets!inner(room_id)")
-    .eq("sheets.room_id", roomId);
+    .select("sheet_id,player_id,can_view,can_edit")
+    .in("sheet_id", sheetIds);
   if (error) throw error;
   return data || [];
 }

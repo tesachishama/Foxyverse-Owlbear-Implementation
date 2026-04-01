@@ -76,6 +76,7 @@ const state = {
   incomingSheets: {},
   pendingSheetId: null,
   pendingSheetTimer: null,
+  startupError: "",
 };
 
 function canView(sheetId) {
@@ -713,6 +714,10 @@ function applyColors() {
 function render() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
+  if (state.startupError) {
+    app.innerHTML = `<main class="tab-content"><div class="card"><h2>Error</h2><p>${escapeAttr(state.startupError)}</p></div></main>`;
+    return;
+  }
   app.innerHTML = `
     ${renderHeader()}
     ${renderTabs()}
@@ -1333,60 +1338,14 @@ function bindEvents() {
 }
 
 export async function initApp() {
-  await loadRoomData();
-  state.playerName = await storage.getPlayerName();
   try {
-    state.partyPlayers = await OBR.party.getPlayers();
-  } catch (_) {
-    state.partyPlayers = [];
-  }
-  const updatedDirectory = {
-    ...state.playerDirectory,
-    ...Object.fromEntries((state.partyPlayers || []).map((p) => [p.id, { name: p.name, role: p.role }])),
-  };
-  state.playerDirectory = updatedDirectory;
-  await storage.setRoomData({ playerDirectory: updatedDirectory });
-  requestVisibleSheets();
-  const chatKey = state.chatHistoryKey + state.roomId;
-  try {
-    const saved = localStorage.getItem(chatKey);
-    if (saved) state.chatMessages = JSON.parse(saved);
-  } catch (_) {}
-  if (state.sheetIds.length && !state.activeSheetId) {
-    await loadSheet(getVisibleSheets()[0] || null);
-  } else if (state.activeSheetId) {
-    await loadSheet(state.activeSheetId);
-  }
-  render();
-
-  storage.subscribeToRoom(state.roomId, async () => {
     await loadRoomData();
-    const visible = getVisibleSheets();
-    const selectedSheetId = state.pendingSheetId || state.activeSheetId;
-    if (!selectedSheetId || !canView(selectedSheetId)) {
-      state.pendingSheetId = null;
-      await loadSheet(visible[0] || null);
-    } else {
-      await loadSheet(selectedSheetId);
+    state.playerName = await storage.getPlayerName();
+    try {
+      state.partyPlayers = await OBR.party.getPlayers();
+    } catch (_) {
+      state.partyPlayers = [];
     }
-    render();
-  });
-
-  OBR.room.onMetadataChange(async () => {
-    await loadRoomData();
-    requestVisibleSheets();
-    const visible = getVisibleSheets();
-    const selectedSheetId = state.pendingSheetId || state.activeSheetId;
-    if (!selectedSheetId || !canView(selectedSheetId)) {
-      state.pendingSheetId = null;
-      await loadSheet(visible[0] || null);
-    } else if (selectedSheetId && !state.sheet) {
-      await loadSheet(selectedSheetId);
-    }
-    render();
-  });
-  OBR.party.onChange(async (players) => {
-    state.partyPlayers = players || [];
     const updatedDirectory = {
       ...state.playerDirectory,
       ...Object.fromEntries((state.partyPlayers || []).map((p) => [p.id, { name: p.name, role: p.role }])),
@@ -1394,6 +1353,58 @@ export async function initApp() {
     state.playerDirectory = updatedDirectory;
     await storage.setRoomData({ playerDirectory: updatedDirectory });
     requestVisibleSheets();
+    const chatKey = state.chatHistoryKey + state.roomId;
+    try {
+      const saved = localStorage.getItem(chatKey);
+      if (saved) state.chatMessages = JSON.parse(saved);
+    } catch (_) {}
+    if (state.sheetIds.length && !state.activeSheetId) {
+      await loadSheet(getVisibleSheets()[0] || null);
+    } else if (state.activeSheetId) {
+      await loadSheet(state.activeSheetId);
+    }
     render();
-  });
+
+    storage.subscribeToRoom(state.roomId, async () => {
+      await loadRoomData();
+      const visible = getVisibleSheets();
+      const selectedSheetId = state.pendingSheetId || state.activeSheetId;
+      if (!selectedSheetId || !canView(selectedSheetId)) {
+        state.pendingSheetId = null;
+        await loadSheet(visible[0] || null);
+      } else {
+        await loadSheet(selectedSheetId);
+      }
+      render();
+    });
+
+    OBR.room.onMetadataChange(async () => {
+      await loadRoomData();
+      requestVisibleSheets();
+      const visible = getVisibleSheets();
+      const selectedSheetId = state.pendingSheetId || state.activeSheetId;
+      if (!selectedSheetId || !canView(selectedSheetId)) {
+        state.pendingSheetId = null;
+        await loadSheet(visible[0] || null);
+      } else if (selectedSheetId && !state.sheet) {
+        await loadSheet(selectedSheetId);
+      }
+      render();
+    });
+    OBR.party.onChange(async (players) => {
+      state.partyPlayers = players || [];
+      const updatedDirectory = {
+        ...state.playerDirectory,
+        ...Object.fromEntries((state.partyPlayers || []).map((p) => [p.id, { name: p.name, role: p.role }])),
+      };
+      state.playerDirectory = updatedDirectory;
+      await storage.setRoomData({ playerDirectory: updatedDirectory });
+      requestVisibleSheets();
+      render();
+    });
+  } catch (error) {
+    console.error(error);
+    state.startupError = error?.message || "Failed to initialize plugin";
+    render();
+  }
 }
