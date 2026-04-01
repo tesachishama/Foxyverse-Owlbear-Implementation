@@ -57,9 +57,9 @@ div {
   flex: 1;
   min-width: 0;
   position: relative;
-  display: grid;
-  grid-template-columns: 2.1rem minmax(0, 1fr) 2.1rem;
+  display: flex;
   align-items: center;
+  justify-content: center;
   background: var(--surface);
   border: 3px solid var(--border);
   border-radius: 999px;
@@ -67,12 +67,8 @@ div {
   min-height: 2.15rem;
 }
 
-.sheet-picker-spacer {
-  width: 2.1rem;
-  height: 100%;
-}
-
 .sheet-title {
+  flex: 1;
   min-width: 0;
   padding: 0 0.75rem;
   white-space: nowrap;
@@ -124,7 +120,6 @@ div {
   width: 2.1rem;
   margin-right: 0.2rem;
   color: var(--text);
-  justify-self: center;
 }
 
 .inline-svg {
