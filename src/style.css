@@ -316,8 +316,8 @@ button:disabled {
 .bio-input,
 .bio-level-input {
   width: 100%;
-  min-height: 2.55rem;
-  padding: 0.35rem 0.95rem;
+  min-height: 2.8rem;
+  padding: 0.42rem 0.95rem;
   background: var(--bg);
   border: 3px solid var(--border);
   border-radius: 999px;
@@ -327,15 +327,16 @@ button:disabled {
 
 .bio-level-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 9.25rem;
+  grid-template-columns: minmax(0, 1fr) 8.1rem;
   align-items: center;
   gap: 0.8rem;
   padding-top: 0.1rem;
 }
 
 .bio-level-label {
-  text-align: center;
+  text-align: left;
   margin-bottom: 0;
+  padding-left: 1.1rem;
 }
 
 .bio-level-control {
