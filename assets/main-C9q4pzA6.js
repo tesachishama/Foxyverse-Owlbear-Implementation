@@ -45,7 +45,6 @@ ${O}`}class F extends Error{constructor({message:e,code:s,cause:n,name:r}){var i
     <header class="app-header">
       <div class="header-top">
         <div class="sheet-picker">
-          <div class="sheet-picker-spacer" aria-hidden="true"></div>
           <div class="sheet-title">${qs()}</div>
           <button type="button" id="btn-sheet-menu" class="header-icon-btn sheet-arrow-btn ${h.sheetMenuOpen?"open":""}" aria-label="${v("selectSheet")}">
             ${pt(ao,"inline-svg header-icon-svg","var(--text)")}
