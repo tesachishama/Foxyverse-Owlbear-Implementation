@@ -16,7 +16,7 @@
 body {
   margin: 0;
   font-family: "Franklin Gothic Medium", "Franklin Gothic", "Arial Narrow", "Arial", "Helvetica", sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -436,12 +436,14 @@ button:disabled {
   margin: 0 0 0.35rem;
   text-align: center;
   font-weight: 400;
+  font-size: 1.75rem;
 }
 
 .settings-section-title {
   margin: 0.35rem 0 0.35rem;
   text-align: center;
   font-weight: 400;
+  font-size: 1.75rem;
 }
 
 .settings-color-row {
@@ -475,6 +477,7 @@ button:disabled {
   border: none;
   color: var(--text);
   padding: 0 0.35rem;
+  font-size: 1.5rem;
 }
 
 .settings-pill-btn {
@@ -535,6 +538,11 @@ button:disabled {
 
 .settings-actions-bottom {
   margin-top: 0.65rem;
+}
+
+.settings-actions-bottom .settings-pill-btn {
+  font-size: 1.2rem;
+  padding-inline: 0.45rem;
 }
 
 .settings-actions .settings-pill-btn {
