@@ -345,8 +345,8 @@ button:disabled {
 
 .bio-level-input {
   text-align: center;
-  padding-right: 2.7rem;
-  padding-left: 0.7rem;
+  padding-right: 2.35rem;
+  padding-left: 0.25rem;
 }
 
 .bio-level-control.readonly .bio-level-input {
@@ -366,7 +366,7 @@ button:disabled {
 .bio-level-arrows {
   position: absolute;
   top: 50%;
-  right: 0.75rem;
+  right: 0.48rem;
   transform: translateY(-50%);
   display: grid;
   gap: 0.08rem;
