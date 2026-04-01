@@ -297,72 +297,31 @@ function clearPendingSheetTimeout() {
 }
 
 function getLockOwner(lockId) {
-  return state.fieldLocks?.[lockId] || null;
+  return null;
 }
 
 function hasOwnedFieldLock() {
-  return Object.values(state.fieldLocks || {}).some((owner) => owner?.playerId === state.playerId);
+  return false;
 }
 
 function isLockedByOther(lockId) {
-  const owner = getLockOwner(lockId);
-  return owner && owner.playerId !== state.playerId;
+  return false;
 }
 
 function getElementLockId(el) {
-  if (el.id === "notes-area") return "notes";
-  if (el.dataset.field) return `field:${el.dataset.field}`;
-  if (el.dataset.stat) return `stat:${el.dataset.stat}`;
-  if (el.dataset.knowledgeName !== undefined || el.dataset.knowledgeTier !== undefined || el.dataset.knowledgeEnabled !== undefined) {
-    return `knowledge:${el.dataset.knowledgeName ?? el.dataset.knowledgeTier ?? el.dataset.knowledgeEnabled}`;
-  }
-  if (el.dataset.spellName !== undefined || el.dataset.spellEffect !== undefined || el.dataset.spellCost !== undefined) {
-    return `spell:${el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost}`;
-  }
-  if (el.name?.startsWith("costType-")) return `spell:${el.name.replace("costType-", "")}`;
-  const itemKey = el.dataset.itemName || el.dataset.itemCount || el.dataset.itemDesc || el.dataset.itemWeaponSlots || el.dataset.itemDefense || el.dataset.itemMagdef || el.dataset.itemEquipSlots;
-  if (itemKey) return `item:${itemKey}`;
   return null;
 }
 
 async function acquireFieldLock(lockId) {
-  if (!lockId || !state.roomId) return true;
-  const owner = getLockOwner(lockId);
-  if (owner && owner.playerId !== state.playerId) return false;
-  const nextOwner = { playerId: state.playerId, playerName: state.playerName || "Player", at: Date.now() };
-  state.fieldLocks = { ...state.fieldLocks, [lockId]: nextOwner };
-  syncFieldLockStates();
-  storage.setFieldLock(lockId, nextOwner).catch(() => {});
   return true;
 }
 
 async function releaseFieldLock(lockId) {
-  if (!lockId || !state.roomId) return;
-  const owner = getLockOwner(lockId);
-  if (!owner || owner.playerId !== state.playerId) return;
-  const nextLocks = { ...state.fieldLocks };
-  delete nextLocks[lockId];
-  state.fieldLocks = nextLocks;
-  syncFieldLockStates();
-  storage.setFieldLock(lockId, null).catch(() => {});
+  return;
 }
 
 function syncFieldLockStates() {
-  const app = document.getElementById(ROOT_ID);
-  if (!app) return;
-  app.querySelectorAll("input, textarea, select").forEach((el) => {
-    const lockId = getElementLockId(el);
-    if (!lockId) return;
-    const locked = isLockedByOther(lockId);
-    if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio" || el.type === "color" || el.type === "number") {
-      if (!el.dataset.baseDisabled) el.dataset.baseDisabled = el.disabled ? "true" : "false";
-      el.disabled = el.dataset.baseDisabled === "true" || locked;
-    } else {
-      if (!el.dataset.baseReadonly) el.dataset.baseReadonly = el.readOnly ? "true" : "false";
-      el.readOnly = el.dataset.baseReadonly === "true" || locked;
-    }
-    el.classList.toggle("field-locked", locked);
-  });
+  return;
 }
 
 function renderHeader() {
