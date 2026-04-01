@@ -67,10 +67,15 @@ div {
   min-height: 2.15rem;
 }
 
+.sheet-picker::before {
+  content: "";
+  flex: 0 0 2.1rem;
+}
+
 .sheet-title {
   flex: 1;
   min-width: 0;
-  padding: 0 0.75rem 0 2.2rem;
+  padding: 0 0.75rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
