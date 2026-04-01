@@ -305,6 +305,17 @@ function buildExportFilename(sheet, roomName = state.roomId || "Room") {
   return `${person}_${room || "Room"}_${stamp}.json`;
 }
 
+function getRoomLabel() {
+  try {
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    const last = ref?.pathname?.split("/").filter(Boolean).pop() || "";
+    if (last && last !== state.roomId && last.length < 80) {
+      return decodeURIComponent(last);
+    }
+  } catch (_) {}
+  return state.roomId || "Room";
+}
+
 function normalizeImportedSheet(raw) {
   const base = createEmptySheet(raw?.id || crypto.randomUUID());
   const next = {
@@ -1369,7 +1380,7 @@ function bindEvents() {
     const blob = new Blob([JSON.stringify(state.sheet, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = buildExportFilename(state.sheet);
+    a.download = buildExportFilename(state.sheet, getRoomLabel());
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -1385,7 +1396,7 @@ function bindEvents() {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = buildExportFilename({ bio: { name: "All", surname: "Sheets" } });
+    a.download = buildExportFilename({ bio: { name: "All", surname: "Sheets" } }, getRoomLabel());
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -1405,13 +1416,21 @@ function bindEvents() {
     if (!file || !state.roomId) return;
     const text = await file.text();
     try {
-      const sheet = normalizeImportedSheet(JSON.parse(text));
-      storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
-      await storage.persistSheet(state.roomId, sheet);
+      const imported = normalizeImportedSheet(JSON.parse(text));
+      if (state.activeSheetId) {
+        const confirmed = window.confirm(`Overwrite ${getSheetTitle()} with imported sheet?`);
+        if (!confirmed) {
+          e.target.value = "";
+          return;
+        }
+        imported.id = state.activeSheetId;
+      }
+      storage.saveSheetToStorage(state.roomId, imported, { persistRemote: false });
+      await storage.persistSheet(state.roomId, imported);
       state.sheetIds = await storage.getSheetList();
       const names = await storage.getRoomData();
       state.sheetNames = names.sheetNames || {};
-      await loadSheet(sheet.id);
+      await loadSheet(imported.id);
       render();
     } catch (err) {
       OBR.notification.show("Invalid file");
