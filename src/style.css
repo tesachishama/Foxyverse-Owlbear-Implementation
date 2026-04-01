@@ -193,7 +193,7 @@ div {
 .tabs {
   display: flex;
   gap: 0.12rem;
-  margin: 0 0.24rem 0.32rem;
+  margin: 0 0.24rem 0.5rem;
 }
 
 .tab-icon-btn {
