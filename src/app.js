@@ -121,7 +121,8 @@ async function loadRoomData() {
   await storage.setRoomData({ locale: state.locale });
 }
 
-async function loadSheet(sheetId) {
+async function loadSheet(sheetId, options = {}) {
+  const { forceRefresh = false } = options;
   if (!sheetId || !state.roomId) {
     state.sheet = null;
     state.activeSheetId = sheetId;
@@ -129,7 +130,7 @@ async function loadSheet(sheetId) {
     clearPendingSheetTimeout();
     return;
   }
-  let sheet = await storage.getSheet(state.roomId, sheetId);
+  let sheet = await storage.getSheet(state.roomId, sheetId, { forceRefresh });
   if (!sheet) {
     if (state.isGM) {
       sheet = createEmptySheet(sheetId);
@@ -139,7 +140,7 @@ async function loadSheet(sheetId) {
       state.pendingSheetId = sheetId;
       state.sheet = null;
       startPendingSheetTimeout(sheetId);
-      sheet = await storage.getSheet(state.roomId, sheetId);
+      sheet = await storage.getSheet(state.roomId, sheetId, { forceRefresh: true });
       if (!sheet) return;
       storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
     }
@@ -1373,7 +1374,7 @@ export async function initApp() {
         state.pendingSheetId = null;
         await loadSheet(visible[0] || null);
       } else {
-        await loadSheet(selectedSheetId);
+        await loadSheet(selectedSheetId, { forceRefresh: true });
       }
       render();
     });

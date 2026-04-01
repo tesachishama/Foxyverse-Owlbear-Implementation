@@ -30,9 +30,9 @@ async function ensureRoom(roomId) {
 async function listSheets(roomId) {
   const { data, error } = await supabase
     .from("sheets")
-    .select("id,name,updated_at")
+    .select("id,name,created_at,updated_at")
     .eq("room_id", roomId)
-    .order("updated_at", { ascending: true });
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -175,8 +175,9 @@ export function getSheetFromStorage(roomId, sheetId) {
   }
 }
 
-export async function getSheet(roomId, sheetId) {
-  const cached = getSheetFromStorage(roomId, sheetId);
+export async function getSheet(roomId, sheetId, options = {}) {
+  const { forceRefresh = false } = options;
+  const cached = forceRefresh ? null : getSheetFromStorage(roomId, sheetId);
   if (cached) return cached;
   const { data, error } = await supabase
     .from("sheets")
@@ -221,7 +222,7 @@ export async function getAllSheets(roomId) {
     .from("sheets")
     .select("sheet_data")
     .eq("room_id", roomId)
-    .order("updated_at", { ascending: true });
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return (data || []).map((row) => row.sheet_data).filter(Boolean);
 }
