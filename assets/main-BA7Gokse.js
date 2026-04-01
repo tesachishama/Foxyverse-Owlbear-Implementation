@@ -67,23 +67,23 @@ ${A}`}class F extends Error{constructor({message:e,code:s,cause:n,name:r}){var i
       <h2>${v("tabBio")}</h2>
       <div class="form-group">
         <label class="label">${v("name")}</label>
-        <input type="text" id="bio-name" value="${U(e.name)}" data-field="bio.name" ${pe(t.id)?"":"readonly"} />
+        <input type="text" value="${U(e.name)}" data-field="bio.name" ${pe(t.id)?"":"readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${v("surname")}</label>
-        <input type="text" id="bio-surname" value="${U(e.surname)}" data-field="bio.surname" ${pe(t.id)?"":"readonly"} />
+        <input type="text" value="${U(e.surname)}" data-field="bio.surname" ${pe(t.id)?"":"readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${v("element")}</label>
-        <input type="text" id="bio-element" value="${U(e.element)}" data-field="bio.element" ${pe(t.id)?"":"readonly"} />
+        <input type="text" value="${U(e.element)}" data-field="bio.element" ${pe(t.id)?"":"readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${v("class")}</label>
-        <input type="text" id="bio-class" value="${U(e.class)}" data-field="bio.class" ${pe(t.id)?"":"readonly"} />
+        <input type="text" value="${U(e.class)}" data-field="bio.class" ${pe(t.id)?"":"readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${v("level")}</label>
-        <input type="number" min="1" id="bio-level" value="${Number(e.level)||1}" data-field="bio.level" ${pe(t.id)?"":"readonly"} />
+        <input type="number" min="1" value="${Number(e.level)||1}" data-field="bio.level" ${pe(t.id)?"":"readonly"} />
       </div>
     </div>
   `}function U(t){return t==null?"":String(t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;")}function uu(){const t=h.sheet;if(!t)return`<div class="card"><p>${v("noSheet")}</p></div>`;const e=hr(t),s=_o(t),n=bo(t),r=wo(t),i=Eo(t),o=pe(t.id);let a=`
