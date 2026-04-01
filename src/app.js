@@ -373,23 +373,23 @@ function renderBioTab() {
       <h2>${t("tabBio")}</h2>
       <div class="form-group">
         <label class="label">${t("name")}</label>
-        <input type="text" id="bio-name" value="${escapeAttr(b.name)}" data-field="bio.name" ${canEdit(s.id) ? "" : "readonly"} />
+        <input type="text" value="${escapeAttr(b.name)}" data-field="bio.name" ${canEdit(s.id) ? "" : "readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${t("surname")}</label>
-        <input type="text" id="bio-surname" value="${escapeAttr(b.surname)}" data-field="bio.surname" ${canEdit(s.id) ? "" : "readonly"} />
+        <input type="text" value="${escapeAttr(b.surname)}" data-field="bio.surname" ${canEdit(s.id) ? "" : "readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${t("element")}</label>
-        <input type="text" id="bio-element" value="${escapeAttr(b.element)}" data-field="bio.element" ${canEdit(s.id) ? "" : "readonly"} />
+        <input type="text" value="${escapeAttr(b.element)}" data-field="bio.element" ${canEdit(s.id) ? "" : "readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${t("class")}</label>
-        <input type="text" id="bio-class" value="${escapeAttr(b.class)}" data-field="bio.class" ${canEdit(s.id) ? "" : "readonly"} />
+        <input type="text" value="${escapeAttr(b.class)}" data-field="bio.class" ${canEdit(s.id) ? "" : "readonly"} />
       </div>
       <div class="form-group">
         <label class="label">${t("level")}</label>
-        <input type="number" min="1" id="bio-level" value="${Number(b.level) || 1}" data-field="bio.level" ${canEdit(s.id) ? "" : "readonly"} />
+        <input type="number" min="1" value="${Number(b.level) || 1}" data-field="bio.level" ${canEdit(s.id) ? "" : "readonly"} />
       </div>
     </div>
   `;
