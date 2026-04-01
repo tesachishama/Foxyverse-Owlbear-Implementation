@@ -72,6 +72,14 @@ export async function setRoomData(update) {
   });
 }
 
+export async function setFieldLock(lockId, value) {
+  const roomData = await getRoomData();
+  const fieldLocks = { ...(roomData.fieldLocks || {}) };
+  if (value) fieldLocks[lockId] = value;
+  else delete fieldLocks[lockId];
+  await setRoomData({ fieldLocks });
+}
+
 export async function getSheetList() {
   const roomId = await getRoomId();
   const sheets = await listSheets(roomId);
@@ -199,18 +207,23 @@ export function saveSheetToStorage(roomId, sheet, options = {}) {
   const nextSheet = { ...sheet, updatedAt: Date.now() };
   localStorage.setItem(storageKey(roomId, sheet.id), JSON.stringify(nextSheet));
   if (!persistRemote) return;
-  ensureRoom(roomId)
-    .then(() =>
-      supabase.from("sheets").upsert({
-        id: nextSheet.id,
-        room_id: roomId,
-        name: getSheetName(nextSheet),
-        sheet_data: nextSheet,
-      })
-    )
+  persistSheet(roomId, nextSheet)
     .catch((error) => {
       console.error("Failed to persist sheet", error);
     });
+}
+
+export async function persistSheet(roomId, sheet) {
+  const nextSheet = { ...sheet, updatedAt: Date.now() };
+  localStorage.setItem(storageKey(roomId, sheet.id), JSON.stringify(nextSheet));
+  await ensureRoom(roomId);
+  const { error } = await supabase.from("sheets").upsert({
+    id: nextSheet.id,
+    room_id: roomId,
+    name: getSheetName(nextSheet),
+    sheet_data: nextSheet,
+  });
+  if (error) throw error;
 }
 
 export function removeSheetFromStorage(roomId, sheetId) {

@@ -77,6 +77,7 @@ const state = {
   pendingSheetId: null,
   pendingSheetTimer: null,
   startupError: "",
+  fieldLocks: {},
 };
 
 function canView(sheetId) {
@@ -113,6 +114,7 @@ async function loadRoomData() {
   state.permissions = roomData.permissions || {};
   state.tokenToSheet = roomData.tokenToSheet || {};
   state.playerDirectory = roomData.playerDirectory || {};
+  state.fieldLocks = roomData.fieldLocks || {};
   state.isGM = (await storage.getPlayerRole()) === "GM";
   state.playerId = await storage.getPlayerId();
   const locale = roomData.locale || localStorage.getItem("foxyverse_locale") || "en";
@@ -158,6 +160,28 @@ async function loadSheet(sheetId, options = {}) {
 function saveSheet() {
   if (!state.sheet || !state.roomId) return;
   storage.saveSheetToStorage(state.roomId, state.sheet);
+}
+
+function setByPath(obj, path, value) {
+  const parts = path.split(".");
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    if (!current[key] || typeof current[key] !== "object") current[key] = {};
+    current = current[key];
+  }
+  current[parts[parts.length - 1]] = value;
+}
+
+async function applySheetMutation(mutator) {
+  if (!state.sheet || !state.roomId || !state.activeSheetId) return null;
+  const latest = await storage.getSheet(state.roomId, state.activeSheetId, { forceRefresh: true }) || structuredClone(state.sheet);
+  mutator(latest);
+  if (!latest.theme) latest.theme = { ...state.colors };
+  state.sheet = latest;
+  storage.saveSheetToStorage(state.roomId, latest, { persistRemote: false });
+  await storage.persistSheet(state.roomId, latest);
+  return latest;
 }
 
 function pickRandom(max) {
@@ -271,6 +295,71 @@ function clearPendingSheetTimeout() {
   if (!state.pendingSheetTimer) return;
   clearTimeout(state.pendingSheetTimer);
   state.pendingSheetTimer = null;
+}
+
+function getLockOwner(lockId) {
+  return state.fieldLocks?.[lockId] || null;
+}
+
+function isLockedByOther(lockId) {
+  const owner = getLockOwner(lockId);
+  return owner && owner.playerId !== state.playerId;
+}
+
+function getElementLockId(el) {
+  if (el.id === "notes-area") return "notes";
+  if (el.dataset.field) return `field:${el.dataset.field}`;
+  if (el.dataset.stat) return `stat:${el.dataset.stat}`;
+  if (el.dataset.knowledgeName !== undefined || el.dataset.knowledgeTier !== undefined || el.dataset.knowledgeEnabled !== undefined) {
+    return `knowledge:${el.dataset.knowledgeName ?? el.dataset.knowledgeTier ?? el.dataset.knowledgeEnabled}`;
+  }
+  if (el.dataset.spellName !== undefined || el.dataset.spellEffect !== undefined || el.dataset.spellCost !== undefined) {
+    return `spell:${el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost}`;
+  }
+  if (el.name?.startsWith("costType-")) return `spell:${el.name.replace("costType-", "")}`;
+  const itemKey = el.dataset.itemName || el.dataset.itemCount || el.dataset.itemDesc || el.dataset.itemWeaponSlots || el.dataset.itemDefense || el.dataset.itemMagdef || el.dataset.itemEquipSlots;
+  if (itemKey) return `item:${itemKey}`;
+  return null;
+}
+
+async function acquireFieldLock(lockId) {
+  if (!lockId || !state.roomId) return true;
+  const owner = getLockOwner(lockId);
+  if (owner && owner.playerId !== state.playerId) return false;
+  const nextOwner = { playerId: state.playerId, playerName: state.playerName || "Player", at: Date.now() };
+  state.fieldLocks = { ...state.fieldLocks, [lockId]: nextOwner };
+  await storage.setFieldLock(lockId, nextOwner);
+  syncFieldLockStates();
+  return true;
+}
+
+async function releaseFieldLock(lockId) {
+  if (!lockId || !state.roomId) return;
+  const owner = getLockOwner(lockId);
+  if (!owner || owner.playerId !== state.playerId) return;
+  const nextLocks = { ...state.fieldLocks };
+  delete nextLocks[lockId];
+  state.fieldLocks = nextLocks;
+  await storage.setFieldLock(lockId, null);
+  syncFieldLockStates();
+}
+
+function syncFieldLockStates() {
+  const app = document.getElementById(ROOT_ID);
+  if (!app) return;
+  app.querySelectorAll("input, textarea, select").forEach((el) => {
+    const lockId = getElementLockId(el);
+    if (!lockId) return;
+    const locked = isLockedByOther(lockId);
+    if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio" || el.type === "color" || el.type === "number") {
+      if (!el.dataset.baseDisabled) el.dataset.baseDisabled = el.disabled ? "true" : "false";
+      el.disabled = el.dataset.baseDisabled === "true" || locked;
+    } else {
+      if (!el.dataset.baseReadonly) el.dataset.baseReadonly = el.readOnly ? "true" : "false";
+      el.readOnly = el.dataset.baseReadonly === "true" || locked;
+    }
+    el.classList.toggle("field-locked", locked);
+  });
 }
 
 function renderHeader() {
@@ -732,6 +821,22 @@ function bindEvents() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
 
+  app.querySelectorAll("input, textarea, select").forEach((el) => {
+    const lockId = getElementLockId(el);
+    if (!lockId) return;
+    el.addEventListener("focus", async (e) => {
+      if (!canEdit(state.activeSheetId)) return;
+      const ok = await acquireFieldLock(lockId);
+      if (!ok) {
+        e.target.blur();
+      }
+    });
+    el.addEventListener("blur", () => {
+      releaseFieldLock(lockId).catch(() => {});
+    });
+  });
+  syncFieldLockStates();
+
   app.querySelector("#btn-sheet-menu")?.addEventListener("click", () => {
     state.sheetMenuOpen = !state.sheetMenuOpen;
     render();
@@ -815,61 +920,64 @@ function bindEvents() {
       const field = e.target.dataset.field;
       let val = e.target.value;
       if (field === "bio.level") val = parseInt(val, 10) || 1;
-      if (field.startsWith("bio.")) {
-        const key = field.split(".")[1];
-        if (!state.sheet.bio) state.sheet.bio = {};
-        state.sheet.bio[key] = val;
-        if ((key === "name" || key === "surname") && state.activeSheetId) {
-          const displayName = [state.sheet.bio?.name || "", state.sheet.bio?.surname || ""].join(" ").trim() || "Name Surname";
-          state.sheetNames[state.activeSheetId] = displayName;
-          await storage.setSheetNameInRoom(state.activeSheetId, displayName);
+      const next = await applySheetMutation((sheet) => {
+        if (field.startsWith("bio.")) {
+          setByPath(sheet, field, val);
+        } else {
+          sheet[field] = isNaN(Number(val)) ? val : Number(val);
         }
-      } else {
-        state.sheet[field] = isNaN(Number(val)) ? val : Number(val);
+      });
+      if (field.startsWith("bio.") && state.activeSheetId && next) {
+        const displayName = [next.bio?.name || "", next.bio?.surname || ""].join(" ").trim() || "Name Surname";
+        state.sheetNames[state.activeSheetId] = displayName;
+        await storage.setSheetNameInRoom(state.activeSheetId, displayName);
       }
-      saveSheet();
       if (field === "bio.name" || field === "bio.surname") render();
     });
   });
 
   // Stats inputs
   app.querySelectorAll("[data-stat]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       if (!state.sheet) return;
       const [statId, key] = e.target.dataset.stat.split(".");
-      if (!state.sheet.stats[statId]) state.sheet.stats[statId] = {};
-      state.sheet.stats[statId][key] = parseInt(e.target.value, 10) || 0;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (!sheet.stats[statId]) sheet.stats[statId] = {};
+        sheet.stats[statId][key] = parseInt(e.target.value, 10) || 0;
+      });
       if (state.activeTab === "stats") render();
     });
   });
 
   // Knowledge
-  app.querySelector("#btn-add-knowledge")?.addEventListener("click", () => {
+  app.querySelector("#btn-add-knowledge")?.addEventListener("click", async () => {
     if (!state.sheet) return;
-    if (!state.sheet.knowledge) state.sheet.knowledge = [];
-    state.sheet.knowledge.push({ id: crypto.randomUUID(), name: "", tier: 1, enabled: true });
-    saveSheet();
+    await applySheetMutation((sheet) => {
+      if (!sheet.knowledge) sheet.knowledge = [];
+      sheet.knowledge.push({ id: crypto.randomUUID(), name: "", tier: 1, enabled: true });
+    });
     render();
   });
   app.querySelectorAll("[data-remove-knowledge]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const idx = parseInt(btn.dataset.removeKnowledge, 10);
-      state.sheet.knowledge.splice(idx, 1);
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        sheet.knowledge.splice(idx, 1);
+      });
       render();
     });
   });
   app.querySelectorAll("[data-knowledge-name], [data-knowledge-tier], [data-knowledge-enabled]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const d = e.target.dataset;
       const idx = parseInt(d.knowledgeName ?? d.knowledgeTier ?? d.knowledgeEnabled, 10);
-      if (isNaN(idx) || !state.sheet.knowledge[idx]) return;
-      const k = state.sheet.knowledge[idx];
-      if (d.knowledgeName !== undefined) k.name = e.target.value;
-      if (d.knowledgeTier !== undefined) k.tier = parseInt(e.target.value, 10);
-      if (d.knowledgeEnabled !== undefined) k.enabled = e.target.checked;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (isNaN(idx) || !sheet.knowledge[idx]) return;
+        const k = sheet.knowledge[idx];
+        if (d.knowledgeName !== undefined) k.name = e.target.value;
+        if (d.knowledgeTier !== undefined) k.tier = parseInt(e.target.value, 10);
+        if (d.knowledgeEnabled !== undefined) k.enabled = e.target.checked;
+      });
     });
   });
 
@@ -1001,36 +1109,41 @@ function bindEvents() {
   });
 
   // Spells
-  app.querySelector("#btn-add-spell")?.addEventListener("click", () => {
+  app.querySelector("#btn-add-spell")?.addEventListener("click", async () => {
     if (!state.sheet) return;
-    if (!state.sheet.spells) state.sheet.spells = [];
-    state.sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", cost: 0, costType: "mp" });
-    saveSheet();
+    await applySheetMutation((sheet) => {
+      if (!sheet.spells) sheet.spells = [];
+      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", cost: 0, costType: "mp" });
+    });
     render();
   });
   app.querySelectorAll("[data-remove-spell]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const idx = parseInt(btn.dataset.removeSpell, 10);
-      state.sheet.spells.splice(idx, 1);
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        sheet.spells.splice(idx, 1);
+      });
       render();
     });
   });
   app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-cost]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const idx = parseInt(el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost, 10);
-      const sp = state.sheet.spells[idx];
-      if (el.dataset.spellName !== undefined) sp.name = e.target.value;
-      if (el.dataset.spellEffect !== undefined) sp.effect = e.target.value;
-      if (el.dataset.spellCost !== undefined) sp.cost = parseInt(e.target.value, 10) || 0;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        const sp = sheet.spells[idx];
+        if (!sp) return;
+        if (el.dataset.spellName !== undefined) sp.name = e.target.value;
+        if (el.dataset.spellEffect !== undefined) sp.effect = e.target.value;
+        if (el.dataset.spellCost !== undefined) sp.cost = parseInt(e.target.value, 10) || 0;
+      });
     });
   });
   app.querySelectorAll("[name^='costType-']").forEach((radio) => {
-    radio.addEventListener("change", (e) => {
+    radio.addEventListener("change", async (e) => {
       const idx = parseInt(e.target.name.replace("costType-", ""), 10);
-      state.sheet.spells[idx].costType = e.target.value;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (sheet.spells[idx]) sheet.spells[idx].costType = e.target.value;
+      });
     });
   });
   app.querySelectorAll(".btn-deduct-cost").forEach((btn) => {
@@ -1059,27 +1172,28 @@ function bindEvents() {
 
   // Inventory
   app.querySelectorAll(".equip-select").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const slotId = el.dataset.slot;
       const itemId = e.target.value || null;
       if (!state.sheet) return;
-      const eq = { ...(state.sheet.equipped || {}) };
-      if (itemId) {
-        Object.keys(eq).forEach((s) => { if (eq[s] === itemId) delete eq[s]; });
-        eq[slotId] = itemId;
-        const item = findItemById(state.sheet, itemId);
-        if (item?.equippableSlots?.length) {
-          item.equippableSlots.forEach((s) => { eq[s] = itemId; });
+      await applySheetMutation((sheet) => {
+        const eq = { ...(sheet.equipped || {}) };
+        if (itemId) {
+          Object.keys(eq).forEach((s) => { if (eq[s] === itemId) delete eq[s]; });
+          eq[slotId] = itemId;
+          const item = findItemById(sheet, itemId);
+          if (item?.equippableSlots?.length) {
+            item.equippableSlots.forEach((s) => { eq[s] = itemId; });
+          }
+        } else {
+          const prevId = eq[slotId];
+          delete eq[slotId];
+          if (prevId) {
+            Object.keys(eq).forEach((s) => { if (eq[s] === prevId) delete eq[s]; });
+          }
         }
-      } else {
-        const prevId = eq[slotId];
-        delete eq[slotId];
-        if (prevId) {
-          Object.keys(eq).forEach((s) => { if (eq[s] === prevId) delete eq[s]; });
-        }
-      }
-      state.sheet.equipped = eq;
-      saveSheet();
+        sheet.equipped = eq;
+      });
       render();
     });
   });
@@ -1092,81 +1206,88 @@ function bindEvents() {
     });
   });
   app.querySelectorAll("[data-item-name], [data-item-count]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const key = el.dataset.itemName ?? el.dataset.itemCount;
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      if (!state.sheet?.[section]?.[idx]) return;
-      const it = state.sheet[section][idx];
-      if (el.dataset.itemName !== undefined) it.name = e.target.value;
-      if (el.dataset.itemCount !== undefined) it.count = parseInt(e.target.value, 10) || 0;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (!sheet?.[section]?.[idx]) return;
+        const it = sheet[section][idx];
+        if (el.dataset.itemName !== undefined) it.name = e.target.value;
+        if (el.dataset.itemCount !== undefined) it.count = parseInt(e.target.value, 10) || 0;
+      });
     });
   });
   app.querySelectorAll("[data-item-desc]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const key = el.dataset.itemDesc;
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      if (!state.sheet?.[section]?.[idx]) return;
-      state.sheet[section][idx].description = e.target.value;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (!sheet?.[section]?.[idx]) return;
+        sheet[section][idx].description = e.target.value;
+      });
     });
   });
   app.querySelectorAll("[data-item-weapon-slots], [data-item-defense], [data-item-magdef]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const key = (el.dataset.itemWeaponSlots || el.dataset.itemDefense || el.dataset.itemMagdef || "");
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      if (!state.sheet?.[section]?.[idx]) return;
-      const it = state.sheet[section][idx];
-      if (el.dataset.itemWeaponSlots !== undefined) it.weaponSlots = parseInt(e.target.value, 10) || 1;
-      if (el.dataset.itemDefense !== undefined) it.defense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
-      if (el.dataset.itemMagdef !== undefined) it.magicalDefense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (!sheet?.[section]?.[idx]) return;
+        const it = sheet[section][idx];
+        if (el.dataset.itemWeaponSlots !== undefined) it.weaponSlots = parseInt(e.target.value, 10) || 1;
+        if (el.dataset.itemDefense !== undefined) it.defense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
+        if (el.dataset.itemMagdef !== undefined) it.magicalDefense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
+      });
     });
   });
   app.querySelectorAll("[data-item-equip-slots]").forEach((el) => {
-    el.addEventListener("change", (e) => {
+    el.addEventListener("change", async (e) => {
       const key = el.dataset.itemEquipSlots;
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      if (!state.sheet?.[section]?.[idx]) return;
       const raw = (e.target.value || "").split(",").map((s) => s.trim()).filter(Boolean);
-      state.sheet[section][idx].equippableSlots = raw;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (!sheet?.[section]?.[idx]) return;
+        sheet[section][idx].equippableSlots = raw;
+      });
     });
   });
   app.querySelectorAll("[data-remove-item]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const raw = btn.dataset.removeItem;
       const lastHyphen = raw.lastIndexOf("-");
       const section = raw.slice(0, lastHyphen);
       const idx = parseInt(raw.slice(lastHyphen + 1), 10);
-      if (state.sheet[section]) state.sheet[section].splice(idx, 1);
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (sheet[section]) sheet[section].splice(idx, 1);
+      });
       render();
     });
   });
   app.querySelectorAll(".btn-add-item").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const section = btn.dataset.section;
-      if (!state.sheet[section]) state.sheet[section] = [];
-      state.sheet[section].push({ id: crypto.randomUUID(), type: section === "weapons" ? "weapon" : section === "armor" ? "armor" : section === "consumables" ? "consumable" : section === "bags" ? "bag" : "other", name: "", count: 1, description: "" });
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        if (!sheet[section]) sheet[section] = [];
+        sheet[section].push({ id: crypto.randomUUID(), type: section === "weapons" ? "weapon" : section === "armor" ? "armor" : section === "consumables" ? "consumable" : section === "bags" ? "bag" : "other", name: "", count: 1, description: "" });
+      });
       render();
     });
   });
 
   // Notes
-  app.querySelector("#notes-area")?.addEventListener("change", (e) => {
+  app.querySelector("#notes-area")?.addEventListener("change", async (e) => {
     if (state.sheet) {
-      state.sheet.notes = e.target.value;
-      saveSheet();
+      await applySheetMutation((sheet) => {
+        sheet.notes = e.target.value;
+      });
     }
   });
 
@@ -1380,7 +1501,18 @@ export async function initApp() {
     });
 
     OBR.room.onMetadataChange(async () => {
+      const prevFieldLocks = JSON.stringify(state.fieldLocks || {});
+      const prevSheetIds = JSON.stringify(state.sheetIds || []);
+      const prevPermissions = JSON.stringify(state.permissions || {});
       await loadRoomData();
+      const onlyLocksChanged =
+        prevSheetIds === JSON.stringify(state.sheetIds || [])
+        && prevPermissions === JSON.stringify(state.permissions || {})
+        && prevFieldLocks !== JSON.stringify(state.fieldLocks || {});
+      if (onlyLocksChanged) {
+        syncFieldLockStates();
+        return;
+      }
       requestVisibleSheets();
       const visible = getVisibleSheets();
       const selectedSheetId = state.pendingSheetId || state.activeSheetId;
