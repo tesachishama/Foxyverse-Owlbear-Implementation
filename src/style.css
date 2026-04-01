@@ -70,7 +70,7 @@ div {
 .sheet-title {
   flex: 1;
   min-width: 0;
-  padding: 0 0.95rem 0 1.05rem;
+  padding: 0 0.75rem 0 2.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
