@@ -1,5 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { supabase } from "./supabase.js";
+import { createEmptySheet, STAT_IDS } from "./schema.js";
 
 const ROOM_META_KEY = "foxyverse";
 const STORAGE_PREFIX = "foxyverse_sheet_";
@@ -18,19 +19,57 @@ function normalizePermissions(rows) {
   return permissions;
 }
 
-function getSheetName(sheet) {
-  return [sheet?.bio?.name || "", sheet?.bio?.surname || ""].join(" ").trim() || "Name Surname";
+function getDisplayNameFromBio(bio) {
+  return [bio?.name || "", bio?.surname || ""].join(" ").trim() || "Name Surname";
+}
+
+function parseSignedModifier(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num === 0) return "";
+  return num > 0 ? `+${num}` : `${num}`;
+}
+
+function modifierToInt(value) {
+  const text = String(value || "").trim();
+  if (!text) return 0;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toSectionKey(type) {
+  if (type === "weapon") return "weapons";
+  if (type === "armor") return "armor";
+  if (type === "consumable") return "consumables";
+  if (type === "bag") return "bags";
+  return "others";
+}
+
+function serializeUsedSlots(sheet, item) {
+  const equippedSlots = Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
+  const out = {};
+  if (equippedSlots.length) out.equippedSlots = equippedSlots;
+  if (item.weaponSlots != null) out.weaponSlots = item.weaponSlots;
+  return Object.keys(out).length ? out : null;
+}
+
+function deserializeUsedSlots(raw) {
+  if (!raw) return { equippedSlots: [], weaponSlots: undefined };
+  if (Array.isArray(raw)) return { equippedSlots: raw, weaponSlots: undefined };
+  return {
+    equippedSlots: Array.isArray(raw.equippedSlots) ? raw.equippedSlots : [],
+    weaponSlots: raw.weaponSlots == null ? undefined : Number(raw.weaponSlots) || 1,
+  };
 }
 
 async function ensureRoom(roomId) {
-  const { error } = await supabase.from("rooms").upsert({ id: roomId });
+  const { error } = await supabase.from("room").upsert({ id: roomId });
   if (error) throw error;
 }
 
 async function listSheets(roomId) {
   const { data, error } = await supabase
-    .from("sheets")
-    .select("id,name,created_at,updated_at")
+    .from("sheet")
+    .select("id, created_at, bio(name, surname)")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -43,10 +82,262 @@ async function listPermissionsForRoom(roomId) {
   if (sheetIds.length === 0) return [];
   const { data, error } = await supabase
     .from("sheet_permissions")
-    .select("sheet_id,player_id,can_view,can_edit")
+    .select("sheet_id, player_id, can_view, can_edit")
     .in("sheet_id", sheetIds);
   if (error) throw error;
   return data || [];
+}
+
+async function fetchSheetRows(roomId, sheetId) {
+  const [
+    sheetRes,
+    bioRes,
+    statRes,
+    talentRes,
+    spellRes,
+    currencyRes,
+    itemRes,
+  ] = await Promise.all([
+    supabase.from("sheet").select("*").eq("room_id", roomId).eq("id", sheetId).single(),
+    supabase.from("bio").select("*").eq("sheet_id", sheetId).maybeSingle(),
+    supabase.from("stat").select("*").eq("sheet_id", sheetId),
+    supabase.from("talent").select("*").eq("sheet_id", sheetId).order("position", { ascending: true }),
+    supabase.from("spell").select("*").eq("sheet_id", sheetId).order("position", { ascending: true }),
+    supabase.from("currency").select("*").eq("sheet_id", sheetId).maybeSingle(),
+    supabase.from("item").select("*").eq("sheet_id", sheetId).order("position", { ascending: true }),
+  ]);
+
+  const singleErrors = [sheetRes.error, bioRes.error, currencyRes.error].filter(Boolean);
+  const listErrors = [statRes.error, talentRes.error, spellRes.error, itemRes.error].filter(Boolean);
+  const fatalSingleErrors = singleErrors.filter((error) => error.code !== "PGRST116");
+  if (fatalSingleErrors.length) throw fatalSingleErrors[0];
+  if (listErrors.length) throw listErrors[0];
+
+  return {
+    sheet: sheetRes.data,
+    bio: bioRes.data,
+    stats: statRes.data || [],
+    talents: talentRes.data || [],
+    spells: spellRes.data || [],
+    currency: currencyRes.data,
+    items: itemRes.data || [],
+  };
+}
+
+function assembleSheet(sheetId, rows) {
+  if (!rows.sheet) return null;
+  const base = createEmptySheet(sheetId);
+  base.createdAt = rows.sheet.created_at ? Date.parse(rows.sheet.created_at) || Date.now() : Date.now();
+  base.updatedAt = rows.sheet.updated_at ? Date.parse(rows.sheet.updated_at) || Date.now() : Date.now();
+  base.notes = rows.sheet.notes || "";
+  base.tempHP = rows.sheet.temporary_health ?? 0;
+  base.currentHP = rows.sheet.current_health ?? 0;
+  base.currentMP = rows.sheet.current_mana ?? 0;
+  base.currentFavor = rows.sheet.current_favor ?? 0;
+  base.actionModifier = parseSignedModifier(rows.sheet.bonus_action);
+  base.speedModifier = parseSignedModifier(rows.sheet.bonus_speed);
+  base.theme = {
+    bg: rows.sheet.color_bg || base.theme.bg,
+    ui: rows.sheet.color_ui || base.theme.ui,
+    text: rows.sheet.color_text || base.theme.text,
+  };
+  base.isElemental = !!rows.sheet.is_elemental;
+
+  base.bio = {
+    name: rows.bio?.name || "",
+    surname: rows.bio?.surname || "",
+    element: rows.bio?.element || "",
+    class: rows.bio?.class || "",
+    level: rows.bio?.level ?? 1,
+  };
+
+  rows.stats.forEach((row) => {
+    if (!base.stats[row.stat_id]) return;
+    base.stats[row.stat_id].base = row.base ?? 5;
+    base.stats[row.stat_id].passiveBonus = row.passive ?? 0;
+    base.stats[row.stat_id].xpBonus = 0;
+    base.stats[row.stat_id].itemBonus = 0;
+  });
+
+  base.knowledge = rows.talents.map((row) => ({
+    id: row.id,
+    name: row.name || "",
+    description: row.description || "",
+    tier: row.tier ?? 1,
+    bonusOverride: row.bonus_override,
+    enabled: !!row.is_enabled,
+  }));
+
+  base.spells = rows.spells.map((row) => ({
+    id: row.id,
+    name: row.name || "",
+    effect: row.description || "",
+    cost: row.cost ?? 0,
+    costType: row.is_hp ? "hp" : "mp",
+    isContinuous: !!row.is_continuous,
+    useCounter: row.use_counter ?? 0,
+  }));
+
+  base.currency = {
+    gold: rows.currency?.gold ?? 0,
+    silver: rows.currency?.silver ?? 0,
+    copper: rows.currency?.copper ?? 0,
+  };
+
+  rows.items.forEach((row) => {
+    const section = toSectionKey(row.type);
+    const usedSlots = deserializeUsedSlots(row.used_slots);
+    const item = {
+      id: row.id,
+      type: row.type,
+      name: row.name || "",
+      description: row.description || "",
+      count: row.quantity ?? 1,
+      defense: row.physical_defense ?? 0,
+      magicalDefense: row.magical_defense ?? 0,
+      equippableSlots: Array.isArray(row.usable_slots?.slots)
+        ? row.usable_slots.slots
+        : Array.isArray(row.usable_slots)
+          ? row.usable_slots
+          : [],
+      weaponSlots: usedSlots.weaponSlots,
+      constitution: row.constitution ?? 0,
+      strength: row.strength ?? 0,
+      intelligence: row.intelligence ?? 0,
+      perception: row.perception ?? 0,
+      social: row.social ?? 0,
+      agility: row.agility ?? 0,
+      focus: row.focus ?? 0,
+    };
+    base[section].push(item);
+    usedSlots.equippedSlots.forEach((slotId) => {
+      base.equipped[slotId] = row.id;
+    });
+  });
+
+  return base;
+}
+
+async function persistRows(roomId, sheet) {
+  await ensureRoom(roomId);
+
+  const sheetRow = {
+    id: sheet.id,
+    room_id: roomId,
+    is_elemental: !!sheet.isElemental,
+    current_health: sheet.currentHP ?? 0,
+    temporary_health: sheet.tempHP ?? 0,
+    current_mana: sheet.currentMP ?? 0,
+    current_favor: sheet.currentFavor ?? 0,
+    bonus_action: modifierToInt(sheet.actionModifier),
+    bonus_speed: modifierToInt(sheet.speedModifier),
+    notes: sheet.notes || "",
+    color_bg: sheet.theme?.bg || "#4b002c",
+    color_ui: sheet.theme?.ui || "#ffdbff",
+    color_text: sheet.theme?.text || "#eba5ff",
+  };
+  const { error: sheetError } = await supabase.from("sheet").upsert(sheetRow);
+  if (sheetError) throw sheetError;
+
+  const bioRow = {
+    sheet_id: sheet.id,
+    name: sheet.bio?.name || "",
+    surname: sheet.bio?.surname || "",
+    element: sheet.bio?.element || "",
+    class: sheet.bio?.class || "",
+    level: Number(sheet.bio?.level) || 1,
+  };
+  const { error: bioError } = await supabase.from("bio").upsert(bioRow);
+  if (bioError) throw bioError;
+
+  const statRows = STAT_IDS.map((statId) => ({
+    sheet_id: sheet.id,
+    stat_id: statId,
+    base: Number(sheet.stats?.[statId]?.base) || 5,
+    passive: Number(sheet.stats?.[statId]?.passiveBonus) || 0,
+  }));
+  const { error: deleteStatError } = await supabase.from("stat").delete().eq("sheet_id", sheet.id);
+  if (deleteStatError) throw deleteStatError;
+  const { error: statError } = await supabase.from("stat").insert(statRows);
+  if (statError) throw statError;
+
+  const talentRows = (sheet.knowledge || []).map((talent, position) => ({
+    id: talent.id,
+    sheet_id: sheet.id,
+    position,
+    name: talent.name || "",
+    description: talent.description || "",
+    tier: talent.tier ?? 1,
+    bonus_override: talent.bonusOverride ?? null,
+    is_enabled: !!talent.enabled,
+  }));
+  const { error: deleteTalentError } = await supabase.from("talent").delete().eq("sheet_id", sheet.id);
+  if (deleteTalentError) throw deleteTalentError;
+  if (talentRows.length) {
+    const { error: talentError } = await supabase.from("talent").insert(talentRows);
+    if (talentError) throw talentError;
+  }
+
+  const spellRows = (sheet.spells || []).map((spell, position) => ({
+    id: spell.id,
+    sheet_id: sheet.id,
+    position,
+    name: spell.name || "",
+    description: spell.effect || "",
+    cost: Number(spell.cost) || 0,
+    is_hp: (spell.costType || "mp") === "hp",
+    is_continuous: !!spell.isContinuous,
+    use_counter: Number(spell.useCounter) || 0,
+  }));
+  const { error: deleteSpellError } = await supabase.from("spell").delete().eq("sheet_id", sheet.id);
+  if (deleteSpellError) throw deleteSpellError;
+  if (spellRows.length) {
+    const { error: spellError } = await supabase.from("spell").insert(spellRows);
+    if (spellError) throw spellError;
+  }
+
+  const currencyRow = {
+    sheet_id: sheet.id,
+    gold: Number(sheet.currency?.gold) || 0,
+    silver: Number(sheet.currency?.silver) || 0,
+    copper: Number(sheet.currency?.copper) || 0,
+  };
+  const { error: currencyError } = await supabase.from("currency").upsert(currencyRow);
+  if (currencyError) throw currencyError;
+
+  const allItems = [
+    ...(sheet.consumables || []).map((item) => ({ ...item, type: "consumable" })),
+    ...(sheet.others || []).map((item) => ({ ...item, type: "other" })),
+    ...(sheet.weapons || []).map((item) => ({ ...item, type: "weapon" })),
+    ...(sheet.armor || []).map((item) => ({ ...item, type: "armor" })),
+    ...(sheet.bags || []).map((item) => ({ ...item, type: "bag" })),
+  ];
+  const itemRows = allItems.map((item, position) => ({
+    id: item.id,
+    sheet_id: sheet.id,
+    type: item.type || "other",
+    position,
+    name: item.name || "",
+    description: item.description || "",
+    quantity: Number(item.count) || 1,
+    physical_defense: Number(item.defense) || 0,
+    magical_defense: Number(item.magicalDefense) || 0,
+    constitution: Number(item.constitution) || 0,
+    strength: Number(item.strength) || 0,
+    intelligence: Number(item.intelligence) || 0,
+    perception: Number(item.perception) || 0,
+    social: Number(item.social) || 0,
+    agility: Number(item.agility) || 0,
+    focus: Number(item.focus) || 0,
+    usable_slots: item.equippableSlots?.length ? { slots: item.equippableSlots } : null,
+    used_slots: serializeUsedSlots(sheet, item),
+  }));
+  const { error: deleteItemError } = await supabase.from("item").delete().eq("sheet_id", sheet.id);
+  if (deleteItemError) throw deleteItemError;
+  if (itemRows.length) {
+    const { error: itemError } = await supabase.from("item").insert(itemRows);
+    if (itemError) throw itemError;
+  }
 }
 
 export async function getRoomData() {
@@ -59,7 +350,9 @@ export async function getRoomData() {
   return {
     ...(meta[ROOM_META_KEY] || {}),
     sheetIds: sheets.map((sheet) => sheet.id),
-    sheetNames: Object.fromEntries(sheets.map((sheet) => [sheet.id, sheet.name || "Name Surname"])),
+    sheetNames: Object.fromEntries(
+      sheets.map((sheet) => [sheet.id, getDisplayNameFromBio(Array.isArray(sheet.bio) ? sheet.bio[0] : sheet.bio)])
+    ),
     permissions: normalizePermissions(permissionRows),
   };
 }
@@ -86,29 +379,20 @@ export async function getSheetList() {
   return sheets.map((sheet) => sheet.id);
 }
 
-export async function addSheetToRoom(sheetId, name) {
+export async function addSheetToRoom(sheetId) {
   const roomId = await getRoomId();
-  await ensureRoom(roomId);
-  const sheet = getSheetFromStorage(roomId, sheetId);
-  const payload = {
-    id: sheetId,
-    room_id: roomId,
-    name: name || getSheetName(sheet),
-    sheet_data: sheet || {},
-  };
-  const { error } = await supabase.from("sheets").upsert(payload);
-  if (error) throw error;
+  const sheet = getSheetFromStorage(roomId, sheetId) || createEmptySheet(sheetId);
+  await persistRows(roomId, sheet);
 }
 
 export async function getSheetNameInRoom(sheetId) {
-  const { data, error } = await supabase.from("sheets").select("name").eq("id", sheetId).single();
-  if (error) throw error;
-  return data?.name ?? "Name Surname";
+  const { data, error } = await supabase.from("bio").select("name, surname").eq("sheet_id", sheetId).maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  return getDisplayNameFromBio(data);
 }
 
-export async function setSheetNameInRoom(sheetId, name) {
-  const { error } = await supabase.from("sheets").update({ name: name || "Name Surname" }).eq("id", sheetId);
-  if (error) throw error;
+export async function setSheetNameInRoom() {
+  return;
 }
 
 export async function removeSheetFromRoom(sheetId) {
@@ -119,7 +403,7 @@ export async function removeSheetFromRoom(sheetId) {
     if (tokenToSheet[tid] === sheetId) delete tokenToSheet[tid];
   });
   await setRoomData({ tokenToSheet });
-  const { error } = await supabase.from("sheets").delete().eq("room_id", roomId).eq("id", sheetId);
+  const { error } = await supabase.from("sheet").delete().eq("room_id", roomId).eq("id", sheetId);
   if (error) throw error;
 }
 
@@ -146,10 +430,7 @@ export async function setPermissions(permissions) {
       });
     });
   });
-  const { error: deleteError } = await supabase
-    .from("sheet_permissions")
-    .delete()
-    .in("sheet_id", [...sheetIds]);
+  const { error: deleteError } = await supabase.from("sheet_permissions").delete().in("sheet_id", [...sheetIds]);
   if (deleteError) throw deleteError;
   if (rows.length > 0) {
     const { error: insertError } = await supabase.from("sheet_permissions").insert(rows);
@@ -187,17 +468,8 @@ export async function getSheet(roomId, sheetId, options = {}) {
   const { forceRefresh = false } = options;
   const cached = forceRefresh ? null : getSheetFromStorage(roomId, sheetId);
   if (cached) return cached;
-  const { data, error } = await supabase
-    .from("sheets")
-    .select("sheet_data")
-    .eq("room_id", roomId)
-    .eq("id", sheetId)
-    .single();
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw error;
-  }
-  const sheet = data?.sheet_data || null;
+  const rows = await fetchSheetRows(roomId, sheetId);
+  const sheet = assembleSheet(sheetId, rows);
   if (sheet) saveSheetToStorage(roomId, sheet, { persistRemote: false });
   return sheet;
 }
@@ -207,23 +479,15 @@ export function saveSheetToStorage(roomId, sheet, options = {}) {
   const nextSheet = { ...sheet, updatedAt: Date.now() };
   localStorage.setItem(storageKey(roomId, sheet.id), JSON.stringify(nextSheet));
   if (!persistRemote) return;
-  persistSheet(roomId, nextSheet)
-    .catch((error) => {
-      console.error("Failed to persist sheet", error);
-    });
+  persistSheet(roomId, nextSheet).catch((error) => {
+    console.error("Failed to persist sheet", error);
+  });
 }
 
 export async function persistSheet(roomId, sheet) {
   const nextSheet = { ...sheet, updatedAt: Date.now() };
-  localStorage.setItem(storageKey(roomId, sheet.id), JSON.stringify(nextSheet));
-  await ensureRoom(roomId);
-  const { error } = await supabase.from("sheets").upsert({
-    id: nextSheet.id,
-    room_id: roomId,
-    name: getSheetName(nextSheet),
-    sheet_data: nextSheet,
-  });
-  if (error) throw error;
+  localStorage.setItem(storageKey(roomId, nextSheet.id), JSON.stringify(nextSheet));
+  await persistRows(roomId, nextSheet);
 }
 
 export function removeSheetFromStorage(roomId, sheetId) {
@@ -231,52 +495,49 @@ export function removeSheetFromStorage(roomId, sheetId) {
 }
 
 export async function getAllSheets(roomId) {
-  const { data, error } = await supabase
-    .from("sheets")
-    .select("sheet_data")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data || []).map((row) => row.sheet_data).filter(Boolean);
+  const sheets = await listSheets(roomId);
+  return Promise.all(sheets.map((sheet) => getSheet(roomId, sheet.id, { forceRefresh: true })));
 }
 
-export function onBroadcast() {
-  return () => {};
+async function eventBelongsToRoom(roomId, payload) {
+  const table = payload?.table;
+  if (table === "sheet") {
+    const row = payload.new || payload.old;
+    return row?.room_id === roomId;
+  }
+  const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id;
+  if (!sheetId) return false;
+  const { data, error } = await supabase.from("sheet").select("room_id").eq("id", sheetId).single();
+  return !error && data?.room_id === roomId;
 }
-
-export async function requestSheet() {}
-
-export async function broadcastSheet() {}
-
-export async function broadcastPermissionsUpdated() {}
 
 export function subscribeToRoom(roomId, callback) {
   const channel = supabase
     .channel(`foxyverse-room-${roomId}`)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "sheets", filter: `room_id=eq.${roomId}` },
-      callback
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "sheet_permissions" },
-      async (payload) => {
-        const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id;
-        if (!sheetId) {
-          callback(payload);
-          return;
-        }
-        const { data, error } = await supabase
-          .from("sheets")
-          .select("room_id")
-          .eq("id", sheetId)
-          .single();
-        if (!error && data?.room_id === roomId) {
-          callback(payload);
-        }
-      }
-    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "sheet" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "sheet_permissions" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "bio" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "stat" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "talent" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "spell" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "currency" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "item" }, async (payload) => {
+      if (await eventBelongsToRoom(roomId, payload)) callback(payload);
+    })
     .subscribe();
   return () => {
     supabase.removeChannel(channel);
