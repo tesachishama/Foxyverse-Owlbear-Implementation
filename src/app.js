@@ -845,6 +845,18 @@ function bindEvents() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
 
+  if (!app.dataset.outsideClickBound) {
+    app.addEventListener("click", (e) => {
+      if (!state.sheetMenuOpen) return;
+      const picker = e.target.closest(".sheet-picker");
+      if (!picker) {
+        state.sheetMenuOpen = false;
+        render();
+      }
+    });
+    app.dataset.outsideClickBound = "true";
+  }
+
   app.querySelectorAll("input, textarea, select").forEach((el) => {
     const lockId = getElementLockId(el);
     if (!lockId) return;
