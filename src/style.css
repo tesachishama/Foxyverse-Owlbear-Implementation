@@ -568,6 +568,7 @@ button:disabled {
 }
 
 .chat-messages {
+  --chat-msg-pad-right: 0.5rem;
   flex: 1;
   min-height: 180px;
   overflow-y: auto;
@@ -575,7 +576,8 @@ button:disabled {
   scrollbar-width: none;
   -ms-overflow-style: none;
   background: transparent;
-  padding: 0.55rem 0.5rem 0.55rem 0.65rem;
+  /* Was 0.5rem to scrollbar; keep one third of that gap so bubbles shift left */
+  padding: 0.55rem calc(var(--chat-msg-pad-right) / 3) 0.55rem 0.65rem;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -596,7 +598,7 @@ button:disabled {
 .chat-msg-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 0.35rem;
   margin-bottom: 0.28rem;
   line-height: 1.2;
@@ -621,7 +623,6 @@ button:disabled {
   color: var(--text);
   opacity: 0.72;
   box-sizing: border-box;
-  align-self: start;
 }
 
 .chat-msg-delete-btn:hover {
