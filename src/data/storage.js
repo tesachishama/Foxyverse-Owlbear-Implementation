@@ -5,6 +5,21 @@ import { createEmptySheet, STAT_IDS } from "./schema.js";
 const ROOM_META_KEY = "foxyverse";
 const STORAGE_PREFIX = "foxyverse_sheet_";
 
+/** Allow only simple identifiers for dynamic chat column names (env overrides). */
+function sanitizeSqlIdent(name, fallback) {
+  const s = String(name || "").trim();
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(s) ? s : fallback;
+}
+
+const CHAT_BODY_COL = sanitizeSqlIdent(import.meta.env.VITE_CHAT_MESSAGE_COLUMN, "message");
+const CHAT_TIME_COL = sanitizeSqlIdent(import.meta.env.VITE_CHAT_TIME_COLUMN, "time_sent");
+
+/** Resolve message body from a Supabase row (handles env column name + common fallbacks). */
+export function getChatMessageText(row) {
+  if (!row) return "";
+  return row[CHAT_BODY_COL] ?? row.message ?? row.content ?? "";
+}
+
 function storageKey(roomId, sheetId) {
   return `${STORAGE_PREFIX}${roomId}_${sheetId}`;
 }
@@ -734,15 +749,16 @@ async function eventBelongsToRoom(roomId, payload) {
 }
 
 /**
- * Room chat (your Supabase schema): id, room_id, sheet_id, player_id, message, time_sent.
- * Text column must be `message`; timestamp must be `time_sent`.
+ * Room chat: columns default to `message` and `time_sent`.
+ * Override with VITE_CHAT_MESSAGE_COLUMN / VITE_CHAT_TIME_COLUMN if your table differs (e.g. content, created_at).
  */
 export async function listRecentChat(roomId, limit = 200) {
+  const selectCols = `id, ${CHAT_TIME_COL}, player_id, sheet_id, ${CHAT_BODY_COL}`;
   const { data, error } = await supabase
     .from("chat")
-    .select("id, time_sent, player_id, sheet_id, message")
+    .select(selectCols)
     .eq("room_id", roomId)
-    .order("time_sent", { ascending: false })
+    .order(CHAT_TIME_COL, { ascending: false })
     .limit(limit);
   if (error) throw error;
   const rows = data || [];
@@ -751,18 +767,22 @@ export async function listRecentChat(roomId, limit = 200) {
 
 export async function insertChatMessage(roomId, { playerId, sheetId, body }) {
   await ensureRoom(roomId);
-  const { data, error } = await supabase
-    .from("chat")
-    .insert({
-      room_id: roomId,
-      player_id: playerId || "",
-      sheet_id: sheetId || null,
-      message: body || "",
-    })
-    .select("id, time_sent, player_id, sheet_id, message")
-    .single();
+  const insertPayload = {
+    room_id: roomId,
+    player_id: playerId || "",
+    sheet_id: sheetId || null,
+  };
+  insertPayload[CHAT_BODY_COL] = body || "";
+  const selectCols = `id, ${CHAT_TIME_COL}, player_id, sheet_id, ${CHAT_BODY_COL}`;
+  const { data, error } = await supabase.from("chat").insert(insertPayload).select(selectCols);
   if (error) throw error;
-  return data;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    throw new Error(
+      'Chat insert returned no row. Check RLS policies for "chat" (INSERT must return the new row to the client).'
+    );
+  }
+  return row;
 }
 
 /** Subscribe to new chat lines for a room (INSERT only). */

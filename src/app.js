@@ -425,7 +425,7 @@ function mapChatRow(row) {
     id: row.id,
     playerId: row.player_id || "",
     sheetId: row.sheet_id || null,
-    body: row.message || "",
+    body: storage.getChatMessageText(row),
   };
 }
 
@@ -857,6 +857,7 @@ function setupChatScrollbar() {
   try {
     const ro = new ResizeObserver(() => updateThumb());
     ro.observe(scrollEl);
+    ro.observe(track);
   } catch (_) {}
 
   const step = () => Math.max(60, Math.floor(scrollEl.clientHeight * 0.85));
@@ -1775,7 +1776,8 @@ function bindEvents() {
       render();
     } catch (err) {
       console.error(err);
-      OBR.notification.show("Chat send failed");
+      const detail = err?.message || err?.details || String(err);
+      OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
     }
   }
 
