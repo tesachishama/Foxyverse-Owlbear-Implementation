@@ -568,7 +568,6 @@ button:disabled {
 }
 
 .chat-messages {
-  --chat-msg-pad-right: 0.5rem;
   flex: 1;
   min-height: 180px;
   overflow-y: auto;
@@ -576,8 +575,8 @@ button:disabled {
   scrollbar-width: none;
   -ms-overflow-style: none;
   background: transparent;
-  /* Was 0.5rem to scrollbar; keep one third of that gap so bubbles shift left */
-  padding: 0.55rem calc(var(--chat-msg-pad-right) / 3) 0.55rem 0.65rem;
+  /* Inset from scrollbar column: was 0.5rem; gap vs scrollbar is this + scrollbar pad-left */
+  padding: 0.55rem calc(0.5rem / 3) 0.55rem 0.65rem;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -600,7 +599,7 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.35rem;
-  margin-bottom: 0.28rem;
+  margin-bottom: calc(0.28rem / 3);
   line-height: 1.2;
 }
 
@@ -664,7 +663,7 @@ button:disabled {
   align-self: stretch;
   width: 1.75rem;
   flex-shrink: 0;
-  padding: 0.35rem max(0px, calc(0.25rem - 2px)) 0.35rem 0.25rem;
+  padding: 0.35rem max(0px, calc(0.25rem - 2px)) 0.35rem calc(0.25rem / 3);
   box-sizing: border-box;
   min-height: 0;
 }
