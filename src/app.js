@@ -1052,10 +1052,14 @@ function render() {
   applyColors();
   bindEvents();
   if (state.activeTab === "chat") {
-    requestAnimationFrame(() => {
-      const el = document.getElementById("chat-messages");
-      if (el) el.scrollTop = el.scrollHeight;
-    });
+    const el = document.getElementById("chat-messages");
+    if (el) {
+      /* Sync scroll before paint so the list does not flash at the top after innerHTML. */
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
   }
 }
 
