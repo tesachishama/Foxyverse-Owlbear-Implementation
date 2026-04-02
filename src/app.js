@@ -404,19 +404,28 @@ function normalizeImportedSheet(raw, options = {}) {
   return next;
 }
 
-function getSheetDisplayNameForChat(sheet) {
-  if (!sheet?.bio) return "Name Surname";
-  const n = [sheet.bio.name, sheet.bio.surname].filter(Boolean).join(" ").trim();
-  return n || "Name Surname";
+function resolvePlayerDisplayName(playerId) {
+  if (!playerId) return "Player";
+  const d = state.playerDirectory?.[playerId];
+  if (d?.name) return d.name;
+  const p = state.partyPlayers?.find((x) => x.id === playerId);
+  if (p?.name) return p.name;
+  return playerId.length > 12 ? `${playerId.slice(0, 8)}…` : playerId;
+}
+
+function resolveCharacterDisplayName(sheetId) {
+  if (!sheetId) return "Name Surname";
+  const n = state.sheetNames?.[sheetId];
+  if (n && String(n).trim()) return String(n).trim();
+  return "Name Surname";
 }
 
 function mapChatRow(row) {
   return {
     id: row.id,
-    from: row.player_name || "Player",
-    characterName: row.character_name || "Name Surname",
-    body: row.body || "",
-    payload: row.payload ?? null,
+    playerId: row.player_id || "",
+    sheetId: row.sheet_id || null,
+    body: row.message || "",
   };
 }
 
@@ -426,22 +435,6 @@ function appendChatMessageIfNew(row) {
   state.chatMessages.push(msg);
   if (state.chatMessages.length > 250) state.chatMessages = state.chatMessages.slice(-200);
   return true;
-}
-
-function summarizeRollResultForPayload(result) {
-  if (!result) return null;
-  if (result.kind === "stat") {
-    return {
-      kind: "stat",
-      total: result.total,
-      roll: result.roll,
-      mod: result.mod,
-      success: result.success,
-      nat1: result.nat1,
-      nat20: result.nat20,
-    };
-  }
-  return { kind: result.kind, value: result.value, rolls: result.rolls };
 }
 
 function getLockOwner(lockId) {
@@ -796,8 +789,8 @@ function renderChatTab() {
   const list = messages
     .map(
       (m) => {
-        const char = escapeAttr(m.characterName || "Name Surname");
-        const player = escapeAttr(m.from || "Player");
+        const char = escapeAttr(resolveCharacterDisplayName(m.sheetId));
+        const player = escapeAttr(resolvePlayerDisplayName(m.playerId));
         return `
         <div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
           <div class="chat-msg-header"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>
@@ -1764,23 +1757,18 @@ function bindEvents() {
   async function sendChat() {
     const line = chatInput?.value?.trim();
     if (!line || !state.roomId) return;
-    const playerName = state.playerName || "Player";
-    let payload = null;
     const cmd = parseChatCommand(line);
     if (cmd && state.sheet) {
       const result = executeRoll(cmd, state.sheet);
       state.lastRoll = result;
       state.lastRollPayload = cmd;
       OBR.notification.show(String(result.value ?? result.roll ?? result.total ?? ""));
-      payload = summarizeRollResultForPayload(result);
     }
     try {
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
-        playerName,
-        characterName: getSheetDisplayNameForChat(state.sheet),
+        sheetId: state.activeSheetId || null,
         body: line,
-        payload,
       });
       appendChatMessageIfNew(row);
       chatInput.value = "";

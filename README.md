@@ -8,13 +8,15 @@ Vite-built extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Character 
 2. Copy `.env.example` to `.env` (or create `.env`) with:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-3. Apply SQL migrations in `supabase/migrations/` to your Supabase project (SQL editor or CLI). Ensure **Realtime** is enabled for tables you subscribe to (e.g. `chat`, `sheet`, …).
+3. Apply SQL migrations in `supabase/migrations/` as needed (e.g. `spell.element`). Your **`chat`** table should already match what the app expects; see below. Enable **Realtime** on `chat` (and other subscribed tables).
 4. Dev: `npm run dev` — load the extension URL in Owlbear’s extension dev tools.
 5. Production: `npm run build` — deploy `dist/` (e.g. GitHub Pages); configure the same env vars in CI secrets.
 
 ## Chat (room log)
 
-Messages are stored in the `chat` table and replicated to all clients via Supabase Realtime. Each row stores a snapshot `character_name` (Name Surname from the sender’s active sheet at send time) and `player_name` (Owlbear display name).
+The plugin expects your existing `chat` table columns: **`id`**, **`room_id`**, **`sheet_id`**, **`player_id`**, **`message`** (text), **`time_sent`** (timestamp). Realtime `INSERT` on `chat` should be enabled.
+
+The client stores only IDs; **player name** and **Name Surname** are resolved at render time from Owlbear party / `playerDirectory` and `sheetNames`. If your text column is not named `message` (e.g. `content`), change the field name in [`src/data/storage.js`](src/data/storage.js) in `listRecentChat` and `insertChatMessage`.
 
 ## Dice: chat commands (`/…`)
 

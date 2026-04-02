@@ -733,32 +733,33 @@ async function eventBelongsToRoom(roomId, payload) {
   return !error && data?.room_id === roomId;
 }
 
-/** Room chat: latest messages oldest-first (max `limit`). */
+/**
+ * Room chat (your Supabase schema): id, room_id, sheet_id, player_id, message, time_sent.
+ * Text column must be `message`; timestamp must be `time_sent`.
+ */
 export async function listRecentChat(roomId, limit = 200) {
   const { data, error } = await supabase
     .from("chat")
-    .select("id, created_at, player_id, player_name, character_name, body, payload")
+    .select("id, time_sent, player_id, sheet_id, message")
     .eq("room_id", roomId)
-    .order("created_at", { ascending: false })
+    .order("time_sent", { ascending: false })
     .limit(limit);
   if (error) throw error;
   const rows = data || [];
   return rows.slice().reverse();
 }
 
-export async function insertChatMessage(roomId, { playerId, playerName, characterName, body, payload = null }) {
+export async function insertChatMessage(roomId, { playerId, sheetId, body }) {
   await ensureRoom(roomId);
   const { data, error } = await supabase
     .from("chat")
     .insert({
       room_id: roomId,
       player_id: playerId || "",
-      player_name: playerName || "",
-      character_name: characterName || "",
-      body: body || "",
-      payload,
+      sheet_id: sheetId || null,
+      message: body || "",
     })
-    .select("id, created_at, player_id, player_name, character_name, body, payload")
+    .select("id, time_sent, player_id, sheet_id, message")
     .single();
   if (error) throw error;
   return data;
