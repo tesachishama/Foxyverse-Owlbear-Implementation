@@ -589,9 +589,11 @@ button:disabled {
 }
 
 .chat-msg-header {
+  --chat-char-name-size: 1.25rem;
+  --chat-char-name-line-height: 1.2;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: stretch;
+  align-items: start;
   gap: 0.35rem;
   margin-bottom: 0.28rem;
   line-height: 1.2;
@@ -602,6 +604,9 @@ button:disabled {
 }
 
 .chat-msg-delete-btn {
+  /* Same line box as .chat-char-name (sheet name): font-size × line-height */
+  height: calc(var(--chat-char-name-size) * var(--chat-char-name-line-height));
+  min-height: calc(var(--chat-char-name-size) * var(--chat-char-name-line-height));
   margin: 0;
   padding: 0;
   border: none;
@@ -614,6 +619,7 @@ button:disabled {
   opacity: 0.72;
   box-sizing: border-box;
   min-width: 1.5rem;
+  align-self: start;
 }
 
 .chat-msg-delete-btn:hover {
@@ -629,7 +635,7 @@ button:disabled {
 
 .chat-msg-header .chat-char-name {
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: var(--chat-char-name-size);
 }
 
 .chat-player-name {
