@@ -437,6 +437,19 @@ function appendChatMessageIfNew(row) {
   return true;
 }
 
+/** Remove one message from state and the chat list DOM without full render (live delete + broadcast). */
+function handleChatMessageRemoved(messageId) {
+  if (messageId == null) return;
+  const sid = String(messageId);
+  if (!state.chatMessages.some((m) => String(m.id) === sid)) return;
+  state.chatMessages = state.chatMessages.filter((m) => String(m.id) !== sid);
+  const root = document.getElementById("chat-messages");
+  if (!root) return;
+  const safe = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(sid) : sid;
+  root.querySelector(`.chat-msg[data-chat-id="${safe}"]`)?.remove();
+  setupChatScrollbar();
+}
+
 function getLockOwner(lockId) {
   return null;
 }
@@ -1771,8 +1784,8 @@ function bindEvents() {
       if (!id) return;
       try {
         await storage.deleteChatMessage(state.roomId, id);
-        state.chatMessages = state.chatMessages.filter((m) => String(m.id) !== id);
-        render();
+        handleChatMessageRemoved(id);
+        await storage.broadcastChatMessageDeleted(state.roomId, id);
       } catch (err) {
         console.error(err);
         const detail = err?.message || err?.details || String(err);
@@ -1988,12 +2001,10 @@ export async function initApp() {
         if (appendChatMessageIfNew(row)) render();
       },
       (oldRow) => {
-        const id = oldRow?.id;
-        if (id == null) return;
-        const sid = String(id);
-        const before = state.chatMessages.length;
-        state.chatMessages = state.chatMessages.filter((m) => String(m.id) !== sid);
-        if (state.chatMessages.length !== before) render();
+        handleChatMessageRemoved(oldRow?.id);
+      },
+      (id) => {
+        handleChatMessageRemoved(id);
       }
     );
     if (state.sheetIds.length && !state.activeSheetId) {

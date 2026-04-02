@@ -790,10 +790,30 @@ export async function deleteChatMessage(roomId, messageId) {
   if (error) throw error;
 }
 
-/** Subscribe to chat lines for a room (INSERT; optional DELETE for removals). */
-export function subscribeToChat(roomId, onInsert, onDelete) {
-  const channel = supabase
-    .channel(`foxyverse-chat-${roomId}`)
+/** Active chat channel (same instance used for broadcast after subscribe). */
+let chatRealtimeChannel = null;
+let chatRealtimeRoomId = null;
+
+/**
+ * Notify all subscribers that a message was removed (Realtime Broadcast).
+ * Use after a successful delete so every client updates even if postgres DELETE events are missing.
+ */
+export async function broadcastChatMessageDeleted(roomId, messageId) {
+  if (!chatRealtimeChannel || chatRealtimeRoomId !== roomId) return;
+  const { error } = await chatRealtimeChannel.send({
+    type: "broadcast",
+    event: "chat_deleted",
+    payload: { id: messageId },
+  });
+  if (error) console.warn("chat_deleted broadcast failed", error);
+}
+
+/** Subscribe to chat lines for a room (INSERT; postgres DELETE; broadcast delete). */
+export function subscribeToChat(roomId, onInsert, onDelete, onBroadcastDelete) {
+  const channel = supabase.channel(`foxyverse-chat-${roomId}`);
+  chatRealtimeChannel = channel;
+  chatRealtimeRoomId = roomId;
+  channel
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "chat", filter: `room_id=eq.${roomId}` },
@@ -801,8 +821,6 @@ export function subscribeToChat(roomId, onInsert, onDelete) {
         onInsert(payload.new);
       }
     )
-    // No filter: DELETE payloads often only include PK (replica identity), so room_id filters never match
-    // and clients get no event. App ignores deletes for ids not in the current room's message list.
     .on(
       "postgres_changes",
       { event: "DELETE", schema: "public", table: "chat" },
@@ -810,8 +828,16 @@ export function subscribeToChat(roomId, onInsert, onDelete) {
         if (typeof onDelete === "function") onDelete(payload.old);
       }
     )
+    .on("broadcast", { event: "chat_deleted" }, (payload) => {
+      const id = payload?.payload?.id;
+      if (id != null && typeof onBroadcastDelete === "function") onBroadcastDelete(id);
+    })
     .subscribe();
   return () => {
+    if (chatRealtimeChannel === channel) {
+      chatRealtimeChannel = null;
+      chatRealtimeRoomId = null;
+    }
     supabase.removeChannel(channel);
   };
 }
