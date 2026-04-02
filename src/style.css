@@ -595,12 +595,14 @@ button:disabled {
 
 .chat-msg-header .chat-char-name {
   font-weight: 700;
+  font-size: 1.25rem;
 }
 
 .chat-player-name {
   color: var(--text);
   opacity: 0.92;
   font-weight: 500;
+  font-size: 1rem;
 }
 
 .chat-msg-bubble {
@@ -608,6 +610,7 @@ button:disabled {
   border-radius: 14px;
   padding: 0.45rem 0.55rem;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
+  font-size: 1rem;
 }
 
 .chat-scrollbar-col {
