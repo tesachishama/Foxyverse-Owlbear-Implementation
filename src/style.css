@@ -591,7 +591,7 @@ button:disabled {
 .chat-msg-header {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: space-between;
   gap: 0.35rem;
   margin-bottom: 0.28rem;
@@ -615,12 +615,9 @@ button:disabled {
   justify-content: center;
   color: var(--text);
   opacity: 0.72;
-  line-height: 1.2;
-  font-size: 1rem;
-  height: 1.2rem;
-  min-height: 1.2rem;
   box-sizing: border-box;
-  align-self: center;
+  align-self: stretch;
+  min-height: 0;
 }
 
 .chat-msg-delete-btn:hover {
@@ -662,7 +659,7 @@ button:disabled {
   align-self: stretch;
   width: 1.75rem;
   flex-shrink: 0;
-  padding: 0.35rem 0.3rem 0.35rem 0;
+  padding: 0.35rem 0.25rem;
   box-sizing: border-box;
   min-height: 0;
 }
@@ -698,10 +695,20 @@ button:disabled {
   transform: rotate(180deg);
 }
 
+.chat-scroll-track-outer {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .chat-scroll-track {
   position: relative;
   flex: 1;
   width: 6px;
+  min-width: 6px;
   min-height: 72px;
   margin: 0.2rem 0;
   border-radius: 999px;
