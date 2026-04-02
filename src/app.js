@@ -135,7 +135,7 @@ async function loadSheet(sheetId, options = {}) {
   if (!sheet) {
     if (state.isGM) {
       sheet = createEmptySheet(sheetId);
-      storage.saveSheetToStorage(state.roomId, sheet);
+      storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
       await storage.addSheetToRoom(sheetId, "Name Surname");
     } else {
       state.pendingSheetId = sheetId;
@@ -148,7 +148,8 @@ async function loadSheet(sheetId, options = {}) {
   }
   if (!sheet.theme) {
     sheet.theme = { ...state.colors };
-    storage.saveSheetToStorage(state.roomId, sheet);
+    storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
+    storage.updateSheetCore(state.roomId, sheet.id, { theme: sheet.theme }).catch(console.error);
   }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
@@ -158,7 +159,8 @@ async function loadSheet(sheetId, options = {}) {
 
 function saveSheet() {
   if (!state.sheet || !state.roomId) return;
-  storage.saveSheetToStorage(state.roomId, state.sheet);
+  // Local-only save: remote persistence is handled per-field to avoid overwriting other users' edits.
+  storage.saveSheetToStorage(state.roomId, state.sheet, { persistRemote: false });
 }
 
 function setByPath(obj, path, value) {
@@ -181,6 +183,28 @@ async function applySheetMutation(mutator) {
   storage.saveSheetToStorage(state.roomId, latest, { persistRemote: false });
   await storage.persistSheet(state.roomId, latest);
   return latest;
+}
+
+function applyLocalMutation(mutator) {
+  if (!state.sheet || !state.roomId) return null;
+  const next = structuredClone(state.sheet);
+  mutator(next);
+  if (!next.theme) next.theme = { ...state.colors };
+  state.sheet = next;
+  storage.saveSheetToStorage(state.roomId, next, { persistRemote: false });
+  return next;
+}
+
+function computeUsedSlots(sheet, item) {
+  const equippedSlots = Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
+  const out = {};
+  if (equippedSlots.length) out.equippedSlots = equippedSlots;
+  if (item.weaponSlots != null) out.weaponSlots = item.weaponSlots;
+  return Object.keys(out).length ? out : null;
+}
+
+function computeUsableSlots(item) {
+  return item?.equippableSlots?.length ? { slots: item.equippableSlots } : null;
 }
 
 function pickRandom(max) {
@@ -901,7 +925,7 @@ function bindEvents() {
   app.querySelector("#btn-new-sheet")?.addEventListener("click", async () => {
     const sheet = createEmptySheet();
     state.roomId = state.roomId || await storage.getRoomId();
-    storage.saveSheetToStorage(state.roomId, sheet);
+    storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
     await storage.addSheetToRoom(sheet.id, "Name Surname");
     state.sheetIds = await storage.getSheetList();
     state.sheetNames = { ...state.sheetNames, [sheet.id]: "Name Surname" };
@@ -968,17 +992,21 @@ function bindEvents() {
       const field = e.target.dataset.field;
       let val = e.target.value;
       if (field === "bio.level") val = parseInt(val, 10) || 1;
-      const next = await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (field.startsWith("bio.")) {
           setByPath(sheet, field, val);
         } else {
           sheet[field] = isNaN(Number(val)) ? val : Number(val);
         }
       });
-      if (field.startsWith("bio.") && state.activeSheetId && next) {
+      if (!state.roomId || !state.activeSheetId || !next) return;
+      if (field.startsWith("bio.")) {
+        const bioKey = field.replace("bio.", "");
+        storage.updateBio(state.roomId, state.activeSheetId, { [bioKey]: val }).catch(console.error);
         const displayName = [next.bio?.name || "", next.bio?.surname || ""].join(" ").trim() || "Name Surname";
         state.sheetNames[state.activeSheetId] = displayName;
-        await storage.setSheetNameInRoom(state.activeSheetId, displayName);
+      } else if (field === "currentHP" || field === "tempHP" || field === "currentMP" || field === "currentFavor" || field === "actionModifier" || field === "speedModifier" || field === "notes" || field === "isElemental") {
+        storage.updateSheetCore(state.roomId, state.activeSheetId, { [field]: next[field] }).catch(console.error);
       }
       if (field === "bio.name" || field === "bio.surname") render();
     });
@@ -990,10 +1018,13 @@ function bindEvents() {
       const delta = Number(btn.dataset.levelStep) || 0;
       const current = Number(state.sheet.bio?.level) || 1;
       const nextLevel = Math.max(1, current + delta);
-      const next = await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (!sheet.bio) sheet.bio = {};
         sheet.bio.level = nextLevel;
       });
+      if (state.roomId && state.activeSheetId) {
+        storage.updateBio(state.roomId, state.activeSheetId, { level: nextLevel }).catch(console.error);
+      }
       if (next) render();
     });
   });
@@ -1003,10 +1034,16 @@ function bindEvents() {
     el.addEventListener("change", async (e) => {
       if (!state.sheet) return;
       const [statId, key] = e.target.dataset.stat.split(".");
-      await applySheetMutation((sheet) => {
+      applyLocalMutation((sheet) => {
         if (!sheet.stats[statId]) sheet.stats[statId] = {};
         sheet.stats[statId][key] = parseInt(e.target.value, 10) || 0;
       });
+      if (state.roomId && state.activeSheetId) {
+        const statPatch = {};
+        if (key === "base") statPatch.base = parseInt(e.target.value, 10) || 0;
+        if (key === "passiveBonus") statPatch.passiveBonus = parseInt(e.target.value, 10) || 0;
+        storage.updateStat(state.roomId, state.activeSheetId, statId, statPatch).catch(console.error);
+      }
       if (state.activeTab === "stats") render();
     });
   });
@@ -1014,18 +1051,37 @@ function bindEvents() {
   // Knowledge
   app.querySelector("#btn-add-knowledge")?.addEventListener("click", async () => {
     if (!state.sheet) return;
-    await applySheetMutation((sheet) => {
+    const next = applyLocalMutation((sheet) => {
       if (!sheet.knowledge) sheet.knowledge = [];
       sheet.knowledge.push({ id: crypto.randomUUID(), name: "", tier: 1, enabled: true });
     });
+    if (state.roomId && state.activeSheetId && next) {
+      const idx = next.knowledge.length - 1;
+      const k = next.knowledge[idx];
+      storage.upsertTalent(state.roomId, state.activeSheetId, {
+        id: k.id,
+        position: idx,
+        name: k.name || "",
+        description: k.description || "",
+        tier: k.tier ?? 1,
+        bonus_override: k.bonusOverride ?? null,
+        is_enabled: !!k.enabled,
+      }).catch(console.error);
+    }
     render();
   });
   app.querySelectorAll("[data-remove-knowledge]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const idx = parseInt(btn.dataset.removeKnowledge, 10);
-      await applySheetMutation((sheet) => {
+      const removedId = state.sheet?.knowledge?.[idx]?.id;
+      const next = applyLocalMutation((sheet) => {
         sheet.knowledge.splice(idx, 1);
       });
+      if (state.roomId && state.activeSheetId) {
+        if (removedId) storage.deleteTalent(state.roomId, state.activeSheetId, removedId).catch(console.error);
+        const ordered = (next?.knowledge || []).map((k) => k.id);
+        storage.setTalentPositions(state.roomId, state.activeSheetId, ordered).catch(console.error);
+      }
       render();
     });
   });
@@ -1033,13 +1089,21 @@ function bindEvents() {
     el.addEventListener("change", async (e) => {
       const d = e.target.dataset;
       const idx = parseInt(d.knowledgeName ?? d.knowledgeTier ?? d.knowledgeEnabled, 10);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (isNaN(idx) || !sheet.knowledge[idx]) return;
         const k = sheet.knowledge[idx];
         if (d.knowledgeName !== undefined) k.name = e.target.value;
         if (d.knowledgeTier !== undefined) k.tier = parseInt(e.target.value, 10);
         if (d.knowledgeEnabled !== undefined) k.enabled = e.target.checked;
       });
+      if (state.roomId && state.activeSheetId && next?.knowledge?.[idx]) {
+        const k = next.knowledge[idx];
+        const patch = {};
+        if (d.knowledgeName !== undefined) patch.name = k.name || "";
+        if (d.knowledgeTier !== undefined) patch.tier = k.tier ?? 1;
+        if (d.knowledgeEnabled !== undefined) patch.is_enabled = !!k.enabled;
+        storage.updateTalentFields(state.roomId, state.activeSheetId, k.id, patch).catch(console.error);
+      }
     });
   });
 
@@ -1125,6 +1189,12 @@ function bindEvents() {
         const next = applyPhysicalDamage(state.sheet, state.lastRoll.value);
         Object.assign(state.sheet, next);
         saveSheet();
+        if (state.roomId && state.activeSheetId) {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, {
+            currentHP: state.sheet.currentHP,
+            tempHP: state.sheet.tempHP,
+          }).catch(console.error);
+        }
         render();
         modal.classList.add("hidden");
       });
@@ -1132,6 +1202,12 @@ function bindEvents() {
         const next = applyMagicDamage(state.sheet, state.lastRoll.value);
         Object.assign(state.sheet, next);
         saveSheet();
+        if (state.roomId && state.activeSheetId) {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, {
+            currentHP: state.sheet.currentHP,
+            tempHP: state.sheet.tempHP,
+          }).catch(console.error);
+        }
         render();
         modal.classList.add("hidden");
       });
@@ -1139,6 +1215,12 @@ function bindEvents() {
         const next = applyTrueDamage(state.sheet, state.lastRoll.value);
         Object.assign(state.sheet, next);
         saveSheet();
+        if (state.roomId && state.activeSheetId) {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, {
+            currentHP: state.sheet.currentHP,
+            tempHP: state.sheet.tempHP,
+          }).catch(console.error);
+        }
         render();
         modal.classList.add("hidden");
       });
@@ -1147,6 +1229,12 @@ function bindEvents() {
         const next = applyHeal(state.sheet, state.lastRoll.value, maxHP);
         Object.assign(state.sheet, next);
         saveSheet();
+        if (state.roomId && state.activeSheetId) {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, {
+            currentHP: state.sheet.currentHP,
+            tempHP: state.sheet.tempHP,
+          }).catch(console.error);
+        }
         render();
         modal.classList.add("hidden");
       });
@@ -1154,6 +1242,12 @@ function bindEvents() {
         const next = applyOverHeal(state.sheet, state.lastRoll.value);
         Object.assign(state.sheet, next);
         saveSheet();
+        if (state.roomId && state.activeSheetId) {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, {
+            currentHP: state.sheet.currentHP,
+            tempHP: state.sheet.tempHP,
+          }).catch(console.error);
+        }
         render();
         modal.classList.add("hidden");
       });
@@ -1164,6 +1258,9 @@ function bindEvents() {
     if (!state.sheet || state.sheet.currentFavor < 1) return;
     state.sheet.currentFavor--;
     saveSheet();
+    if (state.roomId && state.activeSheetId) {
+      storage.updateSheetCore(state.roomId, state.activeSheetId, { currentFavor: state.sheet.currentFavor }).catch(console.error);
+    }
     const result = executeRoll(state.lastRollPayload, state.sheet);
     state.lastRoll = result;
     showRollResult(result);
@@ -1173,39 +1270,71 @@ function bindEvents() {
   // Spells
   app.querySelector("#btn-add-spell")?.addEventListener("click", async () => {
     if (!state.sheet) return;
-    await applySheetMutation((sheet) => {
+    const next = applyLocalMutation((sheet) => {
       if (!sheet.spells) sheet.spells = [];
       sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", cost: 0, costType: "mp" });
     });
+    if (state.roomId && state.activeSheetId && next) {
+      const idx = next.spells.length - 1;
+      const sp = next.spells[idx];
+      storage.upsertSpell(state.roomId, state.activeSheetId, {
+        id: sp.id,
+        position: idx,
+        name: sp.name || "",
+        description: sp.effect || "",
+        cost: sp.cost ?? 0,
+        is_hp: (sp.costType || "mp") === "hp",
+        is_continuous: !!sp.isContinuous,
+        use_counter: sp.useCounter ?? 0,
+      }).catch(console.error);
+    }
     render();
   });
   app.querySelectorAll("[data-remove-spell]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const idx = parseInt(btn.dataset.removeSpell, 10);
-      await applySheetMutation((sheet) => {
+      const removedId = state.sheet?.spells?.[idx]?.id;
+      const next = applyLocalMutation((sheet) => {
         sheet.spells.splice(idx, 1);
       });
+      if (state.roomId && state.activeSheetId) {
+        if (removedId) storage.deleteSpell(state.roomId, state.activeSheetId, removedId).catch(console.error);
+        const ordered = (next?.spells || []).map((s) => s.id);
+        storage.setSpellPositions(state.roomId, state.activeSheetId, ordered).catch(console.error);
+      }
       render();
     });
   });
   app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-cost]").forEach((el) => {
     el.addEventListener("change", async (e) => {
       const idx = parseInt(el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost, 10);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         const sp = sheet.spells[idx];
         if (!sp) return;
         if (el.dataset.spellName !== undefined) sp.name = e.target.value;
         if (el.dataset.spellEffect !== undefined) sp.effect = e.target.value;
         if (el.dataset.spellCost !== undefined) sp.cost = parseInt(e.target.value, 10) || 0;
       });
+      if (state.roomId && state.activeSheetId && next?.spells?.[idx]) {
+        const sp = next.spells[idx];
+        const patch = {};
+        if (el.dataset.spellName !== undefined) patch.name = sp.name || "";
+        if (el.dataset.spellEffect !== undefined) patch.description = sp.effect || "";
+        if (el.dataset.spellCost !== undefined) patch.cost = sp.cost ?? 0;
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, patch).catch(console.error);
+      }
     });
   });
   app.querySelectorAll("[name^='costType-']").forEach((radio) => {
     radio.addEventListener("change", async (e) => {
       const idx = parseInt(e.target.name.replace("costType-", ""), 10);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (sheet.spells[idx]) sheet.spells[idx].costType = e.target.value;
       });
+      if (state.roomId && state.activeSheetId && next?.spells?.[idx]) {
+        const sp = next.spells[idx];
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { is_hp: (sp.costType || "mp") === "hp" }).catch(console.error);
+      }
     });
   });
   app.querySelectorAll(".btn-deduct-cost").forEach((btn) => {
@@ -1228,6 +1357,12 @@ function bindEvents() {
         state.sheet.currentHP = Math.max(0, (state.sheet.currentHP || 0) - cost);
       }
       saveSheet();
+      if (state.roomId && state.activeSheetId) {
+        storage.updateSheetCore(state.roomId, state.activeSheetId, {
+          currentHP: state.sheet.currentHP,
+          currentMP: state.sheet.currentMP,
+        }).catch(console.error);
+      }
       render();
     });
   });
@@ -1238,7 +1373,8 @@ function bindEvents() {
       const slotId = el.dataset.slot;
       const itemId = e.target.value || null;
       if (!state.sheet) return;
-      await applySheetMutation((sheet) => {
+      const beforeEq = { ...(state.sheet.equipped || {}) };
+      const next = applyLocalMutation((sheet) => {
         const eq = { ...(sheet.equipped || {}) };
         if (itemId) {
           Object.keys(eq).forEach((s) => { if (eq[s] === itemId) delete eq[s]; });
@@ -1256,6 +1392,21 @@ function bindEvents() {
         }
         sheet.equipped = eq;
       });
+      if (state.roomId && state.activeSheetId && next) {
+        const afterEq = { ...(next.equipped || {}) };
+        const affected = new Set([...Object.values(beforeEq), ...Object.values(afterEq)].filter(Boolean));
+        const allItems = [
+          ...(next.consumables || []),
+          ...(next.others || []),
+          ...(next.weapons || []),
+          ...(next.armor || []),
+          ...(next.bags || []),
+        ];
+        allItems.forEach((it) => {
+          if (!affected.has(it.id)) return;
+          storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { used_slots: computeUsedSlots(next, it) }).catch(console.error);
+        });
+      }
       render();
     });
   });
@@ -1273,12 +1424,19 @@ function bindEvents() {
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (!sheet?.[section]?.[idx]) return;
         const it = sheet[section][idx];
         if (el.dataset.itemName !== undefined) it.name = e.target.value;
         if (el.dataset.itemCount !== undefined) it.count = parseInt(e.target.value, 10) || 0;
       });
+      if (state.roomId && state.activeSheetId && next?.[section]?.[idx]) {
+        const it = next[section][idx];
+        const patch = {};
+        if (el.dataset.itemName !== undefined) patch.name = it.name || "";
+        if (el.dataset.itemCount !== undefined) patch.quantity = Number(it.count) || 0;
+        storage.updateItemFields(state.roomId, state.activeSheetId, it.id, patch).catch(console.error);
+      }
     });
   });
   app.querySelectorAll("[data-item-desc]").forEach((el) => {
@@ -1287,10 +1445,14 @@ function bindEvents() {
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (!sheet?.[section]?.[idx]) return;
         sheet[section][idx].description = e.target.value;
       });
+      if (state.roomId && state.activeSheetId && next?.[section]?.[idx]) {
+        const it = next[section][idx];
+        storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { description: it.description || "" }).catch(console.error);
+      }
     });
   });
   app.querySelectorAll("[data-item-weapon-slots], [data-item-defense], [data-item-magdef]").forEach((el) => {
@@ -1299,13 +1461,21 @@ function bindEvents() {
       const lastHyphen = key.lastIndexOf("-");
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (!sheet?.[section]?.[idx]) return;
         const it = sheet[section][idx];
         if (el.dataset.itemWeaponSlots !== undefined) it.weaponSlots = parseInt(e.target.value, 10) || 1;
         if (el.dataset.itemDefense !== undefined) it.defense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
         if (el.dataset.itemMagdef !== undefined) it.magicalDefense = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
       });
+      if (state.roomId && state.activeSheetId && next?.[section]?.[idx]) {
+        const it = next[section][idx];
+        const patch = {};
+        if (el.dataset.itemDefense !== undefined) patch.physical_defense = it.defense ?? 0;
+        if (el.dataset.itemMagdef !== undefined) patch.magical_defense = it.magicalDefense ?? 0;
+        if (el.dataset.itemWeaponSlots !== undefined) patch.used_slots = computeUsedSlots(next, it);
+        storage.updateItemFields(state.roomId, state.activeSheetId, it.id, patch).catch(console.error);
+      }
     });
   });
   app.querySelectorAll("[data-item-equip-slots]").forEach((el) => {
@@ -1315,10 +1485,14 @@ function bindEvents() {
       const section = key.slice(0, lastHyphen);
       const idx = parseInt(key.slice(lastHyphen + 1), 10);
       const raw = (e.target.value || "").split(",").map((s) => s.trim()).filter(Boolean);
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (!sheet?.[section]?.[idx]) return;
         sheet[section][idx].equippableSlots = raw;
       });
+      if (state.roomId && state.activeSheetId && next?.[section]?.[idx]) {
+        const it = next[section][idx];
+        storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { usable_slots: computeUsableSlots(it) }).catch(console.error);
+      }
     });
   });
   app.querySelectorAll("[data-remove-item]").forEach((btn) => {
@@ -1327,19 +1501,45 @@ function bindEvents() {
       const lastHyphen = raw.lastIndexOf("-");
       const section = raw.slice(0, lastHyphen);
       const idx = parseInt(raw.slice(lastHyphen + 1), 10);
-      await applySheetMutation((sheet) => {
+      const removedId = state.sheet?.[section]?.[idx]?.id;
+      applyLocalMutation((sheet) => {
         if (sheet[section]) sheet[section].splice(idx, 1);
       });
+      if (state.roomId && state.activeSheetId && removedId) {
+        storage.deleteItem(state.roomId, state.activeSheetId, removedId).catch(console.error);
+      }
       render();
     });
   });
   app.querySelectorAll(".btn-add-item").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const section = btn.dataset.section;
-      await applySheetMutation((sheet) => {
+      const next = applyLocalMutation((sheet) => {
         if (!sheet[section]) sheet[section] = [];
         sheet[section].push({ id: crypto.randomUUID(), type: section === "weapons" ? "weapon" : section === "armor" ? "armor" : section === "consumables" ? "consumable" : section === "bags" ? "bag" : "other", name: "", count: 1, description: "" });
       });
+      if (state.roomId && state.activeSheetId && next?.[section]?.length) {
+        const it = next[section][next[section].length - 1];
+        storage.upsertItem(state.roomId, state.activeSheetId, {
+          id: it.id,
+          type: it.type || "other",
+          position: Date.now(),
+          name: it.name || "",
+          description: it.description || "",
+          quantity: Number(it.count) || 1,
+          physical_defense: Number(it.defense) || 0,
+          magical_defense: Number(it.magicalDefense) || 0,
+          constitution: Number(it.constitution) || 0,
+          strength: Number(it.strength) || 0,
+          intelligence: Number(it.intelligence) || 0,
+          perception: Number(it.perception) || 0,
+          social: Number(it.social) || 0,
+          agility: Number(it.agility) || 0,
+          focus: Number(it.focus) || 0,
+          usable_slots: computeUsableSlots(it),
+          used_slots: computeUsedSlots(next, it),
+        }).catch(console.error);
+      }
       render();
     });
   });
@@ -1347,9 +1547,12 @@ function bindEvents() {
   // Notes
   app.querySelector("#notes-area")?.addEventListener("change", async (e) => {
     if (state.sheet) {
-      await applySheetMutation((sheet) => {
+      applyLocalMutation((sheet) => {
         sheet.notes = e.target.value;
       });
+      if (state.roomId && state.activeSheetId) {
+        storage.updateSheetCore(state.roomId, state.activeSheetId, { notes: e.target.value }).catch(console.error);
+      }
     }
   });
 
@@ -1394,6 +1597,9 @@ function bindEvents() {
       };
       applyColors();
       saveSheet();
+      if (state.roomId && state.activeSheetId) {
+        storage.updateSheetCore(state.roomId, state.activeSheetId, { theme: state.sheet.theme }).catch(console.error);
+      }
     });
   });
   app.querySelectorAll("[data-perm-mode]").forEach((el) => {
@@ -1505,9 +1711,10 @@ function bindEvents() {
       const sheets = Array.isArray(parsed) ? parsed : parsed.sheets;
       if (!Array.isArray(sheets)) throw new Error("Invalid bundle");
       for (const sheet of sheets) {
-        const sheetIdConflict = !!sheet?.id && state.sheetIds.includes(sheet.id);
         const nextSheet = normalizeImportedSheet(structuredClone(sheet), {
-          targetSheetId: sheetIdConflict || !sheet?.id ? crypto.randomUUID() : null,
+          // Always generate a new sheet id when importing a bundle, so we never
+          // accidentally move an existing sheet to this room by reusing its id.
+          targetSheetId: crypto.randomUUID(),
           regenerateNestedIds: true,
         });
         storage.saveSheetToStorage(state.roomId, nextSheet, { persistRemote: false });
@@ -1555,18 +1762,65 @@ export async function initApp() {
     }
     render();
 
-    storage.subscribeToRoom(state.roomId, async () => {
-      if (hasOwnedFieldLock()) return;
-      await loadRoomData();
-      const visible = getVisibleSheets();
-      const selectedSheetId = state.pendingSheetId || state.activeSheetId;
-      if (!selectedSheetId || !canView(selectedSheetId)) {
-        state.pendingSheetId = null;
-        await loadSheet(visible[0] || null);
-      } else {
-        await loadSheet(selectedSheetId, { forceRefresh: true });
+    const realtimeState = {
+      timer: null,
+      inProgress: false,
+      needsRoomReload: false,
+      changedSheetIds: new Set(),
+      deletedSheetIds: new Set(),
+    };
+    async function flushRealtime() {
+      if (realtimeState.inProgress) {
+        realtimeState.needsRoomReload = true;
+        return;
       }
-      render();
+      realtimeState.inProgress = true;
+      try {
+        if (hasOwnedFieldLock()) return;
+        await loadRoomData();
+
+        // Purge deleted sheets from local cache immediately.
+        realtimeState.deletedSheetIds.forEach((sid) => {
+          try { storage.removeSheetFromStorage(state.roomId, sid); } catch (_) {}
+        });
+
+        const visible = getVisibleSheets();
+        const selectedSheetId = state.pendingSheetId || state.activeSheetId;
+        const activeExists = selectedSheetId && state.sheetIds.includes(selectedSheetId);
+
+        if (!selectedSheetId || !activeExists || !canView(selectedSheetId)) {
+          state.pendingSheetId = null;
+          await loadSheet(visible[0] || null);
+        } else if (realtimeState.changedSheetIds.has(selectedSheetId) || realtimeState.needsRoomReload) {
+          await loadSheet(selectedSheetId, { forceRefresh: true });
+        }
+        render();
+      } finally {
+        realtimeState.changedSheetIds.clear();
+        realtimeState.deletedSheetIds.clear();
+        realtimeState.needsRoomReload = false;
+        realtimeState.inProgress = false;
+      }
+    }
+    function scheduleRealtimeFlush() {
+      if (realtimeState.timer) return;
+      realtimeState.timer = setTimeout(async () => {
+        realtimeState.timer = null;
+        await flushRealtime();
+      }, 150);
+    }
+    storage.subscribeToRoom(state.roomId, async (payload) => {
+      if (payload?.table === "sheet" && payload?.eventType === "DELETE") {
+        const sid = payload?.old?.id;
+        if (sid) realtimeState.deletedSheetIds.add(sid);
+        realtimeState.needsRoomReload = true;
+        scheduleRealtimeFlush();
+        return;
+      }
+      const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id || payload?.new?.id || payload?.old?.id;
+      if (sheetId) realtimeState.changedSheetIds.add(sheetId);
+      if (payload?.table === "sheet_permissions") realtimeState.needsRoomReload = true;
+      scheduleRealtimeFlush();
     });
 
     OBR.room.onMetadataChange(async () => {

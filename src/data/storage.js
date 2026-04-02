@@ -218,6 +218,224 @@ function assembleSheet(sheetId, rows) {
   return base;
 }
 
+function patchToSheetUpdate(patch = {}) {
+  const update = {};
+  if ("isElemental" in patch) update.is_elemental = !!patch.isElemental;
+  if ("currentHP" in patch) update.current_health = Number(patch.currentHP) || 0;
+  if ("tempHP" in patch) update.temporary_health = Number(patch.tempHP) || 0;
+  if ("currentMP" in patch) update.current_mana = Number(patch.currentMP) || 0;
+  if ("currentFavor" in patch) update.current_favor = Number(patch.currentFavor) || 0;
+  if ("actionModifier" in patch) update.bonus_action = modifierToInt(patch.actionModifier);
+  if ("speedModifier" in patch) update.bonus_speed = modifierToInt(patch.speedModifier);
+  if ("notes" in patch) update.notes = String(patch.notes || "");
+  if ("theme" in patch && patch.theme && typeof patch.theme === "object") {
+    if ("bg" in patch.theme) update.color_bg = patch.theme.bg || "#4b002c";
+    if ("ui" in patch.theme) update.color_ui = patch.theme.ui || "#ffdbff";
+    if ("text" in patch.theme) update.color_text = patch.theme.text || "#eba5ff";
+  }
+  return update;
+}
+
+function patchToBioUpdate(patch = {}) {
+  const update = {};
+  if ("name" in patch) update.name = String(patch.name || "");
+  if ("surname" in patch) update.surname = String(patch.surname || "");
+  if ("element" in patch) update.element = String(patch.element || "");
+  if ("class" in patch) update.class = String(patch.class || "");
+  if ("level" in patch) update.level = Number(patch.level) || 1;
+  return update;
+}
+
+export async function updateSheetCore(roomId, sheetId, patch) {
+  await ensureRoom(roomId);
+  const update = patchToSheetUpdate(patch);
+  if (!Object.keys(update).length) return;
+  const { error } = await supabase.from("sheet").update(update).eq("room_id", roomId).eq("id", sheetId);
+  if (error) throw error;
+}
+
+export async function updateBio(roomId, sheetId, patch) {
+  await ensureRoom(roomId);
+  const update = patchToBioUpdate(patch);
+  if (!Object.keys(update).length) return;
+  const { error } = await supabase.from("bio").upsert({ sheet_id: sheetId, ...update });
+  if (error) throw error;
+}
+
+export async function updateCurrency(roomId, sheetId, patch) {
+  await ensureRoom(roomId);
+  const update = {};
+  if ("gold" in patch) update.gold = Number(patch.gold) || 0;
+  if ("silver" in patch) update.silver = Number(patch.silver) || 0;
+  if ("copper" in patch) update.copper = Number(patch.copper) || 0;
+  if (!Object.keys(update).length) return;
+  const { error } = await supabase.from("currency").upsert({ sheet_id: sheetId, ...update });
+  if (error) throw error;
+}
+
+export async function updateStat(roomId, sheetId, statId, patch) {
+  await ensureRoom(roomId);
+  const update = { sheet_id: sheetId, stat_id: statId };
+  if ("base" in patch) update.base = Number(patch.base) || 5;
+  if ("passiveBonus" in patch) update.passive = Number(patch.passiveBonus) || 0;
+  const { error } = await supabase.from("stat").upsert(update);
+  if (error) throw error;
+}
+
+export async function upsertTalent(roomId, sheetId, row) {
+  await ensureRoom(roomId);
+  const payload = {
+    id: row.id,
+    sheet_id: sheetId,
+    position: Number(row.position) || 0,
+    name: row.name || "",
+    description: row.description || "",
+    tier: row.tier ?? 1,
+    bonus_override: row.bonus_override ?? null,
+    is_enabled: !!row.is_enabled,
+  };
+  const { error } = await supabase.from("talent").upsert(payload);
+  if (error) throw error;
+}
+
+export async function updateTalentFields(roomId, sheetId, talentId, patch) {
+  await ensureRoom(roomId);
+  const update = {};
+  if ("position" in patch) update.position = Number(patch.position) || 0;
+  if ("name" in patch) update.name = String(patch.name || "");
+  if ("description" in patch) update.description = String(patch.description || "");
+  if ("tier" in patch) update.tier = patch.tier ?? 1;
+  if ("bonus_override" in patch) update.bonus_override = patch.bonus_override ?? null;
+  if ("is_enabled" in patch) update.is_enabled = !!patch.is_enabled;
+  if (!Object.keys(update).length) return;
+  const { error } = await supabase.from("talent").update(update).eq("sheet_id", sheetId).eq("id", talentId);
+  if (error) throw error;
+}
+
+export async function deleteTalent(roomId, sheetId, talentId) {
+  await ensureRoom(roomId);
+  const { error } = await supabase.from("talent").delete().eq("sheet_id", sheetId).eq("id", talentId);
+  if (error) throw error;
+}
+
+export async function setTalentPositions(roomId, sheetId, orderedIds) {
+  await ensureRoom(roomId);
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return;
+  const rows = orderedIds.map((id, position) => ({ id, sheet_id: sheetId, position }));
+  const { error } = await supabase.from("talent").upsert(rows, { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function upsertSpell(roomId, sheetId, row) {
+  await ensureRoom(roomId);
+  const payload = {
+    id: row.id,
+    sheet_id: sheetId,
+    position: Number(row.position) || 0,
+    name: row.name || "",
+    description: row.description || "",
+    cost: Number(row.cost) || 0,
+    is_hp: !!row.is_hp,
+    is_continuous: !!row.is_continuous,
+    use_counter: Number(row.use_counter) || 0,
+  };
+  const { error } = await supabase.from("spell").upsert(payload);
+  if (error) throw error;
+}
+
+export async function updateSpellFields(roomId, sheetId, spellId, patch) {
+  await ensureRoom(roomId);
+  const update = {};
+  if ("position" in patch) update.position = Number(patch.position) || 0;
+  if ("name" in patch) update.name = String(patch.name || "");
+  if ("description" in patch) update.description = String(patch.description || "");
+  if ("cost" in patch) update.cost = Number(patch.cost) || 0;
+  if ("is_hp" in patch) update.is_hp = !!patch.is_hp;
+  if ("is_continuous" in patch) update.is_continuous = !!patch.is_continuous;
+  if ("use_counter" in patch) update.use_counter = Number(patch.use_counter) || 0;
+  if (!Object.keys(update).length) return;
+  const { error } = await supabase.from("spell").update(update).eq("sheet_id", sheetId).eq("id", spellId);
+  if (error) throw error;
+}
+
+export async function deleteSpell(roomId, sheetId, spellId) {
+  await ensureRoom(roomId);
+  const { error } = await supabase.from("spell").delete().eq("sheet_id", sheetId).eq("id", spellId);
+  if (error) throw error;
+}
+
+export async function setSpellPositions(roomId, sheetId, orderedIds) {
+  await ensureRoom(roomId);
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return;
+  const rows = orderedIds.map((id, position) => ({ id, sheet_id: sheetId, position }));
+  const { error } = await supabase.from("spell").upsert(rows, { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function upsertItem(roomId, sheetId, row) {
+  await ensureRoom(roomId);
+  const payload = {
+    id: row.id,
+    sheet_id: sheetId,
+    type: row.type || "other",
+    position: Number(row.position) || 0,
+    name: row.name || "",
+    description: row.description || "",
+    quantity: Number(row.quantity) || 1,
+    physical_defense: Number(row.physical_defense) || 0,
+    magical_defense: Number(row.magical_defense) || 0,
+    constitution: Number(row.constitution) || 0,
+    strength: Number(row.strength) || 0,
+    intelligence: Number(row.intelligence) || 0,
+    perception: Number(row.perception) || 0,
+    social: Number(row.social) || 0,
+    agility: Number(row.agility) || 0,
+    focus: Number(row.focus) || 0,
+    usable_slots: row.usable_slots ?? null,
+    used_slots: row.used_slots ?? null,
+  };
+  const { error } = await supabase.from("item").upsert(payload);
+  if (error) throw error;
+}
+
+export async function updateItemFields(roomId, sheetId, itemId, patch) {
+  await ensureRoom(roomId);
+  const update = {};
+  if ("type" in patch) update.type = patch.type || "other";
+  if ("position" in patch) update.position = Number(patch.position) || 0;
+  if ("name" in patch) update.name = String(patch.name || "");
+  if ("description" in patch) update.description = String(patch.description || "");
+  if ("quantity" in patch) update.quantity = Number(patch.quantity) || 1;
+  if ("physical_defense" in patch) update.physical_defense = patch.physical_defense == null ? 0 : Number(patch.physical_defense) || 0;
+  if ("magical_defense" in patch) update.magical_defense = patch.magical_defense == null ? 0 : Number(patch.magical_defense) || 0;
+  if ("constitution" in patch) update.constitution = Number(patch.constitution) || 0;
+  if ("strength" in patch) update.strength = Number(patch.strength) || 0;
+  if ("intelligence" in patch) update.intelligence = Number(patch.intelligence) || 0;
+  if ("perception" in patch) update.perception = Number(patch.perception) || 0;
+  if ("social" in patch) update.social = Number(patch.social) || 0;
+  if ("agility" in patch) update.agility = Number(patch.agility) || 0;
+  if ("focus" in patch) update.focus = Number(patch.focus) || 0;
+  if ("usable_slots" in patch) update.usable_slots = patch.usable_slots ?? null;
+  if ("used_slots" in patch) update.used_slots = patch.used_slots ?? null;
+  if (!Object.keys(update).length) return;
+  const { error } = await supabase.from("item").update(update).eq("sheet_id", sheetId).eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function deleteItem(roomId, sheetId, itemId) {
+  await ensureRoom(roomId);
+  const { error } = await supabase.from("item").delete().eq("sheet_id", sheetId).eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function setItemPositions(roomId, sheetId, orderedIds) {
+  await ensureRoom(roomId);
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return;
+  const rows = orderedIds.map((id, position) => ({ id, sheet_id: sheetId, position }));
+  const { error } = await supabase.from("item").upsert(rows, { onConflict: "id" });
+  if (error) throw error;
+}
+
 async function persistRows(roomId, sheet) {
   await ensureRoom(roomId);
 
@@ -515,6 +733,12 @@ export function subscribeToRoom(roomId, callback) {
   const channel = supabase
     .channel(`foxyverse-room-${roomId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "sheet" }, async (payload) => {
+      // DELETE payloads may not always include enough data to reliably filter by room.
+      // We always notify and let the app reconcile by reloading room state.
+      if (payload?.eventType === "DELETE") {
+        callback(payload);
+        return;
+      }
       if (await eventBelongsToRoom(roomId, payload)) callback(payload);
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "sheet_permissions" }, async (payload) => {
