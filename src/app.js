@@ -81,6 +81,7 @@ const state = {
   isEditingField: false,
   _realtimePendingAfterEdit: false,
   _scheduleRealtimeFlush: null,
+  _debouncedSaves: {},
 };
 
 function canView(sheetId) {
@@ -200,6 +201,20 @@ function applyLocalMutation(mutator) {
   state.sheet = next;
   storage.saveSheetToStorage(state.roomId, next, { persistRemote: false });
   return next;
+}
+
+function scheduleDebouncedSave(key, delayMs, fn) {
+  if (!state._debouncedSaves) state._debouncedSaves = {};
+  const prev = state._debouncedSaves[key];
+  if (prev) clearTimeout(prev);
+  state._debouncedSaves[key] = setTimeout(() => {
+    delete state._debouncedSaves[key];
+    try {
+      fn();
+    } catch (err) {
+      console.error(err);
+    }
+  }, delayMs);
 }
 
 function computeUsedSlots(sheet, item) {
@@ -1045,8 +1060,13 @@ function bindEvents() {
         if (!sheet.bio) sheet.bio = {};
         sheet.bio.level = nextLevel;
       });
-      if (state.roomId && state.activeSheetId) {
-        storage.updateBio(state.roomId, state.activeSheetId, { level: nextLevel }).catch(console.error);
+      if (state.roomId && state.activeSheetId && next) {
+        const roomId = state.roomId;
+        const sheetId = state.activeSheetId;
+        scheduleDebouncedSave(`bio.level:${sheetId}`, 1000, () => {
+          const latestLevel = Number(state.sheet?.bio?.level) || 1;
+          storage.updateBio(roomId, sheetId, { level: latestLevel }).catch(console.error);
+        });
       }
       if (next) render();
     });
