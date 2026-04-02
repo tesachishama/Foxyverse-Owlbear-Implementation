@@ -801,9 +801,11 @@ export function subscribeToChat(roomId, onInsert, onDelete) {
         onInsert(payload.new);
       }
     )
+    // No filter: DELETE payloads often only include PK (replica identity), so room_id filters never match
+    // and clients get no event. App ignores deletes for ids not in the current room's message list.
     .on(
       "postgres_changes",
-      { event: "DELETE", schema: "public", table: "chat", filter: `room_id=eq.${roomId}` },
+      { event: "DELETE", schema: "public", table: "chat" },
       (payload) => {
         if (typeof onDelete === "function") onDelete(payload.old);
       }
