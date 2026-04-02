@@ -1812,6 +1812,9 @@ function bindEvents() {
       appendChatMessageIfNew(row);
       chatInput.value = "";
       render();
+      requestAnimationFrame(() => {
+        document.getElementById("chat-input")?.focus();
+      });
     } catch (err) {
       console.error(err);
       const detail = err?.message || err?.details || String(err);
