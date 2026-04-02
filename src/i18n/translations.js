@@ -195,6 +195,10 @@ export const translations = {
     importEverything: "Import everything",
     importFile: "Import from file",
 
+    /** "Enter {field}..." — {field} is the lowercased label from t(key). */
+    enterFieldTemplate: "Enter {field}...",
+    statRollModifierPlaceholder: "+5 or -3",
+
     // Common
     add: "Add",
     remove: "Remove",
@@ -386,6 +390,9 @@ export const translations = {
     importEverything: "Tout importer",
     importFile: "Importer un fichier",
 
+    enterFieldTemplate: "Saisir {field}...",
+    statRollModifierPlaceholder: "+5 ou -3",
+
     add: "Ajouter",
     remove: "Retirer",
     save: "Enregistrer",
@@ -409,4 +416,11 @@ export function getLocale() {
 
 export function t(key) {
   return translations[currentLocale]?.[key] ?? translations.en[key] ?? key;
+}
+
+/** Placeholder like "Enter name..." / "Saisir prénom..." — pass a translation key for the field label (e.g. "name", "tempHP"). */
+export function enterField(labelKey) {
+  const raw = t(labelKey);
+  const field = String(raw).toLowerCase();
+  return t("enterFieldTemplate").replace("{field}", field);
 }

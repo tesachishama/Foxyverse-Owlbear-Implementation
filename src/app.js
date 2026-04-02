@@ -3,7 +3,7 @@
  * State-driven UI with tab navigation and translation.
  */
 import OBR from "@owlbear-rodeo/sdk";
-import { t, setLocale } from "./i18n/translations.js";
+import { t, setLocale, enterField } from "./i18n/translations.js";
 import addIcon from "./data/icons/Icons_add.svg?raw";
 import removeIcon from "./data/icons/Icons_remove.svg?raw";
 import arrowIcon from "./data/icons/Icons_arrow.svg?raw";
@@ -528,24 +528,24 @@ function renderBioTab() {
       <div class="bio-fields">
         <div class="bio-field-group">
           <label class="label bio-label">${t("name")}</label>
-          <input type="text" class="bio-input" value="${escapeAttr(b.name)}" data-field="bio.name" ${editable ? "" : "readonly"} />
+          <input type="text" class="bio-input" value="${escapeAttr(b.name)}" data-field="bio.name" placeholder="${escapeAttr(enterField("name"))}" ${editable ? "" : "readonly"} />
         </div>
         <div class="bio-field-group">
           <label class="label bio-label">${t("surname")}</label>
-          <input type="text" class="bio-input" value="${escapeAttr(b.surname)}" data-field="bio.surname" ${editable ? "" : "readonly"} />
+          <input type="text" class="bio-input" value="${escapeAttr(b.surname)}" data-field="bio.surname" placeholder="${escapeAttr(enterField("surname"))}" ${editable ? "" : "readonly"} />
         </div>
         <div class="bio-field-group">
           <label class="label bio-label">${t("element")}</label>
-          <input type="text" class="bio-input" value="${escapeAttr(b.element)}" data-field="bio.element" ${editable ? "" : "readonly"} />
+          <input type="text" class="bio-input" value="${escapeAttr(b.element)}" data-field="bio.element" placeholder="${escapeAttr(enterField("element"))}" ${editable ? "" : "readonly"} />
         </div>
         <div class="bio-field-group">
           <label class="label bio-label">${t("class")}</label>
-          <input type="text" class="bio-input" value="${escapeAttr(b.class)}" data-field="bio.class" ${editable ? "" : "readonly"} />
+          <input type="text" class="bio-input" value="${escapeAttr(b.class)}" data-field="bio.class" placeholder="${escapeAttr(enterField("class"))}" ${editable ? "" : "readonly"} />
         </div>
         <div class="bio-level-row">
           <label class="label bio-level-label">${t("level")}</label>
           <div class="bio-level-control ${editable ? "" : "readonly"}">
-            <input type="number" min="1" class="bio-level-input" value="${Number(b.level) || 1}" data-field="bio.level" ${editable ? "" : "readonly"} />
+            <input type="number" min="1" class="bio-level-input" value="${Number(b.level) || 1}" data-field="bio.level" placeholder="${escapeAttr(enterField("level"))}" ${editable ? "" : "readonly"} />
             <div class="bio-level-arrows">
               <button type="button" class="bio-level-arrow-btn bio-level-arrow-up" data-level-step="1" ${editable ? "" : "disabled"} aria-label="Increase level">
                 ${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)")}
@@ -582,32 +582,32 @@ function renderStatsTab() {
   let hpMp = `
     <div class="stat-row">
       <span class="label">${t("tempHP")}</span>
-      <input type="number" min="0" value="${s.tempHP ?? 0}" data-field="tempHP" ${editable ? "" : "readonly"} />
+      <input type="number" min="0" value="${s.tempHP ?? 0}" data-field="tempHP" placeholder="${escapeAttr(enterField("tempHP"))}" ${editable ? "" : "readonly"} />
     </div>
     <div class="stat-row">
       <span class="label">${t("currentHP")}</span>
-      <input type="number" min="0" max="${maxHP}" value="${s.currentHP ?? 0}" data-field="currentHP" ${editable ? "" : "readonly"} />
+      <input type="number" min="0" max="${maxHP}" value="${s.currentHP ?? 0}" data-field="currentHP" placeholder="${escapeAttr(enterField("currentHP"))}" ${editable ? "" : "readonly"} />
       <span class="muted">/ ${maxHP}</span>
     </div>
     <div class="stat-row">
       <span class="label">${t("currentMP")}</span>
-      <input type="number" min="0" max="${maxMP}" value="${s.currentMP ?? 0}" data-field="currentMP" ${editable ? "" : "readonly"} />
+      <input type="number" min="0" max="${maxMP}" value="${s.currentMP ?? 0}" data-field="currentMP" placeholder="${escapeAttr(enterField("currentMP"))}" ${editable ? "" : "readonly"} />
       <span class="muted">/ ${maxMP}</span>
     </div>
     <div class="stat-row">
       <span class="label">${t("currentFavor")}</span>
-      <input type="number" min="0" max="${maxFavor}" value="${s.currentFavor ?? 0}" data-field="currentFavor" ${editable ? "" : "readonly"} />
+      <input type="number" min="0" max="${maxFavor}" value="${s.currentFavor ?? 0}" data-field="currentFavor" placeholder="${escapeAttr(enterField("currentFavor"))}" ${editable ? "" : "readonly"} />
       <span class="muted">/ ${maxFavor}</span>
     </div>
     <div class="stat-row">
       <span class="label">${t("action")}</span>
       <span>${actions}</span>
-      ${editable ? `<input type="text" placeholder="${t("actionModifier")}" value="${escapeAttr(s.actionModifier)}" data-field="actionModifier" class="short-input" />` : ""}
+      ${editable ? `<input type="text" placeholder="${escapeAttr(enterField("actionModifier"))}" value="${escapeAttr(s.actionModifier)}" data-field="actionModifier" class="short-input" />` : ""}
     </div>
     <div class="stat-row">
       <span class="label">${t("speed")}</span>
       <span class="formula">${speedFormula}</span>
-      ${editable ? `<input type="text" placeholder="${t("speedModifier")}" value="${escapeAttr(s.speedModifier)}" data-field="speedModifier" class="short-input" />` : ""}
+      ${editable ? `<input type="text" placeholder="${escapeAttr(enterField("speedModifier"))}" value="${escapeAttr(s.speedModifier)}" data-field="speedModifier" class="short-input" />` : ""}
       <button type="button" id="btn-roll-speed" class="btn-sm">${t("rollSpeed")}</button>
     </div>
   `;
@@ -615,7 +615,7 @@ function renderStatsTab() {
   const knowledgeList = (s.knowledge || []).map(
     (k, i) => `
     <div class="knowledge-item" data-idx="${i}">
-      <input type="text" value="${escapeAttr(k.name)}" data-knowledge-name="${i}" ${editable ? "" : "readonly"} />
+      <input type="text" value="${escapeAttr(k.name)}" data-knowledge-name="${i}" placeholder="${escapeAttr(enterField("knowledge"))}" ${editable ? "" : "readonly"} />
       <select data-knowledge-tier="${i}" ${editable ? "" : "disabled"}>
         ${[1, 2, 3, 4].map((tier) => `<option value="${tier}" ${k.tier === tier ? "selected" : ""}>${t("tier" + tier)}</option>`).join("")}
       </select>
@@ -634,10 +634,10 @@ function renderStatsTab() {
     statsTable += `
       <tr>
         <td>${label}</td>
-        <td><input type="number" data-stat="${statId}.base" value="${st.base ?? 0}" ${editable ? "" : "readonly"} /></td>
-        <td><input type="number" data-stat="${statId}.xpBonus" value="${st.xpBonus ?? 0}" ${editable ? "" : "readonly"} /></td>
+        <td><input type="number" data-stat="${statId}.base" value="${st.base ?? 0}" placeholder="${escapeAttr(enterField("baseStat"))}" ${editable ? "" : "readonly"} /></td>
+        <td><input type="number" data-stat="${statId}.xpBonus" value="${st.xpBonus ?? 0}" placeholder="${escapeAttr(enterField("xpBonus"))}" ${editable ? "" : "readonly"} /></td>
         <td><input type="number" data-stat="${statId}.itemBonus" value="${st.itemBonus ?? 0}" readonly /></td>
-        <td><input type="number" data-stat="${statId}.passiveBonus" value="${st.passiveBonus ?? 0}" ${editable ? "" : "readonly"} /></td>
+        <td><input type="number" data-stat="${statId}.passiveBonus" value="${st.passiveBonus ?? 0}" placeholder="${escapeAttr(enterField("passiveBonus"))}" ${editable ? "" : "readonly"} /></td>
         <td class="total">${total}</td>
         <td>
           <button type="button" class="btn-roll-stat" data-stat="${statId}" data-dc="${total}">${t("roll")}</button>
@@ -680,7 +680,7 @@ function renderStatsTab() {
     <div id="stat-roll-modal" class="modal hidden">
       <div class="modal-content">
         <label>${t("modifier")}</label>
-        <input type="text" id="stat-roll-modifier" placeholder="+5 or -3" />
+        <input type="text" id="stat-roll-modifier" placeholder="${escapeAttr(t("statRollModifierPlaceholder"))}" />
         <button type="button" id="stat-roll-do">${t("roll")}</button>
         <button type="button" id="stat-roll-cancel">${t("cancel")}</button>
       </div>
@@ -697,11 +697,11 @@ function renderSpellsTab() {
     .map(
       (sp, i) => `
     <div class="spell-item card" data-idx="${i}">
-      <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element" value="${escapeAttr(sp.element || "")}" data-spell-element="${i}" placeholder="—" ${editable ? "" : "readonly"} /></label>
-      <input type="text" class="spell-name" value="${escapeAttr(sp.name)}" data-spell-name="${i}" placeholder="${t("spellName")}" ${editable ? "" : "readonly"} />
-      <textarea class="spell-effect" data-spell-effect="${i}" placeholder="${t("spellEffect")}" ${editable ? "" : "readonly"} rows="2">${escapeAttr(sp.effect)}</textarea>
+      <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element" value="${escapeAttr(sp.element || "")}" data-spell-element="${i}" placeholder="${escapeAttr(enterField("spellElement"))}" ${editable ? "" : "readonly"} /></label>
+      <input type="text" class="spell-name" value="${escapeAttr(sp.name)}" data-spell-name="${i}" placeholder="${escapeAttr(enterField("spellName"))}" ${editable ? "" : "readonly"} />
+      <textarea class="spell-effect" data-spell-effect="${i}" placeholder="${escapeAttr(enterField("spellEffect"))}" ${editable ? "" : "readonly"} rows="2">${escapeAttr(sp.effect)}</textarea>
       <div class="spell-cost">
-        <input type="number" min="0" value="${sp.cost ?? 0}" data-spell-cost="${i}" ${editable ? "" : "readonly"} />
+        <input type="number" min="0" value="${sp.cost ?? 0}" data-spell-cost="${i}" placeholder="${escapeAttr(enterField("spellCost"))}" ${editable ? "" : "readonly"} />
         <label><input type="radio" name="costType-${i}" value="mp" ${(sp.costType || "mp") === "mp" ? "checked" : ""} ${editable ? "" : "disabled"} /> ${t("costMP")}</label>
         <label><input type="radio" name="costType-${i}" value="hp" ${sp.costType === "hp" ? "checked" : ""} ${editable ? "" : "disabled"} /> ${t("costHP")}</label>
         ${editable ? `<button type="button" class="btn-deduct-cost" data-idx="${i}">${t("deductCost")}</button>` : ""}
@@ -774,13 +774,13 @@ function renderInventoryTab() {
           .map(
             (it, i) => `
           <li class="item-line" data-section="${key}" data-idx="${i}">
-            <input type="text" class="item-name-inp" value="${escapeAttr(it.name || "")}" data-item-name="${key}-${i}" placeholder="${t("itemName")}" ${editable ? "" : "readonly"} />
-            <input type="number" min="0" class="item-count-inp" value="${it.count != null ? it.count : 1}" data-item-count="${key}-${i}" ${editable ? "" : "readonly"} />
+            <input type="text" class="item-name-inp" value="${escapeAttr(it.name || "")}" data-item-name="${key}-${i}" placeholder="${escapeAttr(enterField("itemName"))}" ${editable ? "" : "readonly"} />
+            <input type="number" min="0" class="item-count-inp" value="${it.count != null ? it.count : 1}" data-item-count="${key}-${i}" placeholder="${escapeAttr(enterField("numberOwned"))}" ${editable ? "" : "readonly"} />
             <span class="item-toggle" data-toggle-item="${key}-${i}" title="${t("itemDescription")}">▼</span>
             <div class="item-detail hidden" id="item-detail-${key}-${i}">
-              <textarea data-item-desc="${key}-${i}" ${editable ? "" : "readonly"} placeholder="${t("itemDescription")}">${escapeAttr(it.description)}</textarea>
-              ${key === "weapons" ? `<label>${t("weaponSlots")}: <input type="number" min="1" data-item-weapon-slots="${key}-${i}" value="${it.weaponSlots ?? 1}" ${editable ? "" : "readonly"} /></label>` : ""}
-              ${key === "armor" ? `<label>${t("defense")}: <input type="number" data-item-defense="${key}-${i}" value="${it.defense ?? ""}" ${editable ? "" : "readonly"} /></label><label>${t("magicalDefense")}: <input type="number" data-item-magdef="${key}-${i}" value="${it.magicalDefense ?? ""}" ${editable ? "" : "readonly"} /></label><label>${t("equippableSlots")}: <input type="text" data-item-equip-slots="${key}-${i}" value="${Array.isArray(it.equippableSlots) ? it.equippableSlots.join(", ") : (it.equippableSlots || "")}" placeholder="Hat, Face" ${editable ? "" : "readonly"} /></label>` : ""}
+              <textarea data-item-desc="${key}-${i}" ${editable ? "" : "readonly"} placeholder="${escapeAttr(enterField("itemDescription"))}">${escapeAttr(it.description)}</textarea>
+              ${key === "weapons" ? `<label>${t("weaponSlots")}: <input type="number" min="1" data-item-weapon-slots="${key}-${i}" value="${it.weaponSlots ?? 1}" placeholder="${escapeAttr(enterField("weaponSlots"))}" ${editable ? "" : "readonly"} /></label>` : ""}
+              ${key === "armor" ? `<label>${t("defense")}: <input type="number" data-item-defense="${key}-${i}" value="${it.defense ?? ""}" placeholder="${escapeAttr(enterField("defense"))}" ${editable ? "" : "readonly"} /></label><label>${t("magicalDefense")}: <input type="number" data-item-magdef="${key}-${i}" value="${it.magicalDefense ?? ""}" placeholder="${escapeAttr(enterField("magicalDefense"))}" ${editable ? "" : "readonly"} /></label><label>${t("equippableSlots")}: <input type="text" data-item-equip-slots="${key}-${i}" value="${Array.isArray(it.equippableSlots) ? it.equippableSlots.join(", ") : (it.equippableSlots || "")}" placeholder="${escapeAttr(enterField("equippableSlots"))}" ${editable ? "" : "readonly"} /></label>` : ""}
               ${it.defense != null && key !== "armor" ? `<span>${t("defense")}: ${it.defense}</span>` : ""}
               ${it.magicalDefense != null && key !== "armor" ? `<span> ${t("magicalDefense")}: ${it.magicalDefense}</span>` : ""}
             </div>
