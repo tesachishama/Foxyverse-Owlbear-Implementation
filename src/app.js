@@ -437,6 +437,13 @@ function appendChatMessageIfNew(row) {
   return true;
 }
 
+function canDeleteChatMessage(m) {
+  if (!m?.id) return false;
+  if (state.isGM) return true;
+  if (!state.playerId) return false;
+  return String(m.playerId || "") === String(state.playerId);
+}
+
 /** Remove one message from state and the chat list DOM without full render (live delete + broadcast). */
 function handleChatMessageRemoved(messageId) {
   if (messageId == null) return;
@@ -805,7 +812,7 @@ function renderChatTab() {
         const char = escapeAttr(resolveCharacterDisplayName(m.sheetId));
         const player = escapeAttr(resolvePlayerDisplayName(m.playerId));
         const deleteBtn =
-          state.isGM && m.id
+          m.id && canDeleteChatMessage(m)
             ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
             : "";
         return `
@@ -1785,9 +1792,11 @@ function bindEvents() {
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!state.isGM || !state.roomId) return;
+      if (!state.roomId) return;
       const id = btn.getAttribute("data-chat-id");
       if (!id) return;
+      const msg = state.chatMessages.find((x) => String(x.id) === String(id));
+      if (!msg || !canDeleteChatMessage(msg)) return;
       try {
         await storage.deleteChatMessage(state.roomId, id);
         handleChatMessageRemoved(id);
