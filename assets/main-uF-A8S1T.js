@@ -247,7 +247,9 @@ ${O}`}class V extends Error{constructor({message:e,code:s,cause:n,name:r}){var i
         </div>
         <div class="chat-scrollbar-col" aria-hidden="true">
           <button type="button" class="chat-scroll-arrow chat-scroll-up" id="chat-scroll-up" tabindex="-1" title="${E("scrollUp")}">${he(nt,"inline-svg chat-scroll-arrow-svg","var(--text)")}</button>
-          <div class="chat-scroll-track" id="chat-scroll-track"><div class="chat-scroll-thumb" id="chat-scroll-thumb"></div></div>
+          <div class="chat-scroll-track-outer">
+            <div class="chat-scroll-track" id="chat-scroll-track"><div class="chat-scroll-thumb" id="chat-scroll-thumb"></div></div>
+          </div>
           <button type="button" class="chat-scroll-arrow chat-scroll-down" id="chat-scroll-down" tabindex="-1" title="${E("scrollDown")}">${he(nt,"inline-svg chat-scroll-arrow-svg","var(--text)")}</button>
         </div>
       </div>
