@@ -78,6 +78,9 @@ const state = {
   pendingSheetTimer: null,
   startupError: "",
   fieldLocks: {},
+  isEditingField: false,
+  _realtimePendingAfterEdit: false,
+  _scheduleRealtimeFlush: null,
 };
 
 function canView(sheetId) {
@@ -100,8 +103,8 @@ function getVisibleSheets() {
 
 async function loadRoomData() {
   state.roomId = await storage.getRoomId();
-  state.sheetIds = await storage.getSheetList();
   const roomData = await storage.getRoomData();
+  state.sheetIds = roomData.sheetIds || [];
   state.sheetNames = Object.fromEntries(
     Object.entries(roomData.sheetNames || {}).map(([id, name]) => {
       const normalized = String(name || "").trim();
@@ -133,6 +136,10 @@ async function loadSheet(sheetId, options = {}) {
   }
   let sheet = await storage.getSheet(state.roomId, sheetId, { forceRefresh });
   if (!sheet) {
+    // If we forced refresh and the sheet is gone remotely, drop any stale cache.
+    if (forceRefresh) {
+      try { storage.removeSheetFromStorage(state.roomId, sheetId); } catch (_) {}
+    }
     if (state.isGM) {
       sheet = createEmptySheet(sheetId);
       storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
@@ -890,6 +897,22 @@ function bindEvents() {
         render();
       }
     });
+    app.addEventListener("focusin", (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      const tag = el.tagName;
+      if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return;
+      if (el.hasAttribute("readonly") || el.hasAttribute("disabled")) return;
+      if (!canEdit(state.activeSheetId)) return;
+      state.isEditingField = true;
+    }, true);
+    app.addEventListener("focusout", () => {
+      state.isEditingField = false;
+      if (state._realtimePendingAfterEdit) {
+        state._realtimePendingAfterEdit = false;
+        state._scheduleRealtimeFlush?.();
+      }
+    }, true);
     app.dataset.outsideClickBound = "true";
   }
 
@@ -917,7 +940,7 @@ function bindEvents() {
   app.querySelectorAll("[data-sheet-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       state.sheetMenuOpen = false;
-      await loadSheet(btn.dataset.sheetId || null);
+      await loadSheet(btn.dataset.sheetId || null, { forceRefresh: true });
       render();
     });
   });
@@ -1809,7 +1832,20 @@ export async function initApp() {
         await flushRealtime();
       }, 150);
     }
+    state._scheduleRealtimeFlush = scheduleRealtimeFlush;
     storage.subscribeToRoom(state.roomId, async (payload) => {
+      if (state.isEditingField) {
+        // Don’t cut user input by reloading/rerendering mid-edit.
+        state._realtimePendingAfterEdit = true;
+        realtimeState.needsRoomReload = true;
+        const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id || payload?.new?.id || payload?.old?.id;
+        if (sheetId) realtimeState.changedSheetIds.add(sheetId);
+        if (payload?.table === "sheet" && payload?.eventType === "DELETE") {
+          const sid = payload?.old?.id;
+          if (sid) realtimeState.deletedSheetIds.add(sid);
+        }
+        return;
+      }
       if (payload?.table === "sheet" && payload?.eventType === "DELETE") {
         const sid = payload?.old?.id;
         if (sid) realtimeState.deletedSheetIds.add(sid);
