@@ -1800,24 +1800,36 @@ export async function initApp() {
       realtimeState.inProgress = true;
       try {
         if (hasOwnedFieldLock()) return;
-        await loadRoomData();
-
-        // Purge deleted sheets from local cache immediately.
-        realtimeState.deletedSheetIds.forEach((sid) => {
-          try { storage.removeSheetFromStorage(state.roomId, sid); } catch (_) {}
-        });
-
-        const visible = getVisibleSheets();
         const selectedSheetId = state.pendingSheetId || state.activeSheetId;
-        const activeExists = selectedSheetId && state.sheetIds.includes(selectedSheetId);
 
-        if (!selectedSheetId || !activeExists || !canView(selectedSheetId)) {
-          state.pendingSheetId = null;
-          await loadSheet(visible[0] || null);
-        } else if (realtimeState.changedSheetIds.has(selectedSheetId) || realtimeState.needsRoomReload) {
-          await loadSheet(selectedSheetId, { forceRefresh: true });
+        const mustReloadRoom = realtimeState.needsRoomReload || realtimeState.deletedSheetIds.size > 0;
+        if (mustReloadRoom) {
+          await loadRoomData();
+
+          // Purge deleted sheets from local cache immediately.
+          realtimeState.deletedSheetIds.forEach((sid) => {
+            try { storage.removeSheetFromStorage(state.roomId, sid); } catch (_) {}
+          });
+
+          const visible = getVisibleSheets();
+          const activeExists = selectedSheetId && state.sheetIds.includes(selectedSheetId);
+          if (!selectedSheetId || !activeExists || !canView(selectedSheetId)) {
+            state.pendingSheetId = null;
+            await loadSheet(visible[0] || null);
+            render();
+            return;
+          }
         }
-        render();
+
+        // For most events (bio/stat/item/spell/talent), avoid the expensive full room reload;
+        // only refresh the active sheet if it was affected.
+        if (selectedSheetId && realtimeState.changedSheetIds.has(selectedSheetId)) {
+          await loadSheet(selectedSheetId, { forceRefresh: true });
+          render();
+        } else if (mustReloadRoom) {
+          // Room data changed (permissions/list/deletes) but active sheet didn’t—still rerender header/menu.
+          render();
+        }
       } finally {
         realtimeState.changedSheetIds.clear();
         realtimeState.deletedSheetIds.clear();
