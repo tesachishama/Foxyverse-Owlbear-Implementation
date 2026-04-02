@@ -785,8 +785,13 @@ export async function insertChatMessage(roomId, { playerId, sheetId, body }) {
   return row;
 }
 
-/** Subscribe to new chat lines for a room (INSERT only). */
-export function subscribeToChat(roomId, onInsert) {
+export async function deleteChatMessage(roomId, messageId) {
+  const { error } = await supabase.from("chat").delete().eq("id", messageId).eq("room_id", roomId);
+  if (error) throw error;
+}
+
+/** Subscribe to chat lines for a room (INSERT; optional DELETE for removals). */
+export function subscribeToChat(roomId, onInsert, onDelete) {
   const channel = supabase
     .channel(`foxyverse-chat-${roomId}`)
     .on(
@@ -794,6 +799,13 @@ export function subscribeToChat(roomId, onInsert) {
       { event: "INSERT", schema: "public", table: "chat", filter: `room_id=eq.${roomId}` },
       (payload) => {
         onInsert(payload.new);
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "DELETE", schema: "public", table: "chat", filter: `room_id=eq.${roomId}` },
+      (payload) => {
+        if (typeof onDelete === "function") onDelete(payload.old);
       }
     )
     .subscribe();

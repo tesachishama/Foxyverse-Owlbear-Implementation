@@ -791,9 +791,16 @@ function renderChatTab() {
       (m) => {
         const char = escapeAttr(resolveCharacterDisplayName(m.sheetId));
         const player = escapeAttr(resolvePlayerDisplayName(m.playerId));
+        const deleteBtn =
+          state.isGM && m.id
+            ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
+            : "";
         return `
         <div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
-          <div class="chat-msg-header"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>
+          <div class="chat-msg-header">
+            <div class="chat-msg-header-text"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>
+            ${deleteBtn}
+          </div>
           <div class="chat-msg-bubble"><span class="chat-body">${renderChatBody(m.body)}</span></div>
         </div>`;
       }
@@ -1755,6 +1762,24 @@ function bindEvents() {
   chatInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendChat();
   });
+  app.querySelectorAll(".chat-msg-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!state.isGM || !state.roomId) return;
+      const id = btn.getAttribute("data-chat-id");
+      if (!id) return;
+      try {
+        await storage.deleteChatMessage(state.roomId, id);
+        state.chatMessages = state.chatMessages.filter((m) => String(m.id) !== id);
+        render();
+      } catch (err) {
+        console.error(err);
+        const detail = err?.message || err?.details || String(err);
+        OBR.notification.show(detail ? `Could not delete message: ${detail}` : "Could not delete message");
+      }
+    });
+  });
   async function sendChat() {
     const line = chatInput?.value?.trim();
     if (!line || !state.roomId) return;
@@ -1957,9 +1982,20 @@ export async function initApp() {
       try { state._chatUnsub(); } catch (_) {}
       state._chatUnsub = null;
     }
-    state._chatUnsub = storage.subscribeToChat(state.roomId, (row) => {
-      if (appendChatMessageIfNew(row)) render();
-    });
+    state._chatUnsub = storage.subscribeToChat(
+      state.roomId,
+      (row) => {
+        if (appendChatMessageIfNew(row)) render();
+      },
+      (oldRow) => {
+        const id = oldRow?.id;
+        if (id == null) return;
+        const sid = String(id);
+        const before = state.chatMessages.length;
+        state.chatMessages = state.chatMessages.filter((m) => String(m.id) !== sid);
+        if (state.chatMessages.length !== before) render();
+      }
+    );
     if (state.sheetIds.length && !state.activeSheetId) {
       await loadSheet(getVisibleSheets()[0] || null);
     } else if (state.activeSheetId) {
