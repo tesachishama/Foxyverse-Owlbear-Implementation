@@ -14,9 +14,9 @@ Vite-built extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Character 
 
 ## Chat (room log)
 
-The plugin expects your existing `chat` table columns: **`id`**, **`room_id`**, **`sheet_id`**, **`player_id`**, **`message`** (text), **`time_sent`** (timestamp). Realtime `INSERT` on `chat` should be enabled.
+The plugin expects your existing `chat` table columns: **`id`**, **`room_id`**, **`sheet_id`**, **`player_id`**, a **text body** column (default name **`content`**), and **`time_sent`** (timestamp). Override the body column with **`VITE_CHAT_MESSAGE_COLUMN`** in `.env` if yours differs (e.g. `message`). Optional: **`VITE_CHAT_TIME_COLUMN`** if the timestamp column is not `time_sent`. Realtime `INSERT` on `chat` should be enabled.
 
-The client stores only IDs; **player name** and **Name Surname** are resolved at render time from Owlbear party / `playerDirectory` and `sheetNames`. If your text column is not named `message` (e.g. `content`), change the field name in [`src/data/storage.js`](src/data/storage.js) in `listRecentChat` and `insertChatMessage`.
+The client stores only IDs; **player name** and **Name Surname** are resolved at render time from Owlbear party / `playerDirectory` and `sheetNames`.
 
 ## Dice: chat commands (`/…`)
 

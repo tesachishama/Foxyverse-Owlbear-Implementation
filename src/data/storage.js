@@ -11,13 +11,13 @@ function sanitizeSqlIdent(name, fallback) {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(s) ? s : fallback;
 }
 
-const CHAT_BODY_COL = sanitizeSqlIdent(import.meta.env.VITE_CHAT_MESSAGE_COLUMN, "message");
+const CHAT_BODY_COL = sanitizeSqlIdent(import.meta.env.VITE_CHAT_MESSAGE_COLUMN, "content");
 const CHAT_TIME_COL = sanitizeSqlIdent(import.meta.env.VITE_CHAT_TIME_COLUMN, "time_sent");
 
 /** Resolve message body from a Supabase row (handles env column name + common fallbacks). */
 export function getChatMessageText(row) {
   if (!row) return "";
-  return row[CHAT_BODY_COL] ?? row.message ?? row.content ?? "";
+  return row[CHAT_BODY_COL] ?? row.content ?? row.message ?? row.body ?? "";
 }
 
 function storageKey(roomId, sheetId) {
@@ -749,8 +749,8 @@ async function eventBelongsToRoom(roomId, payload) {
 }
 
 /**
- * Room chat: columns default to `message` and `time_sent`.
- * Override with VITE_CHAT_MESSAGE_COLUMN / VITE_CHAT_TIME_COLUMN if your table differs (e.g. content, created_at).
+ * Room chat: body column defaults to `content`; time column defaults to `time_sent`.
+ * Override with VITE_CHAT_MESSAGE_COLUMN / VITE_CHAT_TIME_COLUMN if your table differs (e.g. message, created_at).
  */
 export async function listRecentChat(roomId, limit = 200) {
   const selectCols = `id, ${CHAT_TIME_COL}, player_id, sheet_id, ${CHAT_BODY_COL}`;

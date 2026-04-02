@@ -801,7 +801,7 @@ function renderChatTab() {
     .join("");
   const sendIcon = inlineSvg(arrowIcon, "inline-svg chat-send-arrow-svg", "var(--text)");
   return `
-    <div class="card chat-card">
+    <div class="card chat-card chat-tab-layout">
       <h2 class="sr-only">${t("tabChat")}</h2>
       <div class="chat-messages-outer">
         <div class="chat-messages-scroll">
