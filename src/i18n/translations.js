@@ -171,7 +171,11 @@ export const translations = {
     send: "Send",
 
     // Notes
-    notesPlaceholder: "Notes...",
+    notesPlaceholder: "Notes... Type inline rolls like [str:+5] or [pdmg:2d6]...",
+    notesEditor: "Editor",
+    notesPreview: "Preview (rolls)",
+
+    spellElement: "Element",
 
     // Settings
     uiColors: "UI colors",
@@ -356,7 +360,11 @@ export const translations = {
     chatPlaceholder: "Message ou /str +5, /pdmg 2d6...",
     send: "Envoyer",
 
-    notesPlaceholder: "Notes...",
+    notesPlaceholder: "Notes... Jets inline comme [str:+5] ou [pdmg:2d6]...",
+    notesEditor: "Éditeur",
+    notesPreview: "Aperçu (jets)",
+
+    spellElement: "Élément",
 
     uiColors: "Couleurs de l'interface",
     sheetPermissions: "Permissions de la fiche",

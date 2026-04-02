@@ -86,7 +86,7 @@ export function createEmptySheet(id = crypto.randomUUID()) {
     actionFormula: "", // e.g. "agi/10 + level/5"
     actionModifier: "",
     speedModifier: "",
-    spells: [], // { id, name, effect, cost, costType: 'hp'|'mp' }
+    spells: [], // { id, name, effect, cost, costType: 'hp'|'mp', element?: string }
     equipped: {}, // slotId -> itemId
     consumables: [], // { id, type, name, count, description, ... }
     others: [],

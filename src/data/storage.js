@@ -172,6 +172,7 @@ function assembleSheet(sheetId, rows) {
     id: row.id,
     name: row.name || "",
     effect: row.description || "",
+    element: row.element || "",
     cost: row.cost ?? 0,
     costType: row.is_hp ? "hp" : "mp",
     isContinuous: !!row.is_continuous,
@@ -334,6 +335,7 @@ export async function upsertSpell(roomId, sheetId, row) {
     position: Number(row.position) || 0,
     name: row.name || "",
     description: row.description || "",
+    element: row.element || "",
     cost: Number(row.cost) || 0,
     is_hp: !!row.is_hp,
     is_continuous: !!row.is_continuous,
@@ -353,6 +355,7 @@ export async function updateSpellFields(roomId, sheetId, spellId, patch) {
   if ("is_hp" in patch) update.is_hp = !!patch.is_hp;
   if ("is_continuous" in patch) update.is_continuous = !!patch.is_continuous;
   if ("use_counter" in patch) update.use_counter = Number(patch.use_counter) || 0;
+  if ("element" in patch) update.element = String(patch.element || "");
   if (!Object.keys(update).length) return;
   const { error } = await supabase.from("spell").update(update).eq("sheet_id", sheetId).eq("id", spellId);
   if (error) throw error;
@@ -502,6 +505,7 @@ async function persistRows(roomId, sheet) {
     position,
     name: spell.name || "",
     description: spell.effect || "",
+    element: spell.element || "",
     cost: Number(spell.cost) || 0,
     is_hp: (spell.costType || "mp") === "hp",
     is_continuous: !!spell.isContinuous,
@@ -727,6 +731,53 @@ async function eventBelongsToRoom(roomId, payload) {
   if (!sheetId) return false;
   const { data, error } = await supabase.from("sheet").select("room_id").eq("id", sheetId).single();
   return !error && data?.room_id === roomId;
+}
+
+/** Room chat: latest messages oldest-first (max `limit`). */
+export async function listRecentChat(roomId, limit = 200) {
+  const { data, error } = await supabase
+    .from("chat")
+    .select("id, created_at, player_id, player_name, body, payload")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const rows = data || [];
+  return rows.slice().reverse();
+}
+
+export async function insertChatMessage(roomId, { playerId, playerName, body, payload = null }) {
+  await ensureRoom(roomId);
+  const { data, error } = await supabase
+    .from("chat")
+    .insert({
+      room_id: roomId,
+      player_id: playerId || "",
+      player_name: playerName || "",
+      body: body || "",
+      payload,
+    })
+    .select("id, created_at, player_id, player_name, body, payload")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Subscribe to new chat lines for a room (INSERT only). */
+export function subscribeToChat(roomId, onInsert) {
+  const channel = supabase
+    .channel(`foxyverse-chat-${roomId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "chat", filter: `room_id=eq.${roomId}` },
+      (payload) => {
+        onInsert(payload.new);
+      }
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export function subscribeToRoom(roomId, callback) {

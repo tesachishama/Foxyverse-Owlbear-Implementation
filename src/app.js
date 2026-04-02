@@ -63,7 +63,7 @@ const state = {
   playerId: null,
   activeTab: "bio",
   chatMessages: [],
-  chatHistoryKey: "foxyverse_chat_",
+  _chatUnsub: null,
   lastRoll: null,
   lastRollPayload: null,
   sheetMenuOpen: false,
@@ -404,6 +404,39 @@ function normalizeImportedSheet(raw, options = {}) {
   return next;
 }
 
+function mapChatRow(row) {
+  return {
+    id: row.id,
+    from: row.player_name || "Player",
+    body: row.body || "",
+    payload: row.payload ?? null,
+  };
+}
+
+function appendChatMessageIfNew(row) {
+  const msg = mapChatRow(row);
+  if (!msg.id || state.chatMessages.some((m) => m.id === msg.id)) return false;
+  state.chatMessages.push(msg);
+  if (state.chatMessages.length > 250) state.chatMessages = state.chatMessages.slice(-200);
+  return true;
+}
+
+function summarizeRollResultForPayload(result) {
+  if (!result) return null;
+  if (result.kind === "stat") {
+    return {
+      kind: "stat",
+      total: result.total,
+      roll: result.roll,
+      mod: result.mod,
+      success: result.success,
+      nat1: result.nat1,
+      nat20: result.nat20,
+    };
+  }
+  return { kind: result.kind, value: result.value, rolls: result.rolls };
+}
+
 function getLockOwner(lockId) {
   return null;
 }
@@ -611,7 +644,7 @@ function renderStatsTab() {
   });
 
   return `
-    <div class="card">
+    <div class="card stats-tab-card">
       <h2>${t("tabStats")}</h2>
       <div class="hp-mp-block">${hpMp}</div>
       <h3>${t("knowledge")}</h3>
@@ -651,6 +684,7 @@ function renderSpellsTab() {
     .map(
       (sp, i) => `
     <div class="spell-item card" data-idx="${i}">
+      <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element" value="${escapeAttr(sp.element || "")}" data-spell-element="${i}" placeholder="—" ${editable ? "" : "readonly"} /></label>
       <input type="text" class="spell-name" value="${escapeAttr(sp.name)}" data-spell-name="${i}" placeholder="${t("spellName")}" ${editable ? "" : "readonly"} />
       <textarea class="spell-effect" data-spell-effect="${i}" placeholder="${t("spellEffect")}" ${editable ? "" : "readonly"} rows="2">${escapeAttr(sp.effect)}</textarea>
       <div class="spell-cost">
@@ -707,7 +741,7 @@ function renderInventoryTab() {
     return `<div class="equip-row"><span class="equip-slot-label">${slotLabel(slotId)}</span><select class="equip-select" data-slot="${slotId}" ${editable ? "" : "disabled"}><option value="">—</option>${options.map((it) => `<option value="${it.id}" ${currentId === it.id ? "selected" : ""}>${escapeAttr(it.name)}</option>`).join("")}</select></div>`;
   }).join("");
   let html = `
-    <div class="card"><h2>${t("tabInventory")}</h2>
+    <div class="card inventory-tab-card"><h2>${t("tabInventory")}</h2>
     <h3>${t("equipped")}</h3>
     <div class="equipped-grid">${equippedRows}</div>
   `;
@@ -755,7 +789,7 @@ function renderChatTab() {
   const list = messages
     .map(
       (m) =>
-        `<div class="chat-msg"><strong>${escapeAttr(m.from)}:</strong> <span class="chat-body">${renderChatBody(m.body)}</span></div>`
+        `<div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}><strong>${escapeAttr(m.from)}:</strong> <span class="chat-body">${renderChatBody(m.body)}</span></div>`
     )
     .join("");
   return `
@@ -763,7 +797,7 @@ function renderChatTab() {
       <h2>${t("tabChat")}</h2>
       <div class="chat-messages" id="chat-messages">${list}</div>
       <div class="chat-input-row">
-        <input type="text" id="chat-input" placeholder="${t("chatPlaceholder")}" />
+        <input type="text" id="chat-input" placeholder="${t("chatPlaceholder")}" autocomplete="off" />
         <button type="button" id="chat-send">${t("send")}</button>
       </div>
     </div>
@@ -786,10 +820,20 @@ function renderNotesTab() {
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const notes = s?.notes ?? "";
   const editable = canEdit(state.activeSheetId);
+  const previewHtml = renderChatBody(notes);
   return `
-    <div class="card">
+    <div class="card notes-card">
       <h2>${t("tabNotes")}</h2>
-      <textarea id="notes-area" rows="12" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>
+      <div class="notes-split">
+        <div class="notes-editor-col">
+          <label class="notes-col-label">${t("notesEditor")}</label>
+          <textarea id="notes-area" rows="12" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>
+        </div>
+        <div class="notes-preview-col">
+          <label class="notes-col-label">${t("notesPreview")}</label>
+          <div id="notes-preview" class="notes-preview">${previewHtml}</div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -897,6 +941,12 @@ function render() {
   `;
   applyColors();
   bindEvents();
+  if (state.activeTab === "chat") {
+    requestAnimationFrame(() => {
+      const el = document.getElementById("chat-messages");
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+  }
 }
 
 function bindEvents() {
@@ -915,6 +965,7 @@ function bindEvents() {
     app.addEventListener("focusin", (e) => {
       const el = e.target;
       if (!(el instanceof HTMLElement)) return;
+      if (el.closest(".chat-card")) return;
       const tag = el.tagName;
       if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") return;
       if (el.hasAttribute("readonly") || el.hasAttribute("disabled")) return;
@@ -1315,7 +1366,7 @@ function bindEvents() {
     if (!state.sheet) return;
     const next = applyLocalMutation((sheet) => {
       if (!sheet.spells) sheet.spells = [];
-      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", cost: 0, costType: "mp" });
+      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", element: "", cost: 0, costType: "mp" });
     });
     if (state.roomId && state.activeSheetId && next) {
       const idx = next.spells.length - 1;
@@ -1325,6 +1376,7 @@ function bindEvents() {
         position: idx,
         name: sp.name || "",
         description: sp.effect || "",
+        element: sp.element || "",
         cost: sp.cost ?? 0,
         is_hp: (sp.costType || "mp") === "hp",
         is_continuous: !!sp.isContinuous,
@@ -1348,15 +1400,16 @@ function bindEvents() {
       render();
     });
   });
-  app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-cost]").forEach((el) => {
+  app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-cost], [data-spell-element]").forEach((el) => {
     el.addEventListener("change", async (e) => {
-      const idx = parseInt(el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost, 10);
+      const idx = parseInt(el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost ?? el.dataset.spellElement, 10);
       const next = applyLocalMutation((sheet) => {
         const sp = sheet.spells[idx];
         if (!sp) return;
         if (el.dataset.spellName !== undefined) sp.name = e.target.value;
         if (el.dataset.spellEffect !== undefined) sp.effect = e.target.value;
         if (el.dataset.spellCost !== undefined) sp.cost = parseInt(e.target.value, 10) || 0;
+        if (el.dataset.spellElement !== undefined) sp.element = e.target.value;
       });
       if (state.roomId && state.activeSheetId && next?.spells?.[idx]) {
         const sp = next.spells[idx];
@@ -1364,6 +1417,7 @@ function bindEvents() {
         if (el.dataset.spellName !== undefined) patch.name = sp.name || "";
         if (el.dataset.spellEffect !== undefined) patch.description = sp.effect || "";
         if (el.dataset.spellCost !== undefined) patch.cost = sp.cost ?? 0;
+        if (el.dataset.spellElement !== undefined) patch.element = sp.element || "";
         storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, patch).catch(console.error);
       }
     });
@@ -1588,7 +1642,15 @@ function bindEvents() {
   });
 
   // Notes
-  app.querySelector("#notes-area")?.addEventListener("change", async (e) => {
+  const notesArea = app.querySelector("#notes-area");
+  notesArea?.addEventListener("input", (e) => {
+    if (!state.sheet) return;
+    const val = e.target.value;
+    state.sheet.notes = val;
+    const prev = document.getElementById("notes-preview");
+    if (prev) prev.innerHTML = renderChatBody(val);
+  });
+  notesArea?.addEventListener("change", async (e) => {
     if (state.sheet) {
       applyLocalMutation((sheet) => {
         sheet.notes = e.target.value;
@@ -1601,32 +1663,36 @@ function bindEvents() {
 
   // Chat
   const chatInput = app.querySelector("#chat-input");
-  app.querySelector("#chat-send")?.addEventListener("click", sendChat);
+  app.querySelector("#chat-send")?.addEventListener("click", () => sendChat());
   chatInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendChat();
   });
-  function sendChat() {
+  async function sendChat() {
     const line = chatInput?.value?.trim();
-    if (!line) return;
+    if (!line || !state.roomId) return;
+    const playerName = state.playerName || "Player";
+    let payload = null;
     const cmd = parseChatCommand(line);
     if (cmd && state.sheet) {
       const result = executeRoll(cmd, state.sheet);
       state.lastRoll = result;
       state.lastRollPayload = cmd;
       OBR.notification.show(String(result.value ?? result.roll ?? result.total ?? ""));
-      OBR.broadcast.sendMessage("foxyverse", { type: "chat", from: state.playerName || "Player", body: line, result }).catch(() => {});
-    } else {
-      OBR.broadcast.sendMessage("foxyverse", { type: "chat", from: state.playerName || "Player", body: line }).catch(() => {});
+      payload = summarizeRollResultForPayload(result);
     }
-    chatInput.value = "";
-    state.chatMessages.push({ from: state.playerName || "Player", body: line });
-    const key = state.chatHistoryKey + state.roomId;
     try {
-      localStorage.setItem(key, JSON.stringify(state.chatMessages.slice(-200)));
-    } catch (_) {}
-    const msgsEl = document.getElementById("chat-messages");
-    if (msgsEl) {
-      msgsEl.innerHTML += `<div class="chat-msg"><strong>${escapeAttr(state.playerName || "You")}:</strong> <span class="chat-body">${renderChatBody(line)}</span></div>`;
+      const row = await storage.insertChatMessage(state.roomId, {
+        playerId: state.playerId || "",
+        playerName,
+        body: line,
+        payload,
+      });
+      appendChatMessageIfNew(row);
+      chatInput.value = "";
+      render();
+    } catch (err) {
+      console.error(err);
+      OBR.notification.show("Chat send failed");
     }
   }
 
@@ -1793,11 +1859,20 @@ export async function initApp() {
     state.playerDirectory = updatedDirectory;
     await storage.setRoomData({ playerDirectory: updatedDirectory });
     requestVisibleSheets();
-    const chatKey = state.chatHistoryKey + state.roomId;
     try {
-      const saved = localStorage.getItem(chatKey);
-      if (saved) state.chatMessages = JSON.parse(saved);
-    } catch (_) {}
+      const rows = await storage.listRecentChat(state.roomId, 200);
+      state.chatMessages = rows.map(mapChatRow);
+    } catch (e) {
+      console.error(e);
+      state.chatMessages = [];
+    }
+    if (state._chatUnsub) {
+      try { state._chatUnsub(); } catch (_) {}
+      state._chatUnsub = null;
+    }
+    state._chatUnsub = storage.subscribeToChat(state.roomId, (row) => {
+      if (appendChatMessageIfNew(row)) render();
+    });
     if (state.sheetIds.length && !state.activeSheetId) {
       await loadSheet(getVisibleSheets()[0] || null);
     } else if (state.activeSheetId) {

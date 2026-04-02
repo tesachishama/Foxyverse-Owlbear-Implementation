@@ -496,6 +496,7 @@ button:disabled {
   min-height: 180px;
   max-height: 240px;
   overflow-y: auto;
+  scroll-behavior: smooth;
   background: var(--bg);
   border: 3px solid var(--border);
   border-radius: 4px;
@@ -708,5 +709,62 @@ button:disabled {
 .item-name-inp { width: 8rem; padding: 0.25rem; }
 .item-count-inp { width: 3rem; padding: 0.25rem; }
 .item-toggle { cursor: pointer; margin-left: 0.25rem; }
+
+/* Notes: editor + inline-roll preview */
+.notes-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (max-width: 520px) {
+  .notes-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.notes-col-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  opacity: 0.95;
+}
+
+.notes-preview {
+  border: 3px solid var(--border);
+  border-radius: 12px;
+  padding: 0.5rem 0.65rem;
+  min-height: 12rem;
+  max-height: 24rem;
+  overflow: auto;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.notes-preview .inline-roll-btn {
+  vertical-align: baseline;
+}
+
+/* Stats / inventory tab cards */
+.stats-tab-card .stats-table th {
+  text-align: center;
+}
+
+.inventory-tab-card h3 {
+  margin-top: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.spell-element-row {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.spell-element-row input.spell-element {
+  max-width: 10rem;
+  margin-left: 0.35rem;
+}
 
 .hidden { display: none !important; }

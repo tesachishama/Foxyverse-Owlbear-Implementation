@@ -1,79 +1,64 @@
-# Foxyverse — Owlbear Rodeo plugin
+# Foxyverse Owlbear plugin
 
-An [Owlbear Rodeo](https://www.owlbear.rodeo/) extension for the **Foxyverse** homebrew TTRPG: d20 stat checks (DC = stat value), character sheets, spells, inventory, chat, and dice rolls with inline buttons.
-
-## Features
-
-- **Character sheets** — Dropdown at top; GM can create/edit all; permissions (view/edit) per player in Settings; sheet list and permissions in room metadata, full data in localStorage (persists across sessions).
-- **Language** — EN/FR flags; all UI strings in `src/i18n/translations.js` (edit that file to translate).
-- **Tabs**: Bio, Stats, Spells, Inventory, Chat, Notes, Settings.
-
-### Bio
-- Name, Surname, Element, Class, Level.
-
-### Stats
-- Temp HP, Current/Max HP (Max = Constitution×2), Current/Max MP (Max = Round((Int+Focus)×0.75)), Current/Max Favor (Max = RoundUp((Level+1)/3)), Action count, Speed formula.
-- Seven stats: Constitution, Strength, Intelligence, Perception, Social, Agility, Focus (Base, XP Bonus, Item Bonus, Passive Bonus, Total).
-- Per-stat **Roll** button: optional modifier (+/- or quick -10,-5,-3,-1,+1,+3,+5,+10), then 1d20 vs DC = stat total; **Nat 1** / **Nat 20** and success/failure.
-- **Knowledge** list: add/remove, tier 1–4 (+1/+3/+5/+10), toggle on/off.
-
-### Spells
-- Add/remove/reorder; Name, Effect (supports inline roll buttons), Cost (HP or MP), “Deduct cost” with MP→HP overflow and confirmation.
-
-### Inventory
-- Sections: Consumables, Others, Weapons, Armor, Bags. Add/remove items; name, qty, description (inline buttons). Defense/Magical Defense from equipped armor used for damage application. (Full slot-based equip UI with all body slots can be added later.)
-
-### Dice
-- **Stat roll**: 1d20 + modifier, DC = stat; success = roll ≤ DC (Nat 1 fail, Nat 20 success).
-- **Other rolls**: `[pdmg:2d6+3]`, `[mdmg:1d8]`, `[tdmg:2dper+(str/2)]`, `[heal:2d10]`, `[theal:1d4*4]`, `[roll:1d100]`. Left-to-right math; stat refs: str, con, int, per, soc, agi, foc (e.g. `2dper` = 2 dice with faces = Perception total).
-- **Chat commands**: `/str +5`, `/pdmg 2d6+3`, `/mdmg 1d8`, `/heal 2d10`, `/roll 1d20`.
-- Roll result modal: **Apply** for Physical/Magic/True damage (minus Defense/Magical Defense), Heal (cap at max HP), Over-heal (temp HP). **Reroll** costs 1 Favor.
-
-### Chat
-- Live messages via broadcast; roll feedback; history stored in localStorage per room (between sessions).
-
-### Notes
-- Plain text, saved with the sheet.
-
-### Settings
-- **UI colors**: 5 color pickers (background, surface, border, text, accent).
-- **Permissions** (GM only): per sheet, give each player View and/or Edit.
-- **Export / Import** sheet as JSON file.
+Vite-built extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Character sheets sync via **Supabase** (PostgreSQL + Realtime).
 
 ## Setup
 
-```bash
-npm install
+1. Clone and install: `npm install`
+2. Copy `.env.example` to `.env` (or create `.env`) with:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+3. Apply SQL migrations in `supabase/migrations/` to your Supabase project (SQL editor or CLI). Ensure **Realtime** is enabled for tables you subscribe to (e.g. `chat`, `sheet`, …).
+4. Dev: `npm run dev` — load the extension URL in Owlbear’s extension dev tools.
+5. Production: `npm run build` — deploy `dist/` (e.g. GitHub Pages); configure the same env vars in CI secrets.
+
+## Chat (room log)
+
+Messages are stored in the `chat` table and replicated to all clients via Supabase Realtime.
+
+## Dice: chat commands (`/…`)
+
+Commands start with `/`. The word after `/` is the **roll type**; the rest of the line is the **expression** (see below).
+
+| Command | Meaning |
+|--------|---------|
+| `/str`, `/con`, `/int`, `/per`, `/soc`, `/agi`, `/foc` | Stat check vs DC = your **total** for that stat. Expression is the modifier to the d20 (e.g. `/str +5`). |
+| `/roll` | Generic roll; expression only (e.g. `/roll 2d6+3`). |
+| `/pdmg` | Physical damage roll (expression). Can apply from the result modal where supported. |
+| `/mdmg` | Magic damage roll. |
+| `/tdmg` | True damage roll. |
+| `/heal` | Heal roll. |
+| `/theal` | Over-heal (temp HP) roll. |
+
+Stat abbreviations match `src/dice/parser.js`: `str`, `con`, `int`, `per`, `soc`, `agi`, `foc`.
+
+## Dice: expression syntax
+
+Used after the command (chat) or inside inline buttons (notes/chat):
+
+- **Dice:** `NdX` (e.g. `2d6`, `1d20`). `Nd` with stat face: `2dper` uses your Perception total as die size (see parser).
+- **Stats in math:** `str`, `con`, etc. as values in expressions.
+- **Operators:** `+`, `-`, `*`, `/`, parentheses.
+- Whitespace is ignored in the parser’s tokenizer.
+
+Implementation reference: [`src/dice/parser.js`](src/dice/parser.js), [`src/dice/roller.js`](src/dice/roller.js).
+
+## Inline roll buttons (notes & chat)
+
+In any text field that renders rich content (chat messages, **Notes preview**), you can embed:
+
+```text
+[str:+5]
+[pdmg:2d6+3]
+[roll:1d20+2]
 ```
 
-## Development
+Bracket form: `[type:expression]` where `type` is one of: `str`, `con`, `int`, `per`, `soc`, `agi`, `foc`, `pdmg`, `mdmg`, `tdmg`, `heal`, `theal`, `roll` (also `statroll` as alias in code). Click the rendered button to roll using the **current character sheet**.
 
-```bash
-npm run dev
-```
+## Spells: element field
 
-In Owlbear Rodeo: **Settings** → **Extensions** → **Add Extension** → manifest URL (use a tunnel to your dev server or `npx serve dist -p 4173` and `http://localhost:4173/manifest.json` for local test).
+Each spell row can have an optional **Element** label (stored in `spell.element` in the database). Apply the migration that adds the `element` column if upgrading an existing database.
 
-## Build
+## License
 
-```bash
-npm run build
-```
-
-Output in `dist/`. The repo’s GitHub Action deploys to **GitHub Pages**. Extension URL:
-
-- `https://<your-username>.github.io/Foxyverse-Owlbear-Implementation/manifest.json`
-
-## Project layout
-
-- `public/manifest.json`, `public/icon.svg` — Extension manifest and icon.
-- `src/main.js` — Entry (`OBR.onReady`).
-- `src/app.js` — Main UI and state.
-- `src/i18n/translations.js` — **Single file for all UI strings** (EN + FR); change here to translate.
-- `src/data/schema.js` — Sheet shape, stats, slots, formulas.
-- `src/data/storage.js` — Room metadata, localStorage, broadcast.
-- `src/dice/parser.js` — Dice expression tokenize/evaluate, stat refs.
-- `src/dice/roller.js` — Roll types, inline/chat parsing, apply damage/heal.
-- `src/style.css` — Styles (uses CSS variables for the 5 theme colors).
-
-Docs: [Owlbear Rodeo Extensions](https://docs.owlbear.rodeo/extensions/getting-started/).
+MIT
