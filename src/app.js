@@ -404,10 +404,17 @@ function normalizeImportedSheet(raw, options = {}) {
   return next;
 }
 
+function getSheetDisplayNameForChat(sheet) {
+  if (!sheet?.bio) return "Name Surname";
+  const n = [sheet.bio.name, sheet.bio.surname].filter(Boolean).join(" ").trim();
+  return n || "Name Surname";
+}
+
 function mapChatRow(row) {
   return {
     id: row.id,
     from: row.player_name || "Player",
+    characterName: row.character_name || "Name Surname",
     body: row.body || "",
     payload: row.payload ?? null,
   };
@@ -788,17 +795,36 @@ function renderChatTab() {
   const messages = state.chatMessages || [];
   const list = messages
     .map(
-      (m) =>
-        `<div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}><strong>${escapeAttr(m.from)}:</strong> <span class="chat-body">${renderChatBody(m.body)}</span></div>`
+      (m) => {
+        const char = escapeAttr(m.characterName || "Name Surname");
+        const player = escapeAttr(m.from || "Player");
+        return `
+        <div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
+          <div class="chat-msg-header"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>
+          <div class="chat-msg-bubble"><span class="chat-body">${renderChatBody(m.body)}</span></div>
+        </div>`;
+      }
     )
     .join("");
+  const sendIcon = inlineSvg(arrowIcon, "inline-svg chat-send-arrow-svg", "var(--text)");
   return `
     <div class="card chat-card">
-      <h2>${t("tabChat")}</h2>
-      <div class="chat-messages" id="chat-messages">${list}</div>
+      <h2 class="sr-only">${t("tabChat")}</h2>
+      <div class="chat-messages-outer">
+        <div class="chat-messages-scroll">
+          <div class="chat-messages" id="chat-messages">${list}</div>
+        </div>
+        <div class="chat-scrollbar-col" aria-hidden="true">
+          <button type="button" class="chat-scroll-arrow chat-scroll-up" id="chat-scroll-up" tabindex="-1" title="${t("scrollUp")}">${inlineSvg(arrowIcon, "inline-svg chat-scroll-arrow-svg", "var(--text)")}</button>
+          <div class="chat-scroll-track" id="chat-scroll-track"><div class="chat-scroll-thumb" id="chat-scroll-thumb"></div></div>
+          <button type="button" class="chat-scroll-arrow chat-scroll-down" id="chat-scroll-down" tabindex="-1" title="${t("scrollDown")}">${inlineSvg(arrowIcon, "inline-svg chat-scroll-arrow-svg", "var(--text)")}</button>
+        </div>
+      </div>
       <div class="chat-input-row">
-        <input type="text" id="chat-input" placeholder="${t("chatPlaceholder")}" autocomplete="off" />
-        <button type="button" id="chat-send">${t("send")}</button>
+        <div class="chat-input-pill">
+          <input type="text" id="chat-input" placeholder="${t("chatWritePlaceholder")}" autocomplete="off" />
+          <button type="button" id="chat-send" class="chat-send-btn" aria-label="${t("send")}">${sendIcon}</button>
+        </div>
       </div>
     </div>
   `;
@@ -813,6 +839,74 @@ function renderChatBody(body) {
     text = text.replace(btn.raw, `<button type="button" class="inline-roll-btn" data-type="${btn.type}" data-expr="${escapeAttr(btn.expr)}" data-stat="${escapeAttr(stat)}">${escapeAttr(btn.raw)}</button>`);
   });
   return text;
+}
+
+function setupChatScrollbar() {
+  const scrollEl = document.getElementById("chat-messages");
+  const track = document.getElementById("chat-scroll-track");
+  const thumb = document.getElementById("chat-scroll-thumb");
+  const btnUp = document.getElementById("chat-scroll-up");
+  const btnDown = document.getElementById("chat-scroll-down");
+  if (!scrollEl || !track || !thumb) return;
+
+  const updateThumb = () => {
+    const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+    const trackH = track.clientHeight;
+    const thumbH = Math.max(22, Math.min(trackH, (clientHeight / Math.max(scrollHeight, 1)) * trackH));
+    const maxScroll = Math.max(0, scrollHeight - clientHeight);
+    const maxThumbTop = Math.max(0, trackH - thumbH);
+    const top = maxScroll <= 0 ? 0 : (scrollTop / maxScroll) * maxThumbTop;
+    thumb.style.height = `${thumbH}px`;
+    thumb.style.transform = `translateY(${top}px)`;
+  };
+
+  scrollEl.addEventListener("scroll", updateThumb, { passive: true });
+  try {
+    const ro = new ResizeObserver(() => updateThumb());
+    ro.observe(scrollEl);
+  } catch (_) {}
+
+  const step = () => Math.max(60, Math.floor(scrollEl.clientHeight * 0.85));
+  btnUp?.addEventListener("click", () => {
+    scrollEl.scrollBy({ top: -step(), behavior: "smooth" });
+  });
+  btnDown?.addEventListener("click", () => {
+    scrollEl.scrollBy({ top: step(), behavior: "smooth" });
+  });
+
+  track.addEventListener("click", (e) => {
+    if (e.target === thumb || thumb.contains(e.target)) return;
+    const rect = track.getBoundingClientRect();
+    const clickY = e.clientY - rect.top;
+    const pct = clickY / rect.height;
+    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+    scrollEl.scrollTop = pct * maxScroll;
+  });
+
+  thumb.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startScroll = scrollEl.scrollTop;
+    const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    const trackH = track.clientHeight;
+    const thumbH = thumb.offsetHeight;
+    const denom = Math.max(1, trackH - thumbH);
+    const scrollPerPx = maxScroll / denom;
+    function onMove(e2) {
+      const dy = e2.clientY - startY;
+      scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, startScroll + dy * scrollPerPx));
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      thumb.classList.remove("dragging");
+    }
+    thumb.classList.add("dragging");
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+
+  updateThumb();
 }
 
 function renderNotesTab() {
@@ -1684,6 +1778,7 @@ function bindEvents() {
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         playerName,
+        characterName: getSheetDisplayNameForChat(state.sheet),
         body: line,
         payload,
       });
@@ -1695,6 +1790,8 @@ function bindEvents() {
       OBR.notification.show("Chat send failed");
     }
   }
+
+  setupChatScrollbar();
 
   // Settings
   app.querySelectorAll("[data-color]").forEach((input) => {

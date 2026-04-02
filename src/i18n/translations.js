@@ -168,6 +168,9 @@ export const translations = {
 
     // Chat
     chatPlaceholder: "Message or /str +5, /pdmg 2d6...",
+    chatWritePlaceholder: "Write here...",
+    scrollUp: "Scroll up",
+    scrollDown: "Scroll down",
     send: "Send",
 
     // Notes
@@ -358,6 +361,9 @@ export const translations = {
     rightPinky: "Auriculaire D",
 
     chatPlaceholder: "Message ou /str +5, /pdmg 2d6...",
+    chatWritePlaceholder: "Écrire ici...",
+    scrollUp: "Défiler vers le haut",
+    scrollDown: "Défiler vers le bas",
     send: "Envoyer",
 
     notesPlaceholder: "Notes... Jets inline comme [str:+5] ou [pdmg:2d6]...",

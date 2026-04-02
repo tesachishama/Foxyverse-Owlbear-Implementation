@@ -14,7 +14,7 @@ Vite-built extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Character 
 
 ## Chat (room log)
 
-Messages are stored in the `chat` table and replicated to all clients via Supabase Realtime.
+Messages are stored in the `chat` table and replicated to all clients via Supabase Realtime. Each row stores a snapshot `character_name` (Name Surname from the sender’s active sheet at send time) and `player_name` (Owlbear display name).
 
 ## Dice: chat commands (`/…`)
 

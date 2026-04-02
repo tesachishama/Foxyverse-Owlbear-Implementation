@@ -737,7 +737,7 @@ async function eventBelongsToRoom(roomId, payload) {
 export async function listRecentChat(roomId, limit = 200) {
   const { data, error } = await supabase
     .from("chat")
-    .select("id, created_at, player_id, player_name, body, payload")
+    .select("id, created_at, player_id, player_name, character_name, body, payload")
     .eq("room_id", roomId)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -746,7 +746,7 @@ export async function listRecentChat(roomId, limit = 200) {
   return rows.slice().reverse();
 }
 
-export async function insertChatMessage(roomId, { playerId, playerName, body, payload = null }) {
+export async function insertChatMessage(roomId, { playerId, playerName, characterName, body, payload = null }) {
   await ensureRoom(roomId);
   const { data, error } = await supabase
     .from("chat")
@@ -754,10 +754,11 @@ export async function insertChatMessage(roomId, { playerId, playerName, body, pa
       room_id: roomId,
       player_id: playerId || "",
       player_name: playerName || "",
+      character_name: characterName || "",
       body: body || "",
       payload,
     })
-    .select("id, created_at, player_id, player_name, body, payload")
+    .select("id, created_at, player_id, player_name, character_name, body, payload")
     .single();
   if (error) throw error;
   return data;
