@@ -34,8 +34,7 @@ import {
   getSheetMagicalDefense,
 } from "./data/schema.js";
 import * as storage from "./data/storage.js";
-import { executeRoll, getInlineButtons, parseChatCommand, applyPhysicalDamage, applyMagicDamage, applyTrueDamage, applyHeal, applyOverHeal, canReroll } from "./dice/roller.js";
-import { evaluateExpression, statValuesFromSheet, rollStatCheck } from "./dice/parser.js";
+import { executeRoll, getInlineButtons, parseChatCommand, applyPhysicalDamage, applyMagicDamage, applyTrueDamage, applyHeal, applyOverHeal, applyMana, canReroll } from "./dice/roller.js";
 
 const ROOT_ID = "app";
 const TABS = ["bio", "stats", "spells", "inventory", "chat", "notes", "settings"];
@@ -858,9 +857,36 @@ function renderChatBody(body) {
   let text = escapeAttr(body);
   buttons.forEach((btn) => {
     const stat = (btn.stat || "").toString();
-    text = text.replace(btn.raw, `<button type="button" class="inline-roll-btn" data-type="${btn.type}" data-expr="${escapeAttr(btn.expr)}" data-stat="${escapeAttr(stat)}">${escapeAttr(btn.raw)}</button>`);
+    const formula = (btn.formula || "").toString();
+    const label = (btn.label || btn.raw || "").toString();
+    text = text.replace(
+      btn.raw,
+      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}">${escapeAttr(label)}</button>`
+    );
   });
   return text;
+}
+
+function formatRollChatLine(result) {
+  const formula = (result?.translatedFormula || result?.formula || "").toString();
+  const dice = Array.isArray(result?.diceResults) ? result.diceResults.join(", ") : "";
+  let out = `${t("rolled")} ${formula} : [${dice}] ${result?.value ?? 0}`;
+
+  // Win / lose suffix
+  if (result?.kind === "stat") {
+    const key =
+      result.outcome === "critical_success"
+        ? "criticalSuccess"
+        : result.outcome === "success"
+          ? "success"
+          : result.outcome === "failure"
+            ? "failure"
+            : "criticalFailure";
+    out += ` [${t(key)}]`;
+  } else if (result?.comparison && typeof result.comparison.success === "boolean") {
+    out += ` [${t(result.comparison.success ? "success" : "failure")}]`;
+  }
+  return out;
 }
 
 function setupChatScrollbar() {
@@ -1326,18 +1352,20 @@ function bindEvents() {
   app.querySelectorAll(".btn-roll-stat").forEach((btn) => {
     btn.addEventListener("click", () => {
       state._rollStat = btn.dataset.stat;
-      state._rollDc = parseInt(btn.dataset.dc, 10);
       document.getElementById("stat-roll-modal")?.classList.remove("hidden");
     });
   });
   app.querySelector("#stat-roll-do")?.addEventListener("click", () => {
     const mod = document.getElementById("stat-roll-modifier")?.value || "";
-    const result = rollStatCheck(state._rollDc, mod);
-    state.lastRoll = { kind: "stat", stat: state._rollStat, ...result };
-    state.lastRollPayload = { type: "stat", stat: state._rollStat?.replace("strength", "str").replace("constitution", "con").replace("intelligence", "int").replace("perception", "per").replace("social", "soc").replace("agility", "agi").replace("focus", "foc"), expr: mod };
+    if (!state.sheet) return;
+    const payload = { kind: "stat", stat: state._rollStat, formula: mod };
+    const result = executeRoll(payload, state.sheet);
+    if (!result) return;
+    state.lastRoll = result;
+    state.lastRollPayload = payload;
     document.getElementById("stat-roll-modal")?.classList.add("hidden");
-    showRollResult(state.lastRoll);
-    OBR.notification.show(result.nat20 ? t("nat20") : result.nat1 ? t("nat1") : result.success ? t("success") : t("failure"));
+    showRollResult(result);
+    OBR.notification.show(result.outcome === "critical_success" ? t("criticalSuccess") : result.outcome === "success" ? t("success") : result.outcome === "failure" ? t("failure") : t("criticalFailure"));
   });
   app.querySelector("#stat-roll-cancel")?.addEventListener("click", () => {
     document.getElementById("stat-roll-modal")?.classList.add("hidden");
@@ -1349,7 +1377,7 @@ function bindEvents() {
     const d6 = Math.floor(Math.random() * 6) + 1;
     const mod = evalModifier(state.sheet.speedModifier || "");
     const value = Math.floor(agi / 4) + d6 + mod;
-    state.lastRoll = { kind: "roll", value, rolls: [d6] };
+    state.lastRoll = { kind: "roll", value, diceResults: [d6], translatedFormula: "", formula: "" };
     state.lastRollPayload = null;
     showRollResult(state.lastRoll);
   });
@@ -1358,8 +1386,10 @@ function bindEvents() {
     btn.addEventListener("click", (e) => {
       const stat = e.target.closest(".quick-mods").dataset.stat;
       const mod = e.target.dataset.mod;
-      const payload = { type: "stat", stat: stat.replace("strength", "str").replace("constitution", "con").replace("intelligence", "int").replace("perception", "per").replace("social", "soc").replace("agility", "agi").replace("focus", "foc"), expr: mod };
+      if (!state.sheet) return;
+      const payload = { kind: "stat", stat, formula: mod };
       const result = executeRoll(payload, state.sheet);
+      if (!result) return;
       state.lastRoll = result;
       state.lastRollPayload = payload;
       showRollResult(result);
@@ -1374,9 +1404,12 @@ function bindEvents() {
     if (!modal || !text) return;
     modal.classList.remove("hidden");
     if (result.kind === "stat") {
-      text.textContent = `${t("dc")} ${result.dc}, ${t("result")}: ${result.roll}${result.mod ? (result.mod >= 0 ? "+" : "") + result.mod : ""} = ${result.total}. ${result.nat1 ? t("nat1") : result.nat20 ? t("nat20") : result.success ? t("success") : t("failure")}`;
+      const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
+      text.textContent = `${t("rolled")} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
     } else {
-      text.textContent = `${t("result")}: ${result.value}${result.rolls?.length ? " (" + result.rolls.join(", ") + ")" : ""}`;
+      const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
+      const win = result.comparison && typeof result.comparison.success === "boolean" ? ` [${t(result.comparison.success ? "success" : "failure")}]` : "";
+      text.textContent = `${t("rolled")} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
     }
     rerollBtn.classList.toggle("hidden", !state.sheet || state.sheet.currentFavor < 1 || !canReroll(result));
     if (applyBox) {
@@ -1397,6 +1430,9 @@ function bindEvents() {
           applyBox.classList.remove("hidden");
         } else if (result.kind === "theal") {
           applyBox.innerHTML = `<button type="button" id="roll-apply-theal">${t("applyOverHeal")}</button>`;
+          applyBox.classList.remove("hidden");
+        } else if (result.kind === "mana") {
+          applyBox.innerHTML = `<button type="button" id="roll-apply-mana">${t("applyMana")}</button>`;
           applyBox.classList.remove("hidden");
         }
       }
@@ -1461,6 +1497,19 @@ function bindEvents() {
           storage.updateSheetCore(state.roomId, state.activeSheetId, {
             currentHP: state.sheet.currentHP,
             tempHP: state.sheet.tempHP,
+          }).catch(console.error);
+        }
+        render();
+        modal.classList.add("hidden");
+      });
+      applyBox.querySelector("#roll-apply-mana")?.addEventListener("click", () => {
+        const maxMP = getMaxMP(state.sheet);
+        const next = applyMana(state.sheet, state.lastRoll.value, maxMP);
+        Object.assign(state.sheet, next);
+        saveSheet();
+        if (state.roomId && state.activeSheetId) {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, {
+            currentMP: state.sheet.currentMP,
           }).catch(console.error);
         }
         render();
@@ -1812,17 +1861,21 @@ function bindEvents() {
     const line = chatInput?.value?.trim();
     if (!line || !state.roomId) return;
     const cmd = parseChatCommand(line);
+    let bodyToSend = line;
     if (cmd && state.sheet) {
       const result = executeRoll(cmd, state.sheet);
-      state.lastRoll = result;
-      state.lastRollPayload = cmd;
-      OBR.notification.show(String(result.value ?? result.roll ?? result.total ?? ""));
+      if (result) {
+        state.lastRoll = result;
+        state.lastRollPayload = cmd;
+        bodyToSend = formatRollChatLine(result);
+        showRollResult(result);
+      }
     }
     try {
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: line,
+        body: bodyToSend,
       });
       appendChatMessageIfNew(row);
       chatInput.value = "";
@@ -1915,14 +1968,34 @@ function bindEvents() {
     URL.revokeObjectURL(a.href);
   });
   app.querySelector("#btn-import-all")?.addEventListener("click", () => document.getElementById("import-all-file-input")?.click());
-  app.addEventListener("click", (e) => {
+  app.addEventListener("click", async (e) => {
     const btn = e.target.closest(".inline-roll-btn");
-    if (!btn || !state.sheet) return;
-    const payload = { type: btn.dataset.type, expr: btn.dataset.expr || "", stat: btn.dataset.stat || undefined };
+    if (!btn || !state.sheet || !state.roomId) return;
+    const kind = btn.dataset.kind || "";
+    const stat = btn.dataset.stat || "";
+    const formula = btn.dataset.formula || "";
+    const payload = kind === "stat" ? { kind: "stat", stat, formula } : { kind, formula };
     const result = executeRoll(payload, state.sheet);
+    if (!result) return;
     state.lastRoll = result;
     state.lastRollPayload = payload;
-    OBR.notification.show(result.value != null ? String(result.value) : result.roll != null ? `${result.roll} (${result.success ? t("success") : t("failure")})` : "");
+    try {
+      const row = await storage.insertChatMessage(state.roomId, {
+        playerId: state.playerId || "",
+        sheetId: state.activeSheetId || null,
+        body: formatRollChatLine(result),
+      });
+      appendChatMessageIfNew(row);
+      showRollResult(result);
+      render();
+      requestAnimationFrame(() => {
+        document.getElementById("chat-input")?.focus();
+      });
+    } catch (err) {
+      console.error(err);
+      const detail = err?.message || err?.details || String(err);
+      OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
+    }
   });
 
   app.querySelector("#import-file-input")?.addEventListener("change", async (e) => {
