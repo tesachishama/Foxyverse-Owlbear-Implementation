@@ -71,6 +71,8 @@ const ROLL_TYPE_ALIASES = {
 
   truedamage: "tdmg",
   tdmg: "tdmg",
+  degatbrut: "tdmg",
+  dgtb: "tdmg",
 
   // heal / temp heal / mana
   heal: "heal",
@@ -230,6 +232,19 @@ function findFirstD20(diceEvents) {
   return null;
 }
 
+function statOutcomeFromFirstDie(resultValue, statTotal, firstDie) {
+  const baseSuccess = resultValue <= statTotal;
+  let level = baseSuccess ? 1 : 0; // 1=success, 0=failure
+  const roll = firstDie?.roll;
+  const faces = firstDie?.faces;
+  if (roll === 1) level += 1;
+  if (faces != null && roll === faces) level -= 1;
+  if (level >= 2) return "critical_success";
+  if (level === 1) return "success";
+  if (level === 0) return "failure";
+  return "critical_failure";
+}
+
 function findFirstDie(diceEvents) {
   for (const e of diceEvents || []) {
     if (e?.faces && Array.isArray(e.rolls) && e.rolls.length) return { roll: e.rolls[0], faces: e.faces };
@@ -280,8 +295,8 @@ export function executeRoll(payload, sheet, _unused = null) {
     const statTotal = getStatTotal(sheet, statId);
     const effectiveFormula = normalizeStatFormula(payload.formula || "");
     const evalRes = evaluateFormula(effectiveFormula, ctx);
-    const firstD20 = findFirstD20(evalRes.diceEvents);
-    const outcome = statOutcomeFrom(evalRes.value, statTotal, firstD20);
+    const first = findFirstDie(evalRes.diceEvents);
+    const outcome = statOutcomeFromFirstDie(evalRes.value, statTotal, first);
     return {
       kind: "stat",
       stat: statId,
@@ -293,7 +308,7 @@ export function executeRoll(payload, sheet, _unused = null) {
       outcome,
       comparison: null,
       canApply: false,
-      nat: firstD20,
+      nat: first?.roll ?? null,
     };
   }
 
