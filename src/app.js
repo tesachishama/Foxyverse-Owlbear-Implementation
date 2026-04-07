@@ -933,6 +933,25 @@ function formatRollChatLine(result) {
   return `[[roll]]${JSON.stringify({ typeLabel, formula, dice, value: result?.value ?? 0, win })}`;
 }
 
+function formatChatToastBody(rawBody) {
+  const s = String(rawBody || "").trim();
+  if (!s) return "";
+  if (s.startsWith("[[roll]]")) {
+    try {
+      const payload = JSON.parse(s.slice("[[roll]]".length));
+      const typeLabel = String(payload.typeLabel || "").trim();
+      const formula = String(payload.formula || "").trim();
+      const dice = String(payload.dice || "").trim();
+      const value = payload.value ?? 0;
+      const win = String(payload.win || "").trim();
+      return `${t("rolled")}${typeLabel ? " " + typeLabel : ""} ${formula} : [${dice}] ${value}${win ? " " + win : ""}`.trim();
+    } catch (_) {
+      return s.slice(0, 120);
+    }
+  }
+  return s.slice(0, 120);
+}
+
 function setupChatScrollbar() {
   const scrollEl = document.getElementById("chat-messages");
   const track = document.getElementById("chat-scroll-track");
@@ -1212,7 +1231,7 @@ function bindEvents() {
         if (state.activeTab !== "chat") {
           const sheetName = resolveCharacterDisplayName(row?.sheet_id);
           const body = storage.getChatMessageText(row);
-          const short = String(body || "").trim().slice(0, 120);
+          const short = formatChatToastBody(body);
           OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
         }
         showRollResult(result);
@@ -2150,7 +2169,7 @@ export async function initApp() {
           if (state.activeTab !== "chat") {
             const sheetName = resolveCharacterDisplayName(row?.sheet_id);
             const body = storage.getChatMessageText(row);
-            const short = String(body || "").trim().slice(0, 120);
+            const short = formatChatToastBody(body);
             OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
           }
         }
