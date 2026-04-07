@@ -862,7 +862,7 @@ function renderChatBody(body) {
       const formulaText = escapeAttr(String(payload.formula || ""));
       const diceText = escapeAttr(String(payload.dice || ""));
       const resultText = escapeAttr(String(payload.value ?? 0));
-      const winText = payload.win ? `<span class="chat-roll-win">[${escapeAttr(String(payload.win))}]</span>` : "";
+      const winText = payload.win ? `<em class="chat-roll-win">${escapeAttr(String(payload.win))}</em>` : "";
       return `<span class="chat-roll-line"><strong class="chat-roll-head">${escapeAttr(t("rolled"))}${typeText ? " " + typeText : ""}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
     } catch (_) {
       // fall through to normal escaping
@@ -1209,6 +1209,12 @@ function bindEvents() {
           body: formatRollChatLine(result),
         });
         appendChatMessageIfNew(row);
+        if (state.activeTab !== "chat") {
+          const sheetName = resolveCharacterDisplayName(row?.sheet_id);
+          const body = storage.getChatMessageText(row);
+          const short = String(body || "").trim().slice(0, 120);
+          OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
+        }
         showRollResult(result);
         render();
         requestAnimationFrame(() => {

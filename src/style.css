@@ -672,6 +672,10 @@ button:disabled {
   font-style: italic;
 }
 
+.chat-roll-line .chat-roll-win {
+  font-style: italic;
+}
+
 .chat-scrollbar-col {
   display: flex;
   flex-direction: column;
