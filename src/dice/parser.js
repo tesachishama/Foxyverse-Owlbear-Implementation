@@ -41,6 +41,26 @@ function tokenize(expr) {
   let i = 0;
   while (i < s.length) {
     const ch = s[i];
+    // Operators / punctuation first (so `d` is treated as dice operator, not an identifier)
+    if (
+      ch === "(" ||
+      ch === ")" ||
+      ch === "+" ||
+      ch === "-" ||
+      ch === "*" ||
+      ch === "/" ||
+      ch === "\\" ||
+      ch === "%" ||
+      ch === "^" ||
+      ch === "<" ||
+      ch === ">" ||
+      ch === "d" ||
+      ch === "D"
+    ) {
+      tokens.push({ type: ch.toLowerCase() });
+      i++;
+      continue;
+    }
     if (isDigit(ch)) {
       let n = "";
       while (i < s.length && isDigit(s[i])) n += s[i++];
@@ -51,11 +71,6 @@ function tokenize(expr) {
       let id = "";
       while (i < s.length && isAlpha(s[i])) id += s[i++];
       tokens.push({ type: "ident", value: normalizeIdent(id) });
-      continue;
-    }
-    if (ch === "(" || ch === ")" || ch === "+" || ch === "-" || ch === "*" || ch === "/" || ch === "\\" || ch === "%" || ch === "^" || ch === "<" || ch === ">" || ch === "d" || ch === "D") {
-      tokens.push({ type: ch.toLowerCase() });
-      i++;
       continue;
     }
     // Unknown character: skip it
