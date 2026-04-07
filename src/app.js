@@ -869,9 +869,21 @@ function renderChatBody(body) {
 }
 
 function formatRollChatLine(result) {
+  let typeLabel = "";
+  if (result?.kind === "stat") {
+    // result.stat is a canonical id like "intelligence"
+    typeLabel = t(String(result.stat || "").toLowerCase());
+  } else if (result?.kind === "pdmg") typeLabel = t("physicalDamage");
+  else if (result?.kind === "mdmg") typeLabel = t("magicDamage");
+  else if (result?.kind === "tdmg") typeLabel = t("trueDamage");
+  else if (result?.kind === "heal") typeLabel = t("heal");
+  else if (result?.kind === "theal") typeLabel = t("overHeal");
+  else if (result?.kind === "mana") typeLabel = t("mana");
+  else if (result?.kind === "roll") typeLabel = t("roll");
+
   const formula = (result?.translatedFormula || result?.formula || "").toString();
   const dice = Array.isArray(result?.diceResults) ? result.diceResults.join(", ") : "";
-  let out = `${t("rolled")} ${formula} : [${dice}] ${result?.value ?? 0}`;
+  let out = `${t("rolled")}${typeLabel ? " " + typeLabel : ""} ${formula} : [${dice}] ${result?.value ?? 0}`;
 
   // Win / lose suffix
   if (result?.kind === "stat") {
@@ -2103,7 +2115,10 @@ export async function initApp() {
             const now = Date.now();
             if (now - (state._lastChatToastAt || 0) > 1500) {
               state._lastChatToastAt = now;
-              OBR.notification.show("New chat message");
+              const sheetName = resolveCharacterDisplayName(row?.sheet_id);
+              const body = storage.getChatMessageText(row);
+              const short = String(body || "").trim().slice(0, 120);
+              OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
             }
           }
         }

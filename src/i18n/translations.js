@@ -176,6 +176,7 @@ export const translations = {
     criticalSuccess: "Critical success",
     criticalFailure: "Critical failure",
     applyMana: "Apply mana",
+    mana: "Mana",
 
     // Notes
     notesPlaceholder: "Notes... Type inline rolls like [str +5] or [pdmg 2d6]...",
@@ -377,6 +378,7 @@ export const translations = {
     criticalSuccess: "Succès critique",
     criticalFailure: "Échec critique",
     applyMana: "Appliquer mana",
+    mana: "Mana",
 
     notesPlaceholder: "Notes... Jets inline comme [str +5] ou [pdmg 2d6]...",
     notesEditor: "Éditeur",
