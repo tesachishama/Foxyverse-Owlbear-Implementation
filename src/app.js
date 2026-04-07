@@ -63,6 +63,7 @@ const state = {
   activeTab: "bio",
   chatMessages: [],
   _chatUnsub: null,
+  _lastChatToastAt: 0,
   lastRoll: null,
   lastRollPayload: null,
   sheetMenuOpen: false,
@@ -1145,6 +1146,40 @@ function bindEvents() {
   });
   syncFieldLockStates();
 
+  // Inline roll buttons: bind once (render() is called often).
+  if (!app.dataset.inlineRollBound) {
+    app.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".inline-roll-btn");
+      if (!btn || !state.sheet || !state.roomId) return;
+      const kind = btn.dataset.kind || "";
+      const stat = btn.dataset.stat || "";
+      const formula = btn.dataset.formula || "";
+      const payload = kind === "stat" ? { kind: "stat", stat, formula } : { kind, formula };
+      const result = executeRoll(payload, state.sheet);
+      if (!result) return;
+      state.lastRoll = result;
+      state.lastRollPayload = payload;
+      try {
+        const row = await storage.insertChatMessage(state.roomId, {
+          playerId: state.playerId || "",
+          sheetId: state.activeSheetId || null,
+          body: formatRollChatLine(result),
+        });
+        appendChatMessageIfNew(row);
+        showRollResult(result);
+        render();
+        requestAnimationFrame(() => {
+          document.getElementById("chat-input")?.focus();
+        });
+      } catch (err) {
+        console.error(err);
+        const detail = err?.message || err?.details || String(err);
+        OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
+      }
+    });
+    app.dataset.inlineRollBound = "true";
+  }
+
   app.querySelector("#btn-sheet-menu")?.addEventListener("click", () => {
     state.sheetMenuOpen = !state.sheetMenuOpen;
     render();
@@ -1968,35 +2003,6 @@ function bindEvents() {
     URL.revokeObjectURL(a.href);
   });
   app.querySelector("#btn-import-all")?.addEventListener("click", () => document.getElementById("import-all-file-input")?.click());
-  app.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".inline-roll-btn");
-    if (!btn || !state.sheet || !state.roomId) return;
-    const kind = btn.dataset.kind || "";
-    const stat = btn.dataset.stat || "";
-    const formula = btn.dataset.formula || "";
-    const payload = kind === "stat" ? { kind: "stat", stat, formula } : { kind, formula };
-    const result = executeRoll(payload, state.sheet);
-    if (!result) return;
-    state.lastRoll = result;
-    state.lastRollPayload = payload;
-    try {
-      const row = await storage.insertChatMessage(state.roomId, {
-        playerId: state.playerId || "",
-        sheetId: state.activeSheetId || null,
-        body: formatRollChatLine(result),
-      });
-      appendChatMessageIfNew(row);
-      showRollResult(result);
-      render();
-      requestAnimationFrame(() => {
-        document.getElementById("chat-input")?.focus();
-      });
-    } catch (err) {
-      console.error(err);
-      const detail = err?.message || err?.details || String(err);
-      OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
-    }
-  });
 
   app.querySelector("#import-file-input")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
@@ -2089,7 +2095,18 @@ export async function initApp() {
     state._chatUnsub = storage.subscribeToChat(
       state.roomId,
       (row) => {
-        if (appendChatMessageIfNew(row)) render();
+        if (appendChatMessageIfNew(row)) {
+          render();
+          // Discreet toast if you're not currently on the chat tab.
+          // Throttle to avoid spam when many messages arrive quickly.
+          if (state.activeTab !== "chat" && String(row?.player_id || "") !== String(state.playerId || "")) {
+            const now = Date.now();
+            if (now - (state._lastChatToastAt || 0) > 1500) {
+              state._lastChatToastAt = now;
+              OBR.notification.show("New chat message");
+            }
+          }
+        }
       },
       (oldRow) => {
         handleChatMessageRemoved(oldRow?.id);
