@@ -230,6 +230,36 @@ function findFirstD20(diceEvents) {
   return null;
 }
 
+function findFirstDie(diceEvents) {
+  for (const e of diceEvents || []) {
+    if (e?.faces && Array.isArray(e.rolls) && e.rolls.length) return { roll: e.rolls[0], faces: e.faces };
+  }
+  return null;
+}
+
+function outcomeFromNatAdjustment(baseSuccess, natRoll, natFaces, kind) {
+  let level = baseSuccess ? 1 : 0; // 1=success, 0=failure
+  if (natRoll == null || natFaces == null) return level >= 2 ? "critical_success" : level === 1 ? "success" : level === 0 ? "failure" : "critical_failure";
+  const isMin = natRoll === 1;
+  const isMax = natRoll === natFaces;
+  if (!isMin && !isMax) return level >= 2 ? "critical_success" : level === 1 ? "success" : level === 0 ? "failure" : "critical_failure";
+
+  // Spec:
+  // - For "<": min increases success grade, max decreases.
+  // - For ">": min decreases success grade, max increases.
+  if (kind === "<") {
+    if (isMin) level += 1;
+    if (isMax) level -= 1;
+  } else if (kind === ">") {
+    if (isMin) level -= 1;
+    if (isMax) level += 1;
+  }
+  if (level >= 2) return "critical_success";
+  if (level === 1) return "success";
+  if (level === 0) return "failure";
+  return "critical_failure";
+}
+
 function normalizeStatFormula(formula) {
   const f = String(formula || "").trim();
   if (!f) return "1d20";
@@ -270,6 +300,11 @@ export function executeRoll(payload, sheet, _unused = null) {
   const formula = String(payload.formula || "").trim();
   const evalRes = evaluateFormula(formula, ctx);
   const comparison = evalRes.comparison || null;
+  let outcome = null;
+  if (comparison && typeof comparison.success === "boolean") {
+    const first = findFirstDie(evalRes.diceEvents);
+    outcome = outcomeFromNatAdjustment(!!comparison.success, first?.roll ?? null, first?.faces ?? null, comparison.kind);
+  }
 
   const base = {
     kind: payload.kind,
@@ -278,6 +313,7 @@ export function executeRoll(payload, sheet, _unused = null) {
     diceResults: evalRes.diceResults,
     value: evalRes.value,
     comparison,
+    outcome,
   };
 
   if (payload.kind === "pdmg" || payload.kind === "mdmg" || payload.kind === "tdmg" || payload.kind === "heal" || payload.kind === "theal" || payload.kind === "mana") {

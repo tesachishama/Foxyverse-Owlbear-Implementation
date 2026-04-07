@@ -799,13 +799,31 @@ let chatRealtimeRoomId = null;
  * Use after a successful delete so every client updates even if postgres DELETE events are missing.
  */
 export async function broadcastChatMessageDeleted(roomId, messageId) {
-  if (!chatRealtimeChannel || chatRealtimeRoomId !== roomId) return;
-  const { error } = await chatRealtimeChannel.send({
-    type: "broadcast",
-    event: "chat_deleted",
-    payload: { id: messageId },
-  });
-  if (error) console.warn("chat_deleted broadcast failed", error);
+  const sendOn = async (channel) => {
+    const { error } = await channel.send({
+      type: "broadcast",
+      event: "chat_deleted",
+      payload: { id: messageId },
+    });
+    if (error) console.warn("chat_deleted broadcast failed", error);
+  };
+
+  // Preferred: reuse the subscribed channel.
+  if (chatRealtimeChannel && chatRealtimeRoomId === roomId) {
+    await sendOn(chatRealtimeChannel);
+    return;
+  }
+
+  // Fallback: create a channel and join, then broadcast.
+  const temp = supabase.channel(`foxyverse-chat-${roomId}`);
+  try {
+    await temp.subscribe();
+    await sendOn(temp);
+  } finally {
+    try {
+      supabase.removeChannel(temp);
+    } catch (_) {}
+  }
 }
 
 /** Subscribe to chat lines for a room (INSERT; postgres DELETE; broadcast delete). */

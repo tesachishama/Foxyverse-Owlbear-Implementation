@@ -854,6 +854,20 @@ function renderChatTab() {
 
 function renderChatBody(body) {
   if (!body) return "";
+  // Render roll lines with formatting (safe; only for our own roll marker).
+  if (String(body).startsWith("[[roll]]")) {
+    try {
+      const payload = JSON.parse(String(body).slice("[[roll]]".length));
+      const typeText = escapeAttr(String(payload.typeLabel || ""));
+      const formulaText = escapeAttr(String(payload.formula || ""));
+      const diceText = escapeAttr(String(payload.dice || ""));
+      const resultText = escapeAttr(String(payload.value ?? 0));
+      const winText = payload.win ? `<span class="chat-roll-win">[${escapeAttr(String(payload.win))}]</span>` : "";
+      return `<span class="chat-roll-line"><strong class="chat-roll-head">${escapeAttr(t("rolled"))}${typeText ? " " + typeText : ""}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
+    } catch (_) {
+      // fall through to normal escaping
+    }
+  }
   const buttons = getInlineButtons(body);
   let text = escapeAttr(body);
   buttons.forEach((btn) => {
@@ -869,37 +883,54 @@ function renderChatBody(body) {
 }
 
 function formatRollChatLine(result) {
-  let typeLabel = "";
-  if (result?.kind === "stat") {
-    // result.stat is a canonical id like "intelligence"
-    typeLabel = t(String(result.stat || "").toLowerCase());
-  } else if (result?.kind === "pdmg") typeLabel = t("physicalDamage");
-  else if (result?.kind === "mdmg") typeLabel = t("magicDamage");
-  else if (result?.kind === "tdmg") typeLabel = t("trueDamage");
-  else if (result?.kind === "heal") typeLabel = t("heal");
-  else if (result?.kind === "theal") typeLabel = t("overHeal");
-  else if (result?.kind === "mana") typeLabel = t("mana");
-  else if (result?.kind === "roll") typeLabel = t("roll");
+  const typeLabel =
+    result?.kind === "stat"
+      ? t(String(result.stat || "").toLowerCase())
+      : result?.kind === "pdmg"
+        ? t("physicalDamage")
+        : result?.kind === "mdmg"
+          ? t("magicDamage")
+          : result?.kind === "tdmg"
+            ? t("trueDamage")
+            : result?.kind === "heal"
+              ? t("heal")
+              : result?.kind === "theal"
+                ? t("overHeal")
+                : result?.kind === "mana"
+                  ? t("mana")
+                  : result?.kind === "roll"
+                    ? t("roll")
+                    : "";
 
   const formula = (result?.translatedFormula || result?.formula || "").toString();
   const dice = Array.isArray(result?.diceResults) ? result.diceResults.join(", ") : "";
-  let out = `${t("rolled")}${typeLabel ? " " + typeLabel : ""} ${formula} : [${dice}] ${result?.value ?? 0}`;
+  const win =
+    result?.kind === "stat"
+      ? t(
+          result.outcome === "critical_success"
+            ? "criticalSuccess"
+            : result.outcome === "success"
+              ? "success"
+              : result.outcome === "failure"
+                ? "failure"
+                : "criticalFailure"
+        )
+      : result?.outcome
+        ? t(
+            result.outcome === "critical_success"
+              ? "criticalSuccess"
+              : result.outcome === "success"
+                ? "success"
+                : result.outcome === "failure"
+                  ? "failure"
+                  : "criticalFailure"
+          )
+        : result?.comparison && typeof result.comparison.success === "boolean"
+          ? t(result.comparison.success ? "success" : "failure")
+          : "";
 
-  // Win / lose suffix
-  if (result?.kind === "stat") {
-    const key =
-      result.outcome === "critical_success"
-        ? "criticalSuccess"
-        : result.outcome === "success"
-          ? "success"
-          : result.outcome === "failure"
-            ? "failure"
-            : "criticalFailure";
-    out += ` [${t(key)}]`;
-  } else if (result?.comparison && typeof result.comparison.success === "boolean") {
-    out += ` [${t(result.comparison.success ? "success" : "failure")}]`;
-  }
-  return out;
+  // Store as a roll marker so we can render bold/italic safely.
+  return `[[roll]]${JSON.stringify({ typeLabel, formula, dice, value: result?.value ?? 0, win })}`;
 }
 
 function setupChatScrollbar() {
@@ -2110,16 +2141,11 @@ export async function initApp() {
         if (appendChatMessageIfNew(row)) {
           render();
           // Discreet toast if you're not currently on the chat tab.
-          // Throttle to avoid spam when many messages arrive quickly.
-          if (state.activeTab !== "chat" && String(row?.player_id || "") !== String(state.playerId || "")) {
-            const now = Date.now();
-            if (now - (state._lastChatToastAt || 0) > 1500) {
-              state._lastChatToastAt = now;
-              const sheetName = resolveCharacterDisplayName(row?.sheet_id);
-              const body = storage.getChatMessageText(row);
-              const short = String(body || "").trim().slice(0, 120);
-              OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
-            }
+          if (state.activeTab !== "chat") {
+            const sheetName = resolveCharacterDisplayName(row?.sheet_id);
+            const body = storage.getChatMessageText(row);
+            const short = String(body || "").trim().slice(0, 120);
+            OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
           }
         }
       },

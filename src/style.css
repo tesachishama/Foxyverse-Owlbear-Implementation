@@ -663,6 +663,15 @@ button:disabled {
   font-size: 1rem;
 }
 
+.chat-roll-line .chat-roll-head,
+.chat-roll-line .chat-roll-result {
+  font-weight: 700;
+}
+
+.chat-roll-line .chat-roll-formula {
+  font-style: italic;
+}
+
 .chat-scrollbar-col {
   display: flex;
   flex-direction: column;
