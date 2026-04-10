@@ -123,7 +123,7 @@ async function loadRoomData() {
   state.fieldLocks = roomData.fieldLocks || {};
   state.isGM = (await storage.getPlayerRole()) === "GM";
   state.playerId = await storage.getPlayerId();
-  const locale = roomData.locale || localStorage.getItem("foxyverse_locale") || "en";
+  const locale = localStorage.getItem("foxyverse_locale") || roomData.locale || "en";
   state.locale = locale;
   setLocale(locale);
 }
@@ -1146,7 +1146,11 @@ function renderChatBody(body) {
       const resultText = escapeAttr(String(payload.value ?? 0));
       const winStr = rollWinFromPayload(payload);
       const winText = winStr ? `<em class="chat-roll-win">${escapeAttr(winStr)}</em>` : "";
-      const line = `<span class="chat-roll-line"><strong class="chat-roll-head">${headHtml}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
+      const line = `
+        <div class="chat-roll-row chat-roll-row-head"><strong class="chat-roll-head">${headHtml}</strong></div>
+        <div class="chat-roll-row chat-roll-row-formula"><em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span></div>
+        <div class="chat-roll-row chat-roll-row-result"><strong class="chat-roll-result">${resultText}</strong> ${winText}</div>
+      `.trim();
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
       let applyBlock = "";
@@ -1654,7 +1658,6 @@ function bindEvents() {
       setLocale(lang);
       state.locale = lang;
       localStorage.setItem("foxyverse_locale", lang);
-      await storage.setRoomData({ locale: lang });
       render();
     });
   });
@@ -2525,7 +2528,7 @@ export async function initApp() {
       const meta = await OBR.room.getMetadata();
       const roomMeta = meta?.foxyverse || {};
 
-      const nextLocale = roomMeta.locale || localStorage.getItem("foxyverse_locale") || state.locale;
+      const nextLocale = localStorage.getItem("foxyverse_locale") || state.locale;
       const nextTokenToSheet = roomMeta.tokenToSheet || {};
       const nextPlayerDirectory = roomMeta.playerDirectory || {};
       const nextFieldLocks = roomMeta.fieldLocks || {};
@@ -2543,7 +2546,7 @@ export async function initApp() {
         state.locale = nextLocale;
         setLocale(nextLocale);
         render();
-        return;
+        // no return; room metadata changes (tokens/locks) can still apply
       }
 
       if (lockChanged) {

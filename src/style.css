@@ -701,6 +701,8 @@ button:disabled {
 
 .chat-sys-line {
   opacity: 0.92;
+  display: block;
+  text-align: center;
 }
 
 .chat-roll-wrap {
@@ -709,6 +711,15 @@ button:disabled {
   align-items: flex-start;
   gap: 0.35rem;
   max-width: 100%;
+}
+
+.chat-roll-row {
+  width: 100%;
+}
+
+.chat-roll-row-formula,
+.chat-roll-row-result {
+  line-height: 1.25;
 }
 
 .chat-roll-apply-row {
