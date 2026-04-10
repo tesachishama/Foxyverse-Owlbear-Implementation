@@ -686,13 +686,28 @@ button:disabled {
   font-size: 1rem;
 }
 
+/* Block wrapper for all chat bodies so roll rows (div) are valid and flex layout applies. */
+#chat-messages .chat-body {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+#chat-messages .chat-msg-bubble.chat-msg-bubble--system,
+#chat-messages .chat-body.chat-body--system {
+  text-align: center;
+}
+
+#chat-messages .chat-body.chat-body--system .chat-sys-line {
+  display: block;
+  text-align: center;
+}
+
 .chat-msg-bubble--system {
   text-align: center;
 }
 
 .chat-body--system {
-  display: block;
-  width: 100%;
   text-align: center;
 }
 
@@ -711,28 +726,34 @@ button:disabled {
 
 .chat-sys-line {
   opacity: 0.92;
-  display: block;
 }
 
-.chat-roll-wrap {
+#chat-messages .chat-roll-wrap {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.175rem;
+  gap: 0.15rem;
   max-width: 100%;
+  margin: 0;
+  line-height: 1.1;
 }
 
-.chat-roll-row {
+#chat-messages .chat-roll-row {
   width: 100%;
+  margin: 0;
+  padding: 0;
+  line-height: 1.1;
 }
 
-.chat-roll-row-formula,
-.chat-roll-row-result {
-  line-height: 1.12;
+#chat-messages .chat-roll-row-formula,
+#chat-messages .chat-roll-row-result {
+  line-height: 1.1;
+  margin: 0;
 }
 
-.chat-roll-apply-row {
+#chat-messages .chat-roll-apply-row {
   margin-top: 0.05rem;
+  line-height: normal;
 }
 
 .chat-roll-apply-btn {

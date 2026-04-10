@@ -780,10 +780,6 @@ function applyChatRollToActiveSheet(kind, value) {
   }
 }
 
-function isChatPostedApplyRoll(result) {
-  return result && CHAT_APPLY_ROLL_KINDS.has(String(result.kind || ""));
-}
-
 function syncRollModalRerollState() {
   const modal = document.getElementById("roll-modal");
   const rerollBtn = document.getElementById("roll-reroll-btn");
@@ -1070,9 +1066,7 @@ function renderChatTab() {
             ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
             : "";
         const isSysBody = String(m.body || "").trimStart().startsWith("[[sys]]");
-        const bubbleInner = isSysBody
-          ? `<div class="chat-body chat-body--system">${renderChatBody(m.body)}</div>`
-          : `<span class="chat-body">${renderChatBody(m.body)}</span>`;
+        const bubbleInner = `<div class="chat-body${isSysBody ? " chat-body--system" : ""}">${renderChatBody(m.body)}</div>`;
         return `
         <div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
           <div class="chat-msg-header">
@@ -1112,9 +1106,10 @@ function renderChatTab() {
 
 function renderChatBody(body) {
   if (!body) return "";
-  if (String(body).startsWith("[[sys]]")) {
+  const bodyTrim = String(body).trimStart();
+  if (bodyTrim.startsWith("[[sys]]")) {
     try {
-      const payload = JSON.parse(String(body).slice("[[sys]]".length));
+      const payload = JSON.parse(bodyTrim.slice("[[sys]]".length));
       if (Array.isArray(payload.applyFx) && payload.applyFx.length) {
         return payload.applyFx
           .map((ev) => {
@@ -1136,9 +1131,9 @@ function renderChatBody(body) {
     }
   }
   // Render roll lines with formatting (safe; only for our own roll marker).
-  if (String(body).startsWith("[[roll]]")) {
+  if (bodyTrim.startsWith("[[roll]]")) {
     try {
-      const payload = JSON.parse(String(body).slice("[[roll]]".length));
+      const payload = JSON.parse(bodyTrim.slice("[[roll]]".length));
       const rawType = rollTypeLabelFromPayload(payload);
       const typeSeg = rawType ? ` ${rawType}` : "";
       const headPlain = payload.isFavorReroll
@@ -1164,7 +1159,7 @@ function renderChatBody(body) {
         const dis = canUse ? "" : " disabled";
         applyBlock = `<div class="chat-roll-apply-row"><button type="button" class="chat-roll-apply-btn btn-sm"${dis} data-apply-kind="${escapeAttr(rk)}" data-apply-value="${escapeAttr(String(v))}">${lbl}</button></div>`;
       }
-      return `<span class="chat-roll-wrap">${line}${applyBlock}</span>`;
+      return `<div class="chat-roll-wrap">${line}${applyBlock}</div>`;
     } catch (_) {
       // fall through to normal escaping
     }
@@ -1557,7 +1552,7 @@ function bindEvents() {
         }
         render();
         requestAnimationFrame(() => {
-          if (!isChatPostedApplyRoll(result)) showRollResult(result);
+          showRollResult(result);
           document.getElementById("chat-input")?.focus();
         });
       } catch (err) {
