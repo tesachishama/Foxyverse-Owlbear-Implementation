@@ -576,6 +576,86 @@ function escapeAttr(str) {
     .replace(/</g, "&lt;");
 }
 
+const CHAT_APPLY_ROLL_KINDS = new Set(["pdmg", "mdmg", "tdmg", "heal", "theal", "mana"]);
+
+function chatRollApplyButtonLabel(kind) {
+  switch (kind) {
+    case "pdmg":
+      return `${t("applyDamage")} (${t("physicalDamage")})`;
+    case "mdmg":
+      return `${t("applyDamage")} (${t("magicDamage")})`;
+    case "tdmg":
+      return `${t("applyDamage")} (${t("trueDamage")})`;
+    case "heal":
+      return t("applyHeal");
+    case "theal":
+      return t("applyOverHeal");
+    case "mana":
+      return t("applyMana");
+    default:
+      return t("applyDamage");
+  }
+}
+
+/** Apply damage/heal/mana from a chat roll to the active sheet (same rules as the old roll modal). */
+function applyChatRollToActiveSheet(kind, value) {
+  if (!state.sheet || !state.roomId || !state.activeSheetId || !Number.isFinite(value)) return false;
+  const roomId = state.roomId;
+  const sheetId = state.activeSheetId;
+  switch (kind) {
+    case "pdmg": {
+      const next = applyPhysicalDamage(state.sheet, value);
+      Object.assign(state.sheet, next);
+      saveSheet();
+      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      return true;
+    }
+    case "mdmg": {
+      const next = applyMagicDamage(state.sheet, value);
+      Object.assign(state.sheet, next);
+      saveSheet();
+      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      return true;
+    }
+    case "tdmg": {
+      const next = applyTrueDamage(state.sheet, value);
+      Object.assign(state.sheet, next);
+      saveSheet();
+      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      return true;
+    }
+    case "heal": {
+      const maxHP = getMaxHP(state.sheet);
+      const next = applyHeal(state.sheet, value, maxHP);
+      Object.assign(state.sheet, next);
+      saveSheet();
+      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      return true;
+    }
+    case "theal": {
+      const next = applyOverHeal(state.sheet, value);
+      Object.assign(state.sheet, next);
+      saveSheet();
+      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      return true;
+    }
+    case "mana": {
+      const maxMP = getMaxMP(state.sheet);
+      const next = applyMana(state.sheet, value, maxMP);
+      Object.assign(state.sheet, next);
+      saveSheet();
+      storage.updateSheetCore(roomId, sheetId, { currentMP: state.sheet.currentMP }).catch(console.error);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+function isChatPostedApplyRoll(result) {
+  return result && CHAT_APPLY_ROLL_KINDS.has(String(result.kind || ""));
+}
+
 function renderStatsTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
@@ -869,7 +949,17 @@ function renderChatBody(body) {
       const diceText = escapeAttr(String(payload.dice || ""));
       const resultText = escapeAttr(String(payload.value ?? 0));
       const winText = payload.win ? `<em class="chat-roll-win">${escapeAttr(String(payload.win))}</em>` : "";
-      return `<span class="chat-roll-line"><strong class="chat-roll-head">${escapeAttr(t("rolled"))}${typeText ? " " + typeText : ""}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
+      const line = `<span class="chat-roll-line"><strong class="chat-roll-head">${escapeAttr(t("rolled"))}${typeText ? " " + typeText : ""}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
+      const rk = String(payload.kind || "");
+      const v = Number(payload.value);
+      let applyBlock = "";
+      if (CHAT_APPLY_ROLL_KINDS.has(rk) && Number.isFinite(v)) {
+        const canUse = !!(state.sheet && state.activeSheetId && canEdit(state.activeSheetId));
+        const lbl = escapeAttr(chatRollApplyButtonLabel(rk));
+        const dis = canUse ? "" : " disabled";
+        applyBlock = `<div class="chat-roll-apply-row"><button type="button" class="chat-roll-apply-btn btn-sm"${dis} data-apply-kind="${escapeAttr(rk)}" data-apply-value="${escapeAttr(String(v))}">${lbl}</button></div>`;
+      }
+      return `<span class="chat-roll-wrap">${line}${applyBlock}</span>`;
     } catch (_) {
       // fall through to normal escaping
     }
@@ -935,8 +1025,15 @@ function formatRollChatLine(result) {
           ? t(result.comparison.success ? "success" : "failure")
           : "";
 
-  // Store as a roll marker so we can render bold/italic safely.
-  return `[[roll]]${JSON.stringify({ typeLabel, formula, dice, value: result?.value ?? 0, win })}`;
+  // Store as a roll marker so we can render bold/italic safely; `kind` drives in-chat apply buttons.
+  return `[[roll]]${JSON.stringify({
+    kind: result?.kind ?? "",
+    typeLabel,
+    formula,
+    dice,
+    value: result?.value ?? 0,
+    win,
+  })}`;
 }
 
 function formatChatToastBody(rawBody) {
@@ -1243,7 +1340,7 @@ function bindEvents() {
         }
         render();
         requestAnimationFrame(() => {
-          showRollResult(result);
+          if (!isChatPostedApplyRoll(result)) showRollResult(result);
           document.getElementById("chat-input")?.focus();
         });
       } catch (err) {
@@ -1253,6 +1350,20 @@ function bindEvents() {
       }
     });
     app.dataset.inlineRollBound = "true";
+  }
+
+  if (!app.dataset.chatRollApplyBound) {
+    app.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chat-roll-apply-btn");
+      if (!btn) return;
+      if (btn.disabled) return;
+      const kind = btn.dataset.applyKind || "";
+      const value = Number(btn.dataset.applyValue);
+      if (!CHAT_APPLY_ROLL_KINDS.has(kind) || !Number.isFinite(value)) return;
+      if (!canEdit(state.activeSheetId)) return;
+      if (applyChatRollToActiveSheet(kind, value)) render();
+    });
+    app.dataset.chatRollApplyBound = "true";
   }
 
   app.querySelector("#btn-sheet-menu")?.addEventListener("click", () => {
@@ -1525,106 +1636,6 @@ function bindEvents() {
     if (applyBox) {
       applyBox.innerHTML = "";
       applyBox.classList.add("hidden");
-      if (state.sheet && result.value != null) {
-        if (result.kind === "pdmg") {
-          applyBox.innerHTML = `<button type="button" id="roll-apply-pdmg">${t("applyDamage")} (${t("physicalDamage")})</button>`;
-          applyBox.classList.remove("hidden");
-        } else if (result.kind === "mdmg") {
-          applyBox.innerHTML = `<button type="button" id="roll-apply-mdmg">${t("applyDamage")} (${t("magicDamage")})</button>`;
-          applyBox.classList.remove("hidden");
-        } else if (result.kind === "tdmg") {
-          applyBox.innerHTML = `<button type="button" id="roll-apply-tdmg">${t("applyDamage")} (${t("trueDamage")})</button>`;
-          applyBox.classList.remove("hidden");
-        } else if (result.kind === "heal") {
-          applyBox.innerHTML = `<button type="button" id="roll-apply-heal">${t("applyHeal")}</button>`;
-          applyBox.classList.remove("hidden");
-        } else if (result.kind === "theal") {
-          applyBox.innerHTML = `<button type="button" id="roll-apply-theal">${t("applyOverHeal")}</button>`;
-          applyBox.classList.remove("hidden");
-        } else if (result.kind === "mana") {
-          applyBox.innerHTML = `<button type="button" id="roll-apply-mana">${t("applyMana")}</button>`;
-          applyBox.classList.remove("hidden");
-        }
-      }
-      applyBox.querySelector("#roll-apply-pdmg")?.addEventListener("click", () => {
-        const next = applyPhysicalDamage(state.sheet, state.lastRoll.value);
-        Object.assign(state.sheet, next);
-        saveSheet();
-        if (state.roomId && state.activeSheetId) {
-          storage.updateSheetCore(state.roomId, state.activeSheetId, {
-            currentHP: state.sheet.currentHP,
-            tempHP: state.sheet.tempHP,
-          }).catch(console.error);
-        }
-        render();
-        modal.classList.add("hidden");
-      });
-      applyBox.querySelector("#roll-apply-mdmg")?.addEventListener("click", () => {
-        const next = applyMagicDamage(state.sheet, state.lastRoll.value);
-        Object.assign(state.sheet, next);
-        saveSheet();
-        if (state.roomId && state.activeSheetId) {
-          storage.updateSheetCore(state.roomId, state.activeSheetId, {
-            currentHP: state.sheet.currentHP,
-            tempHP: state.sheet.tempHP,
-          }).catch(console.error);
-        }
-        render();
-        modal.classList.add("hidden");
-      });
-      applyBox.querySelector("#roll-apply-tdmg")?.addEventListener("click", () => {
-        const next = applyTrueDamage(state.sheet, state.lastRoll.value);
-        Object.assign(state.sheet, next);
-        saveSheet();
-        if (state.roomId && state.activeSheetId) {
-          storage.updateSheetCore(state.roomId, state.activeSheetId, {
-            currentHP: state.sheet.currentHP,
-            tempHP: state.sheet.tempHP,
-          }).catch(console.error);
-        }
-        render();
-        modal.classList.add("hidden");
-      });
-      applyBox.querySelector("#roll-apply-heal")?.addEventListener("click", () => {
-        const maxHP = getMaxHP(state.sheet);
-        const next = applyHeal(state.sheet, state.lastRoll.value, maxHP);
-        Object.assign(state.sheet, next);
-        saveSheet();
-        if (state.roomId && state.activeSheetId) {
-          storage.updateSheetCore(state.roomId, state.activeSheetId, {
-            currentHP: state.sheet.currentHP,
-            tempHP: state.sheet.tempHP,
-          }).catch(console.error);
-        }
-        render();
-        modal.classList.add("hidden");
-      });
-      applyBox.querySelector("#roll-apply-theal")?.addEventListener("click", () => {
-        const next = applyOverHeal(state.sheet, state.lastRoll.value);
-        Object.assign(state.sheet, next);
-        saveSheet();
-        if (state.roomId && state.activeSheetId) {
-          storage.updateSheetCore(state.roomId, state.activeSheetId, {
-            currentHP: state.sheet.currentHP,
-            tempHP: state.sheet.tempHP,
-          }).catch(console.error);
-        }
-        render();
-        modal.classList.add("hidden");
-      });
-      applyBox.querySelector("#roll-apply-mana")?.addEventListener("click", () => {
-        const maxMP = getMaxMP(state.sheet);
-        const next = applyMana(state.sheet, state.lastRoll.value, maxMP);
-        Object.assign(state.sheet, next);
-        saveSheet();
-        if (state.roomId && state.activeSheetId) {
-          storage.updateSheetCore(state.roomId, state.activeSheetId, {
-            currentMP: state.sheet.currentMP,
-          }).catch(console.error);
-        }
-        render();
-        modal.classList.add("hidden");
-      });
     }
   }
   app.querySelector("#roll-close-btn")?.addEventListener("click", () => document.getElementById("roll-modal")?.classList.add("hidden"));
@@ -1992,7 +2003,7 @@ function bindEvents() {
       chatInput.value = "";
       render();
       requestAnimationFrame(() => {
-        if (rollResultToShow) showRollResult(rollResultToShow);
+        if (rollResultToShow && !isChatPostedApplyRoll(rollResultToShow)) showRollResult(rollResultToShow);
         document.getElementById("chat-input")?.focus();
       });
     } catch (err) {
