@@ -234,13 +234,13 @@ ${R}`}class K extends Error{constructor({message:e,code:s,cause:n,name:r}){var i
         `).join("")}
       </ul>
       ${e?`<button type="button" class="btn-add-item" data-section="${o}">${_("add")}</button>`:""}
-    `}),r+="</div>",r}function Rd(){const e=(u.chatMessages||[]).map(n=>{const r=C(vs(n.sheetId)),i=C(pd(n.playerId)),o=n.id&&Ti(n)?`<button type="button" class="chat-msg-delete-btn" data-chat-id="${C(n.id)}" aria-label="${_("remove")}" title="${_("remove")}">${pe(Kr,"inline-svg chat-msg-delete-icon","var(--text)")}</button>`:"",a=String(n.body||"").trimStart().startsWith("[[sys]]"),l=a?' style="text-align:center"':"",c=`<div class="chat-body${a?" chat-body--system":""}"${l}>${Pn(n.body)}</div>`;return`
-        <div class="chat-msg${a?" chat-msg--system":""}" ${n.id?`data-chat-id="${C(n.id)}"`:""}>
+    `}),r+="</div>",r}function Rd(){const e=(u.chatMessages||[]).map(n=>{const r=C(vs(n.sheetId)),i=C(pd(n.playerId)),o=n.id&&Ti(n)?`<button type="button" class="chat-msg-delete-btn" data-chat-id="${C(n.id)}" aria-label="${_("remove")}" title="${_("remove")}">${pe(Kr,"inline-svg chat-msg-delete-icon","var(--text)")}</button>`:"",a=`<div class="chat-body">${Pn(n.body)}</div>`;return`
+        <div class="chat-msg" ${n.id?`data-chat-id="${C(n.id)}"`:""}>
           <div class="chat-msg-header">
             <div class="chat-msg-header-text"><strong class="chat-char-name">${r}</strong> <span class="chat-player-name">(${i})</span></div>
             ${o}
           </div>
-          <div class="chat-msg-bubble${a?" chat-msg-bubble--system":""}"${l}>${c}</div>
+          <div class="chat-msg-bubble">${a}</div>
         </div>`}).join(""),s=pe(it,"inline-svg chat-send-arrow-svg","var(--text)");return`
     <div class="card chat-card chat-tab-layout">
       <h2 class="sr-only">${_("tabChat")}</h2>
