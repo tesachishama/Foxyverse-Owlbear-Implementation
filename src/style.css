@@ -28,18 +28,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app,
-input,
-textarea,
-select,
-button,
-label,
-span,
-p,
-li,
-td,
-th,
-div {
+/* Scope font reset to the app root so extension host / outer layout cannot fight chat line metrics. */
+#app input,
+#app textarea,
+#app select,
+#app button,
+#app label,
+#app span,
+#app p,
+#app li,
+#app td,
+#app th,
+#app div {
   font: inherit;
 }
 
@@ -1163,6 +1163,44 @@ button:disabled {
 .inventory-tab-card h3 {
   margin-top: 0.85rem;
   margin-bottom: 0.4rem;
+}
+
+/* Chat: system centering + compact roll stack (specificity + !important vs host / cascade quirks). */
+#app main.tab-content #chat-messages .chat-msg.chat-msg--system .chat-msg-bubble.chat-msg-bubble--system,
+#app main.tab-content #chat-messages .chat-msg.chat-msg--system .chat-body.chat-body--system {
+  text-align: center !important;
+}
+
+#app main.tab-content #chat-messages .chat-msg.chat-msg--system .chat-sys-line {
+  display: block !important;
+  text-align: center !important;
+}
+
+#app main.tab-content #chat-messages .chat-roll-wrap {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 0.08rem !important;
+  row-gap: 0.08rem !important;
+  line-height: 1 !important;
+}
+
+#app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-row,
+#app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-row-formula,
+#app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-row-result {
+  line-height: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-apply-row {
+  margin-top: 0.12rem !important;
+  line-height: normal !important;
+}
+
+#app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-row em,
+#app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-row strong {
+  line-height: inherit !important;
 }
 
 .spell-element-row {
