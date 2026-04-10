@@ -616,14 +616,79 @@ function chatRollApplyButtonLabel(kind) {
   }
 }
 
-function formatSystemChatPayload(lines) {
-  const clean = (Array.isArray(lines) ? lines : [lines]).map((s) => String(s || "").trim()).filter(Boolean);
-  return `[[sys]]${JSON.stringify({ lines: clean })}`;
+function formatSystemChatApplyPayload(applyFx) {
+  const clean = Array.isArray(applyFx) ? applyFx.filter(Boolean) : [];
+  return `[[sys]]${JSON.stringify({ applyFx: clean })}`;
+}
+
+/** Localized line for structured apply-effect events (locale at view time). */
+function renderSysApplyFx(ev) {
+  if (!ev || typeof ev !== "object") return "";
+  switch (ev.fx) {
+    case "pdmgApply":
+      return formatI18nTemplate("chatApplyPhysicalDamage", {
+        name: ev.name,
+        actual: ev.actual,
+        raw: ev.raw,
+        def: ev.def,
+      });
+    case "mdmgApply":
+      return formatI18nTemplate("chatApplyMagicalDamage", {
+        name: ev.name,
+        actual: ev.actual,
+        raw: ev.raw,
+        def: ev.def,
+      });
+    case "tdmgApply":
+      return formatI18nTemplate("chatApplyTrueDamage", { name: ev.name, actual: ev.actual });
+    case "healAlreadyFull":
+      return `${ev.name} ${t("alreadyAtFullHealth")}`;
+    case "healGain":
+      return `${ev.name} ${t("healedFor")} ${ev.gained}`;
+    case "healNowFull":
+      return `${ev.name} ${t("nowAtFullHealth")}`;
+    case "thealGain":
+      return `${ev.name} ${t("gainedVerb")} ${ev.amount} ${t("temporaryHitPointsPhrase")}`;
+    case "manaAlreadyFull":
+      return `${ev.name} ${t("alreadyAtFullMana")}`;
+    case "manaGain":
+      return `${ev.name} ${t("regainedMana")} ${ev.gained} ${t("manaPoints")}`;
+    case "manaNowFull":
+      return `${ev.name} ${t("nowAtFullMana")}`;
+    default:
+      return "";
+  }
+}
+
+function rollTypeLabelFromPayload(payload) {
+  const kind = String(payload?.kind || "");
+  if (kind === "stat") {
+    const sid = String(payload.stat || "").toLowerCase();
+    if (sid) return t(sid);
+  }
+  if (kind === "pdmg") return t("physicalDamage");
+  if (kind === "mdmg") return t("magicDamage");
+  if (kind === "tdmg") return t("trueDamage");
+  if (kind === "heal") return t("heal");
+  if (kind === "theal") return t("overHeal");
+  if (kind === "mana") return t("mana");
+  if (kind === "roll") return t("roll");
+  return String(payload?.typeLabel || "").trim();
+}
+
+function rollWinFromPayload(payload) {
+  const o = payload?.outcome;
+  if (o === "critical_success") return t("criticalSuccess");
+  if (o === "success") return t("success");
+  if (o === "failure") return t("failure");
+  if (o === "critical_failure") return t("criticalFailure");
+  if (typeof payload?.cmpSuccess === "boolean") return t(payload.cmpSuccess ? "success" : "failure");
+  return String(payload?.win || "").trim();
 }
 
 /**
  * Apply damage/heal/mana from a chat roll to the active sheet.
- * @returns {{ success: true, lines: string[] } | { success: false }}
+ * @returns {{ success: true, applyFx: object[] } | { success: false }}
  */
 function applyChatRollToActiveSheet(kind, value) {
   if (!state.sheet || !state.roomId || !state.activeSheetId || !Number.isFinite(value)) return { success: false };
@@ -631,7 +696,7 @@ function applyChatRollToActiveSheet(kind, value) {
   const roomId = state.roomId;
   const sheetId = state.activeSheetId;
   const amt = Number(value) || 0;
-  const lines = [];
+  const applyFx = [];
 
   switch (kind) {
     case "pdmg": {
@@ -642,10 +707,8 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(
-        formatI18nTemplate("chatApplyPhysicalDamage", { name, actual, raw, def })
-      );
-      return { success: true, lines };
+      applyFx.push({ fx: "pdmgApply", name, actual, raw, def });
+      return { success: true, applyFx };
     }
     case "mdmg": {
       const raw = Math.max(0, Math.floor(amt));
@@ -655,10 +718,8 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(
-        formatI18nTemplate("chatApplyMagicalDamage", { name, actual, raw, def })
-      );
-      return { success: true, lines };
+      applyFx.push({ fx: "mdmgApply", name, actual, raw, def });
+      return { success: true, applyFx };
     }
     case "tdmg": {
       const actual = Math.max(0, Math.floor(amt));
@@ -666,15 +727,15 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(formatI18nTemplate("chatApplyTrueDamage", { name, actual }));
-      return { success: true, lines };
+      applyFx.push({ fx: "tdmgApply", name, actual });
+      return { success: true, applyFx };
     }
     case "heal": {
       const maxHP = getMaxHP(state.sheet);
       const cur = Math.max(0, Number(state.sheet.currentHP) || 0);
       if (maxHP > 0 && cur >= maxHP) {
-        lines.push(`${name} ${t("alreadyAtFullHealth")}`);
-        return { success: true, lines };
+        applyFx.push({ fx: "healAlreadyFull", name });
+        return { success: true, applyFx };
       }
       const space = Math.max(0, maxHP - cur);
       const gained = Math.min(Math.max(0, amt), space);
@@ -682,10 +743,10 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(`${name} ${t("healedFor")} ${Math.floor(gained)}`);
+      applyFx.push({ fx: "healGain", name, gained: Math.floor(gained) });
       const after = Math.max(0, Number(state.sheet.currentHP) || 0);
-      if (maxHP > 0 && after >= maxHP) lines.push(`${name} ${t("nowAtFullHealth")}`);
-      return { success: true, lines };
+      if (maxHP > 0 && after >= maxHP) applyFx.push({ fx: "healNowFull", name });
+      return { success: true, applyFx };
     }
     case "theal": {
       const v = Math.max(0, Math.floor(amt));
@@ -693,15 +754,15 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(`${name} ${t("gainedVerb")} ${v} ${t("temporaryHitPointsPhrase")}`);
-      return { success: true, lines };
+      applyFx.push({ fx: "thealGain", name, amount: v });
+      return { success: true, applyFx };
     }
     case "mana": {
       const maxMP = getMaxMP(state.sheet);
       const cur = Math.max(0, Number(state.sheet.currentMP) || 0);
       if (maxMP > 0 && cur >= maxMP) {
-        lines.push(`${name} ${t("alreadyAtFullMana")}`);
-        return { success: true, lines };
+        applyFx.push({ fx: "manaAlreadyFull", name });
+        return { success: true, applyFx };
       }
       const space = Math.max(0, maxMP - cur);
       const gained = Math.min(Math.max(0, amt), space);
@@ -709,10 +770,10 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentMP: state.sheet.currentMP }).catch(console.error);
-      lines.push(`${name} ${t("regainedMana")} ${Math.floor(gained)} ${t("manaPoints")}`);
+      applyFx.push({ fx: "manaGain", name, gained: Math.floor(gained) });
       const after = Math.max(0, Number(state.sheet.currentMP) || 0);
-      if (maxMP > 0 && after >= maxMP) lines.push(`${name} ${t("nowAtFullMana")}`);
-      return { success: true, lines };
+      if (maxMP > 0 && after >= maxMP) applyFx.push({ fx: "manaNowFull", name });
+      return { success: true, applyFx };
     }
     default:
       return { success: false };
@@ -1050,6 +1111,15 @@ function renderChatBody(body) {
   if (String(body).startsWith("[[sys]]")) {
     try {
       const payload = JSON.parse(String(body).slice("[[sys]]".length));
+      if (Array.isArray(payload.applyFx) && payload.applyFx.length) {
+        return payload.applyFx
+          .map((ev) => {
+            const line = renderSysApplyFx(ev);
+            return line ? `<em class="chat-sys-line">${escapeAttr(line)}</em>` : "";
+          })
+          .filter(Boolean)
+          .join("<br />");
+      }
       if (Array.isArray(payload.lines) && payload.lines.length) {
         return payload.lines
           .map((ln) => `<em class="chat-sys-line">${escapeAttr(String(ln || ""))}</em>`)
@@ -1065,7 +1135,7 @@ function renderChatBody(body) {
   if (String(body).startsWith("[[roll]]")) {
     try {
       const payload = JSON.parse(String(body).slice("[[roll]]".length));
-      const rawType = String(payload.typeLabel || "").trim();
+      const rawType = rollTypeLabelFromPayload(payload);
       const typeSeg = rawType ? ` ${rawType}` : "";
       const headPlain = payload.isFavorReroll
         ? `${t("rerolled")}${typeSeg} ${t("usingAFavor")}`.trim()
@@ -1074,7 +1144,8 @@ function renderChatBody(body) {
       const formulaText = escapeAttr(String(payload.formula || ""));
       const diceText = escapeAttr(String(payload.dice || ""));
       const resultText = escapeAttr(String(payload.value ?? 0));
-      const winText = payload.win ? `<em class="chat-roll-win">${escapeAttr(String(payload.win))}</em>` : "";
+      const winStr = rollWinFromPayload(payload);
+      const winText = winStr ? `<em class="chat-roll-win">${escapeAttr(winStr)}</em>` : "";
       const line = `<span class="chat-roll-line"><strong class="chat-roll-head">${headHtml}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
@@ -1105,61 +1176,21 @@ function renderChatBody(body) {
 }
 
 function formatRollChatLine(result, options = {}) {
-  const typeLabel =
-    result?.kind === "stat"
-      ? t(String(result.stat || "").toLowerCase())
-      : result?.kind === "pdmg"
-        ? t("physicalDamage")
-        : result?.kind === "mdmg"
-          ? t("magicDamage")
-          : result?.kind === "tdmg"
-            ? t("trueDamage")
-            : result?.kind === "heal"
-              ? t("heal")
-              : result?.kind === "theal"
-                ? t("overHeal")
-                : result?.kind === "mana"
-                  ? t("mana")
-                  : result?.kind === "roll"
-                    ? t("roll")
-                    : "";
-
   const formula = (result?.translatedFormula || result?.formula || "").toString();
   const dice = Array.isArray(result?.diceResults) ? result.diceResults.join(", ") : "";
-  const win =
-    result?.kind === "stat"
-      ? t(
-          result.outcome === "critical_success"
-            ? "criticalSuccess"
-            : result.outcome === "success"
-              ? "success"
-              : result.outcome === "failure"
-                ? "failure"
-                : "criticalFailure"
-        )
-      : result?.outcome
-        ? t(
-            result.outcome === "critical_success"
-              ? "criticalSuccess"
-              : result.outcome === "success"
-                ? "success"
-                : result.outcome === "failure"
-                  ? "failure"
-                  : "criticalFailure"
-          )
-        : result?.comparison && typeof result.comparison.success === "boolean"
-          ? t(result.comparison.success ? "success" : "failure")
-          : "";
 
-  // Store as a roll marker so we can render bold/italic safely; `kind` drives in-chat apply buttons.
+  // Locale-neutral payload: labels/outcomes resolved in renderChatBody via t() for current locale.
   const payload = {
     kind: result?.kind ?? "",
-    typeLabel,
     formula,
     dice,
     value: result?.value ?? 0,
-    win,
   };
+  if (result?.kind === "stat" && result.stat) payload.stat = String(result.stat).toLowerCase();
+  if (result?.outcome) payload.outcome = result.outcome;
+  else if (result?.comparison && typeof result.comparison.success === "boolean") {
+    payload.cmpSuccess = result.comparison.success;
+  }
   if (options.favorReroll) payload.isFavorReroll = true;
   return `[[roll]]${JSON.stringify(payload)}`;
 }
@@ -1170,11 +1201,11 @@ function formatChatToastBody(rawBody) {
   if (s.startsWith("[[roll]]")) {
     try {
       const payload = JSON.parse(s.slice("[[roll]]".length));
-      const typeLabel = String(payload.typeLabel || "").trim();
+      const typeLabel = rollTypeLabelFromPayload(payload);
       const formula = String(payload.formula || "").trim();
       const dice = String(payload.dice || "").trim();
       const value = payload.value ?? 0;
-      const win = String(payload.win || "").trim();
+      const win = rollWinFromPayload(payload);
       const typeSeg = typeLabel ? ` ${typeLabel}` : "";
       if (payload.isFavorReroll) {
         return `${t("rerolled")}${typeSeg} ${t("usingAFavor")} ${formula} : [${dice}] ${value}${win ? " " + win : ""}`.trim();
@@ -1182,6 +1213,16 @@ function formatChatToastBody(rawBody) {
       return `${t("rolled")}${typeSeg} ${formula} : [${dice}] ${value}${win ? " " + win : ""}`.trim();
     } catch (_) {
       return s.slice(0, 120);
+    }
+  }
+  if (s.startsWith("[[sys]]")) {
+    try {
+      const payload = JSON.parse(s.slice("[[sys]]".length));
+      if (Array.isArray(payload.applyFx) && payload.applyFx.length) {
+        return payload.applyFx.map((ev) => renderSysApplyFx(ev)).filter(Boolean).join(" ");
+      }
+    } catch (_) {
+      /* fall through */
     }
   }
   return s.slice(0, 120);
@@ -1532,11 +1573,11 @@ function bindEvents() {
       const applied = applyChatRollToActiveSheet(kind, value);
       if (!applied.success) return;
       try {
-        if (state.roomId && applied.lines?.length) {
+        if (state.roomId && applied.applyFx?.length) {
           const row = await storage.insertChatMessage(state.roomId, {
             playerId: state.playerId || "",
             sheetId: state.activeSheetId || null,
-            body: formatSystemChatPayload(applied.lines),
+            body: formatSystemChatApplyPayload(applied.applyFx),
           });
           appendChatMessageIfNew(row);
         }
