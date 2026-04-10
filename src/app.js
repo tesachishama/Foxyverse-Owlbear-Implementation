@@ -64,6 +64,7 @@ const state = {
   chatMessages: [],
   _chatUnsub: null,
   _lastChatToastAt: 0,
+  _chatStickToBottom: true,
   lastRoll: null,
   lastRollPayload: null,
   sheetMenuOpen: false,
@@ -1074,7 +1075,20 @@ function setupChatScrollbar() {
     thumb.style.transform = `translateY(${top}px)`;
   };
 
-  scrollEl.addEventListener("scroll", updateThumb, { passive: true });
+  const updateStick = () => {
+    const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    const fromBottom = Math.max(0, maxScroll - scrollEl.scrollTop);
+    state._chatStickToBottom = fromBottom <= 18;
+  };
+
+  scrollEl.addEventListener(
+    "scroll",
+    () => {
+      updateThumb();
+      updateStick();
+    },
+    { passive: true }
+  );
   try {
     const ro = new ResizeObserver(() => updateThumb());
     ro.observe(scrollEl);
@@ -1122,6 +1136,7 @@ function setupChatScrollbar() {
   });
 
   updateThumb();
+  updateStick();
 }
 
 function renderNotesTab() {
@@ -1243,6 +1258,16 @@ function render() {
     app.innerHTML = `<main class="tab-content"><div class="card"><h2>Error</h2><p>${escapeAttr(state.startupError)}</p></div></main>`;
     return;
   }
+
+  let prevChatFromBottom = null;
+  if (state.activeTab === "chat" && state._chatStickToBottom === false) {
+    const prev = document.getElementById("chat-messages");
+    if (prev) {
+      const maxScroll = Math.max(0, prev.scrollHeight - prev.clientHeight);
+      prevChatFromBottom = Math.max(0, maxScroll - prev.scrollTop);
+    }
+  }
+
   app.innerHTML = `
     ${renderHeader()}
     ${renderTabs()}
@@ -1254,11 +1279,17 @@ function render() {
   if (state.activeTab === "chat") {
     const el = document.getElementById("chat-messages");
     if (el) {
-      /* Sync scroll before paint so the list does not flash at the top after innerHTML. */
-      el.scrollTop = el.scrollHeight;
-      requestAnimationFrame(() => {
+      const stick = state._chatStickToBottom !== false;
+      /* Sync scroll before paint so the list does not flash. */
+      if (stick) {
         el.scrollTop = el.scrollHeight;
-      });
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight;
+        });
+      } else if (prevChatFromBottom != null) {
+        const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+        el.scrollTop = Math.max(0, Math.min(maxScroll, maxScroll - prevChatFromBottom));
+      }
     }
   }
 }
@@ -2003,7 +2034,7 @@ function bindEvents() {
       chatInput.value = "";
       render();
       requestAnimationFrame(() => {
-        if (rollResultToShow && !isChatPostedApplyRoll(rollResultToShow)) showRollResult(rollResultToShow);
+        if (rollResultToShow) showRollResult(rollResultToShow);
         document.getElementById("chat-input")?.focus();
       });
     } catch (err) {

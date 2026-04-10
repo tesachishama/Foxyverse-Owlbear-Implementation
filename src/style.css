@@ -691,6 +691,7 @@ button:disabled {
 .chat-roll-apply-btn {
   font-size: 0.85rem;
   padding: 0.25rem 0.5rem;
+  color: var(--bg);
 }
 
 .chat-roll-apply-btn:disabled {
