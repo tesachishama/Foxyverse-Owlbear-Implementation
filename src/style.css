@@ -259,11 +259,12 @@ h1, h2, h3 {
 h2 { color: var(--muted); }
 h3 { margin-top: 0.75rem; }
 
+/* Default action buttons use UI color (--accent) as fill; label uses sheet background for contrast. */
 button {
   font: inherit;
   cursor: pointer;
   background: var(--accent);
-  color: white;
+  color: var(--bg);
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 6px;
@@ -691,7 +692,6 @@ button:disabled {
 .chat-roll-apply-btn {
   font-size: 0.85rem;
   padding: 0.25rem 0.5rem;
-  color: var(--bg);
 }
 
 .chat-roll-apply-btn:disabled {
