@@ -229,8 +229,9 @@ export const translations = {
   },
   fr: {
     appTitle: "Foxyverse TTRPG",
-    appSubtitle: "Système homebrew",
+    appSubtitle: "Une intégration Owlbear.Rodeo du système Foxyverse",
 
+    // Sélection de fiche & permissions
     selectSheet: "Choisir la fiche",
     newSheet: "Nouvelle fiche",
     noSheet: "Aucune fiche",
@@ -242,6 +243,7 @@ export const translations = {
     linkToken: "Lier au token",
     gmOnly: "MJ uniquement",
 
+    // Onglets
     tabBio: "Bio",
     tabStats: "Stats",
     tabSpells: "Sorts",
@@ -250,12 +252,14 @@ export const translations = {
     tabNotes: "Notes",
     tabSettings: "Paramètres",
 
+    // Bio
     name: "Prénom",
     surname: "Nom",
     element: "Élément",
     class: "Classe",
     level: "Niveau",
 
+    // Stats
     tempHP: "PV temp",
     currentHP: "PV actuels",
     maxHP: "PV max",
@@ -290,6 +294,7 @@ export const translations = {
     agility: "Agilité",
     focus: "Focus",
 
+    // Jets de dés
     statRoll: "Jet de stat",
     nat1: "Crit 1",
     nat20: "Crit 20",
@@ -328,6 +333,7 @@ export const translations = {
     alreadyAtFullMana: "avait déjà tous ses points de mana",
     nowAtFullMana: "a maintenant tous ses points de mana",
 
+    // Sorts
     spellName: "Nom du sort",
     spellEffect: "Effet",
     spellCost: "Coût",
@@ -337,6 +343,7 @@ export const translations = {
     notEnoughMP: "Pas assez de PM — utiliser les PV ?",
     confirmUseHP: "Utiliser les PV à la place des PM va vous blesser. Continuer ?",
 
+    // Inventaire
     equipped: "Équipé",
     consumables: "Consommables",
     others: "Autres",
@@ -397,6 +404,7 @@ export const translations = {
     rightRing: "Annulaire D",
     rightPinky: "Auriculaire D",
 
+    // Chat
     chatPlaceholder: "Message ou /str +5, /pdmg 2d6...",
     chatWritePlaceholder: "Écrire ici...",
     scrollUp: "Défiler vers le haut",
@@ -408,12 +416,14 @@ export const translations = {
     applyMana: "Appliquer mana",
     mana: "Mana",
 
+    // Notes
     notesPlaceholder: "Notes... Jets inline comme [str +5] ou [pdmg 2d6]...",
     notesEditor: "Éditeur",
     notesPreview: "Aperçu (jets)",
 
     spellElement: "Élément",
 
+    // Paramètres
     uiColors: "Couleurs de l'interface",
     sheetPermissions: "Permissions de la fiche",
     canSee: "Peut voir",
@@ -428,9 +438,11 @@ export const translations = {
     importEverything: "Tout importer",
     importFile: "Importer un fichier",
 
+    /** "Enter {field}..." — {field} is the lowercased label from t(key). */
     enterFieldTemplate: "Saisir {field}...",
     statRollModifierPlaceholder: "+5 ou -3",
 
+    // Commun
     add: "Ajouter",
     remove: "Retirer",
     save: "Enregistrer",
