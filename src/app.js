@@ -65,6 +65,7 @@ const state = {
   _chatUnsub: null,
   _lastChatToastAt: 0,
   _chatStickToBottom: true,
+  rollModalOpen: false,
   lastRoll: null,
   lastRollPayload: null,
   sheetMenuOpen: false,
@@ -130,6 +131,9 @@ async function loadRoomData() {
 async function loadSheet(sheetId, options = {}) {
   const { forceRefresh = false } = options;
   if (!sheetId || !state.roomId) {
+    state.rollModalOpen = false;
+    state.lastRoll = null;
+    state.lastRollPayload = null;
     state.sheet = null;
     state.activeSheetId = sheetId;
     state.pendingSheetId = null;
@@ -159,6 +163,11 @@ async function loadSheet(sheetId, options = {}) {
     sheet.theme = { ...state.colors };
     storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
     storage.updateSheetCore(state.roomId, sheet.id, { theme: sheet.theme }).catch(console.error);
+  }
+  if (state.activeSheetId && state.activeSheetId !== sheetId) {
+    state.rollModalOpen = false;
+    state.lastRoll = null;
+    state.lastRollPayload = null;
   }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
@@ -729,6 +738,29 @@ function syncRollModalRerollState() {
   rerollBtn.disabled = !eligible || !hasFavor;
 }
 
+function showRollResult(result) {
+  const modal = document.getElementById("roll-modal");
+  const text = document.getElementById("roll-result-text");
+  const applyBox = document.getElementById("roll-apply-buttons");
+  if (!modal || !text) return;
+  state.lastRoll = result;
+  state.rollModalOpen = true;
+  modal.classList.remove("hidden");
+  if (result.kind === "stat") {
+    const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
+    text.textContent = `${t("rolled")} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
+  } else {
+    const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
+    const win = result.comparison && typeof result.comparison.success === "boolean" ? ` [${t(result.comparison.success ? "success" : "failure")}]` : "";
+    text.textContent = `${t("rolled")} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
+  }
+  syncRollModalRerollState();
+  if (applyBox) {
+    applyBox.innerHTML = "";
+    applyBox.classList.add("hidden");
+  }
+}
+
 function renderStatsTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
@@ -1033,12 +1065,17 @@ function renderChatBody(body) {
   if (String(body).startsWith("[[roll]]")) {
     try {
       const payload = JSON.parse(String(body).slice("[[roll]]".length));
-      const typeText = escapeAttr(String(payload.typeLabel || ""));
+      const rawType = String(payload.typeLabel || "").trim();
+      const typeSeg = rawType ? ` ${rawType}` : "";
+      const headPlain = payload.isFavorReroll
+        ? `${t("rerolled")}${typeSeg} ${t("usingAFavor")}`.trim()
+        : `${t("rolled")}${typeSeg}`.trim();
+      const headHtml = escapeAttr(headPlain);
       const formulaText = escapeAttr(String(payload.formula || ""));
       const diceText = escapeAttr(String(payload.dice || ""));
       const resultText = escapeAttr(String(payload.value ?? 0));
       const winText = payload.win ? `<em class="chat-roll-win">${escapeAttr(String(payload.win))}</em>` : "";
-      const line = `<span class="chat-roll-line"><strong class="chat-roll-head">${escapeAttr(t("rolled"))}${typeText ? " " + typeText : ""}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
+      const line = `<span class="chat-roll-line"><strong class="chat-roll-head">${headHtml}</strong> <em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span> <strong class="chat-roll-result">${resultText}</strong> ${winText}</span>`;
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
       let applyBlock = "";
@@ -1067,7 +1104,7 @@ function renderChatBody(body) {
   return text;
 }
 
-function formatRollChatLine(result) {
+function formatRollChatLine(result, options = {}) {
   const typeLabel =
     result?.kind === "stat"
       ? t(String(result.stat || "").toLowerCase())
@@ -1115,14 +1152,16 @@ function formatRollChatLine(result) {
           : "";
 
   // Store as a roll marker so we can render bold/italic safely; `kind` drives in-chat apply buttons.
-  return `[[roll]]${JSON.stringify({
+  const payload = {
     kind: result?.kind ?? "",
     typeLabel,
     formula,
     dice,
     value: result?.value ?? 0,
     win,
-  })}`;
+  };
+  if (options.favorReroll) payload.isFavorReroll = true;
+  return `[[roll]]${JSON.stringify(payload)}`;
 }
 
 function formatChatToastBody(rawBody) {
@@ -1136,7 +1175,11 @@ function formatChatToastBody(rawBody) {
       const dice = String(payload.dice || "").trim();
       const value = payload.value ?? 0;
       const win = String(payload.win || "").trim();
-      return `${t("rolled")}${typeLabel ? " " + typeLabel : ""} ${formula} : [${dice}] ${value}${win ? " " + win : ""}`.trim();
+      const typeSeg = typeLabel ? ` ${typeLabel}` : "";
+      if (payload.isFavorReroll) {
+        return `${t("rerolled")}${typeSeg} ${t("usingAFavor")} ${formula} : [${dice}] ${value}${win ? " " + win : ""}`.trim();
+      }
+      return `${t("rolled")}${typeSeg} ${formula} : [${dice}] ${value}${win ? " " + win : ""}`.trim();
     } catch (_) {
       return s.slice(0, 120);
     }
@@ -1382,6 +1425,9 @@ function render() {
         el.scrollTop = el.scrollHeight;
       }
     }
+  }
+  if (state.rollModalOpen && state.lastRoll) {
+    requestAnimationFrame(() => showRollResult(state.lastRoll));
   }
 }
 
@@ -1760,42 +1806,36 @@ function bindEvents() {
     });
   });
 
-  function showRollResult(result) {
-    const modal = document.getElementById("roll-modal");
-    const text = document.getElementById("roll-result-text");
-    const rerollBtn = document.getElementById("roll-reroll-btn");
-    const applyBox = document.getElementById("roll-apply-buttons");
-    if (!modal || !text) return;
-    state.lastRoll = result;
-    modal.classList.remove("hidden");
-    if (result.kind === "stat") {
-      const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
-      text.textContent = `${t("rolled")} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
-    } else {
-      const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
-      const win = result.comparison && typeof result.comparison.success === "boolean" ? ` [${t(result.comparison.success ? "success" : "failure")}]` : "";
-      text.textContent = `${t("rolled")} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
-    }
-    syncRollModalRerollState();
-    if (applyBox) {
-      applyBox.innerHTML = "";
-      applyBox.classList.add("hidden");
-    }
-  }
-  app.querySelector("#roll-close-btn")?.addEventListener("click", () => document.getElementById("roll-modal")?.classList.add("hidden"));
-  app.querySelector("#roll-reroll-btn")?.addEventListener("click", () => {
+  app.querySelector("#roll-close-btn")?.addEventListener("click", () => {
+    state.rollModalOpen = false;
+    document.getElementById("roll-modal")?.classList.add("hidden");
+  });
+  app.querySelector("#roll-reroll-btn")?.addEventListener("click", async () => {
     const rr = document.getElementById("roll-reroll-btn");
     if (rr?.disabled) return;
     if (!state.sheet || state.sheet.currentFavor < 1) return;
+    if (!state.lastRollPayload || !state.roomId) return;
     state.sheet.currentFavor--;
     saveSheet();
     if (state.roomId && state.activeSheetId) {
       storage.updateSheetCore(state.roomId, state.activeSheetId, { currentFavor: state.sheet.currentFavor }).catch(console.error);
     }
     const result = executeRoll(state.lastRollPayload, state.sheet);
+    if (!result) return;
     state.lastRoll = result;
+    state.rollModalOpen = true;
+    try {
+      const row = await storage.insertChatMessage(state.roomId, {
+        playerId: state.playerId || "",
+        sheetId: state.activeSheetId || null,
+        body: formatRollChatLine(result, { favorReroll: true }),
+      });
+      appendChatMessageIfNew(row);
+    } catch (err) {
+      console.error(err);
+    }
+    state._chatStickToBottom = true;
     render();
-    requestAnimationFrame(() => showRollResult(result));
   });
 
   // Spells

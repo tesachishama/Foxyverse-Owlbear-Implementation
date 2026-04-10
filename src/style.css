@@ -122,11 +122,11 @@ main.tab-content {
   width: 2.15rem;
   height: 2.15rem;
   margin-left: 0.01rem;
-  opacity: 1;
+  opacity: 0.5;
 }
 
 .flag-icon-btn.active {
-  opacity: 0.5;
+  opacity: 1;
 }
 
 .plain-icon-btn {
