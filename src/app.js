@@ -577,6 +577,15 @@ function escapeAttr(str) {
     .replace(/</g, "&lt;");
 }
 
+function formatI18nTemplate(key, vars) {
+  let s = t(key);
+  if (!vars) return s;
+  for (const [k, v] of Object.entries(vars)) {
+    s = s.split(`{{${k}}}`).join(String(v));
+  }
+  return s;
+}
+
 const CHAT_APPLY_ROLL_KINDS = new Set(["pdmg", "mdmg", "tdmg", "heal", "theal", "mana"]);
 
 function chatRollApplyButtonLabel(kind) {
@@ -618,24 +627,28 @@ function applyChatRollToActiveSheet(kind, value) {
   switch (kind) {
     case "pdmg": {
       const raw = Math.max(0, Math.floor(amt));
-      const def = getSheetDefense(state.sheet);
+      const def = Math.floor(Math.max(0, Number(getSheetDefense(state.sheet)) || 0));
       const actual = Math.max(0, raw - def);
       const next = applyPhysicalDamage(state.sheet, value);
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(`${name} ${t("tookDamage")} ${actual} ${t("physicalDamagesPhrase")}`);
+      lines.push(
+        formatI18nTemplate("chatApplyPhysicalDamage", { name, actual, raw, def })
+      );
       return { success: true, lines };
     }
     case "mdmg": {
       const raw = Math.max(0, Math.floor(amt));
-      const def = getSheetMagicalDefense(state.sheet);
+      const def = Math.floor(Math.max(0, Number(getSheetMagicalDefense(state.sheet)) || 0));
       const actual = Math.max(0, raw - def);
       const next = applyMagicDamage(state.sheet, value);
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(`${name} ${t("tookDamage")} ${actual} ${t("magicalDamagesPhrase")}`);
+      lines.push(
+        formatI18nTemplate("chatApplyMagicalDamage", { name, actual, raw, def })
+      );
       return { success: true, lines };
     }
     case "tdmg": {
@@ -644,7 +657,7 @@ function applyChatRollToActiveSheet(kind, value) {
       Object.assign(state.sheet, next);
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      lines.push(`${name} ${t("tookDamage")} ${actual} ${t("trueDamagesPhrase")}`);
+      lines.push(formatI18nTemplate("chatApplyTrueDamage", { name, actual }));
       return { success: true, lines };
     }
     case "heal": {
@@ -699,6 +712,21 @@ function applyChatRollToActiveSheet(kind, value) {
 
 function isChatPostedApplyRoll(result) {
   return result && CHAT_APPLY_ROLL_KINDS.has(String(result.kind || ""));
+}
+
+function syncRollModalRerollState() {
+  const modal = document.getElementById("roll-modal");
+  const rerollBtn = document.getElementById("roll-reroll-btn");
+  if (!modal || !rerollBtn || modal.classList.contains("hidden")) return;
+  const result = state.lastRoll;
+  if (!result) {
+    rerollBtn.disabled = true;
+    return;
+  }
+  const eligible = !!state.sheet && canReroll(result) && !!state.lastRollPayload;
+  const favor = Math.max(0, Number(state.sheet?.currentFavor) || 0);
+  const hasFavor = !!state.sheet && favor >= 1;
+  rerollBtn.disabled = !eligible || !hasFavor;
 }
 
 function renderStatsTab() {
@@ -812,8 +840,8 @@ function renderRollModals() {
         <p id="roll-result-text"></p>
         <div id="roll-apply-buttons" class="roll-apply-buttons hidden"></div>
         <div class="roll-modal-footer">
+          <button type="button" id="roll-reroll-btn" class="roll-modal-reroll-btn" disabled title="${escapeAttr(t("rerollCost"))}">${t("reroll")}</button>
           <button type="button" id="roll-close-btn" class="roll-modal-close-btn">${t("close")}</button>
-          <button type="button" id="roll-reroll-btn" class="roll-modal-reroll-btn hidden" title="${escapeAttr(t("rerollCost"))}">${t("reroll")}</button>
         </div>
       </div>
     </div>
@@ -1574,8 +1602,14 @@ function bindEvents() {
       } else if (field === "currentHP" || field === "tempHP" || field === "currentMP" || field === "currentFavor" || field === "actionModifier" || field === "speedModifier" || field === "notes" || field === "isElemental") {
         storage.updateSheetCore(state.roomId, state.activeSheetId, { [field]: next[field] }).catch(console.error);
       }
+      if (field === "currentFavor") syncRollModalRerollState();
       if (field === "bio.name" || field === "bio.surname") render();
     });
+  });
+  app.querySelector('[data-field="currentFavor"]')?.addEventListener("input", (e) => {
+    if (!state.sheet) return;
+    state.sheet.currentFavor = Number(e.target.value) || 0;
+    syncRollModalRerollState();
   });
 
   app.querySelectorAll("[data-level-step]").forEach((btn) => {
@@ -1732,6 +1766,7 @@ function bindEvents() {
     const rerollBtn = document.getElementById("roll-reroll-btn");
     const applyBox = document.getElementById("roll-apply-buttons");
     if (!modal || !text) return;
+    state.lastRoll = result;
     modal.classList.remove("hidden");
     if (result.kind === "stat") {
       const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
@@ -1741,12 +1776,7 @@ function bindEvents() {
       const win = result.comparison && typeof result.comparison.success === "boolean" ? ` [${t(result.comparison.success ? "success" : "failure")}]` : "";
       text.textContent = `${t("rolled")} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
     }
-    const canDoReroll =
-      !!state.sheet &&
-      state.sheet.currentFavor >= 1 &&
-      canReroll(result) &&
-      !!state.lastRollPayload;
-    rerollBtn.classList.toggle("hidden", !canDoReroll);
+    syncRollModalRerollState();
     if (applyBox) {
       applyBox.innerHTML = "";
       applyBox.classList.add("hidden");
@@ -1754,6 +1784,8 @@ function bindEvents() {
   }
   app.querySelector("#roll-close-btn")?.addEventListener("click", () => document.getElementById("roll-modal")?.classList.add("hidden"));
   app.querySelector("#roll-reroll-btn")?.addEventListener("click", () => {
+    const rr = document.getElementById("roll-reroll-btn");
+    if (rr?.disabled) return;
     if (!state.sheet || state.sheet.currentFavor < 1) return;
     state.sheet.currentFavor--;
     saveSheet();
@@ -1762,8 +1794,8 @@ function bindEvents() {
     }
     const result = executeRoll(state.lastRollPayload, state.sheet);
     state.lastRoll = result;
-    showRollResult(result);
     render();
+    requestAnimationFrame(() => showRollResult(result));
   });
 
   // Spells

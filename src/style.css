@@ -495,6 +495,7 @@ button:disabled {
 .roll-modal-footer {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
   margin-top: 1rem;
 }
@@ -505,7 +506,12 @@ button:disabled {
 
 .roll-modal-reroll-btn {
   margin: 0;
-  margin-left: auto;
+}
+
+.roll-modal-reroll-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.45);
 }
 
 .spell-item { margin-bottom: 0.75rem; }
