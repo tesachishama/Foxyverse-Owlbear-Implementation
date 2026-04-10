@@ -675,6 +675,12 @@ function renderStatsTab() {
         <tbody>${statsTable}</tbody>
       </table>
     </div>
+  `;
+}
+
+/** Roll result + stat modifier modals: must live outside tab content so chat/notes rolls can use them. */
+function renderRollModals() {
+  return `
     <div id="roll-modal" class="modal hidden">
       <div class="modal-content">
         <h3 id="roll-result-title">${t("result")}</h3>
@@ -1144,6 +1150,7 @@ function render() {
     ${renderHeader()}
     ${renderTabs()}
     <main class="tab-content">${renderTabContent()}</main>
+    ${renderRollModals()}
   `;
   applyColors();
   bindEvents();
@@ -1234,9 +1241,9 @@ function bindEvents() {
           const short = formatChatToastBody(body);
           OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
         }
-        showRollResult(result);
         render();
         requestAnimationFrame(() => {
+          showRollResult(result);
           document.getElementById("chat-input")?.focus();
         });
       } catch (err) {
@@ -1965,13 +1972,14 @@ function bindEvents() {
     if (!line || !state.roomId) return;
     const cmd = parseChatCommand(line);
     let bodyToSend = line;
+    let rollResultToShow = null;
     if (cmd && state.sheet) {
       const result = executeRoll(cmd, state.sheet);
       if (result) {
         state.lastRoll = result;
         state.lastRollPayload = cmd;
         bodyToSend = formatRollChatLine(result);
-        showRollResult(result);
+        rollResultToShow = result;
       }
     }
     try {
@@ -1984,6 +1992,7 @@ function bindEvents() {
       chatInput.value = "";
       render();
       requestAnimationFrame(() => {
+        if (rollResultToShow) showRollResult(rollResultToShow);
         document.getElementById("chat-input")?.focus();
       });
     } catch (err) {
