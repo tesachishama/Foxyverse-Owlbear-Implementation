@@ -267,7 +267,7 @@ button {
   color: var(--bg);
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 6px;
+  border-radius: 999px;
   transition: background 0.15s;
 }
 
@@ -675,6 +675,10 @@ button:disabled {
 
 .chat-roll-line .chat-roll-win {
   font-style: italic;
+}
+
+.chat-sys-line {
+  opacity: 0.92;
 }
 
 .chat-roll-wrap {

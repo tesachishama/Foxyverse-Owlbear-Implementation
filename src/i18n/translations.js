@@ -94,6 +94,11 @@ export const translations = {
     applyDamage: "Apply damage",
     applyHeal: "Apply heal",
     applyOverHeal: "Apply temp HP",
+    healedFor: "healed for",
+    tempHealedFor: "temporary healed for",
+    tookDamage: "took",
+    regainedMana: "regained",
+    manaPoints: "mana points",
 
     // Spells
     spellName: "Spell name",
@@ -299,6 +304,11 @@ export const translations = {
     applyDamage: "Appliquer dégâts",
     applyHeal: "Appliquer soin",
     applyOverHeal: "Appliquer PV temp",
+    healedFor: "s'est soigné de",
+    tempHealedFor: "a gagné",
+    tookDamage: "a subi",
+    regainedMana: "a récupéré",
+    manaPoints: "points de mana",
 
     spellName: "Nom du sort",
     spellEffect: "Effet",

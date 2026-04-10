@@ -598,6 +598,21 @@ function chatRollApplyButtonLabel(kind) {
   }
 }
 
+function formatSystemChatLine(text) {
+  return `[[sys]]${JSON.stringify({ text: String(text || "") })}`;
+}
+
+function formatApplyEffectLine(kind, value) {
+  const name = resolveCharacterDisplayName(state.activeSheetId);
+  const v = Math.max(0, Math.floor(Number(value) || 0));
+  if (kind === "heal") return `${name} ${t("healedFor")} ${v}`;
+  if (kind === "theal") return `${name} ${t("tempHealedFor")} ${v} ${t("overHeal")}`;
+  if (kind === "mana") return `${name} ${t("regainedMana")} ${v} ${t("manaPoints")}`;
+  const type =
+    kind === "pdmg" ? t("physicalDamage") : kind === "mdmg" ? t("magicDamage") : kind === "tdmg" ? t("trueDamage") : "";
+  return `${name} ${t("tookDamage")} ${v} ${type}`.trim();
+}
+
 /** Apply damage/heal/mana from a chat roll to the active sheet (same rules as the old roll modal). */
 function applyChatRollToActiveSheet(kind, value) {
   if (!state.sheet || !state.roomId || !state.activeSheetId || !Number.isFinite(value)) return false;
@@ -941,6 +956,15 @@ function renderChatTab() {
 
 function renderChatBody(body) {
   if (!body) return "";
+  if (String(body).startsWith("[[sys]]")) {
+    try {
+      const payload = JSON.parse(String(body).slice("[[sys]]".length));
+      const text = escapeAttr(String(payload.text || ""));
+      return `<em class="chat-sys-line">${text}</em>`;
+    } catch (_) {
+      // fall through to normal escaping
+    }
+  }
   // Render roll lines with formatting (safe; only for our own roll marker).
   if (String(body).startsWith("[[roll]]")) {
     try {
@@ -1289,6 +1313,9 @@ function render() {
       } else if (prevChatFromBottom != null) {
         const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
         el.scrollTop = Math.max(0, Math.min(maxScroll, maxScroll - prevChatFromBottom));
+      } else {
+        // We can't preserve position (chat DOM wasn't mounted previously), default to latest message.
+        el.scrollTop = el.scrollHeight;
       }
     }
   }
@@ -1384,7 +1411,7 @@ function bindEvents() {
   }
 
   if (!app.dataset.chatRollApplyBound) {
-    app.addEventListener("click", (e) => {
+    app.addEventListener("click", async (e) => {
       const btn = e.target.closest(".chat-roll-apply-btn");
       if (!btn) return;
       if (btn.disabled) return;
@@ -1392,7 +1419,20 @@ function bindEvents() {
       const value = Number(btn.dataset.applyValue);
       if (!CHAT_APPLY_ROLL_KINDS.has(kind) || !Number.isFinite(value)) return;
       if (!canEdit(state.activeSheetId)) return;
-      if (applyChatRollToActiveSheet(kind, value)) render();
+      if (!applyChatRollToActiveSheet(kind, value)) return;
+      try {
+        if (state.roomId) {
+          const row = await storage.insertChatMessage(state.roomId, {
+            playerId: state.playerId || "",
+            sheetId: state.activeSheetId || null,
+            body: formatSystemChatLine(formatApplyEffectLine(kind, value)),
+          });
+          appendChatMessageIfNew(row);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      render();
     });
     app.dataset.chatRollApplyBound = "true";
   }
