@@ -68,6 +68,10 @@ const state = {
   rollModalOpen: false,
   lastRoll: null,
   lastRollPayload: null,
+  /** Session-only: lines the user sent from chat (oldest → newest). */
+  _chatSendHistory: [],
+  _chatHistoryIndex: null,
+  _chatHistoryDraft: "",
   sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
@@ -600,11 +604,11 @@ const CHAT_APPLY_ROLL_KINDS = new Set(["pdmg", "mdmg", "tdmg", "heal", "theal", 
 function chatRollApplyButtonLabel(kind) {
   switch (kind) {
     case "pdmg":
-      return `${t("applyDamage")} (${t("physicalDamage")})`;
+      return t("applyPhysicalDamages");
     case "mdmg":
-      return `${t("applyDamage")} (${t("magicDamage")})`;
+      return t("applyMagicalDamages");
     case "tdmg":
-      return `${t("applyDamage")} (${t("trueDamage")})`;
+      return t("applyTrueDamages");
     case "heal":
       return t("applyHeal");
     case "theal":
@@ -1852,6 +1856,17 @@ function bindEvents() {
     state.rollModalOpen = false;
     document.getElementById("roll-modal")?.classList.add("hidden");
   });
+  if (!app.dataset.rollModalEscapeBound) {
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const modal = document.getElementById("roll-modal");
+      if (!modal || modal.classList.contains("hidden") || !state.rollModalOpen) return;
+      e.preventDefault();
+      state.rollModalOpen = false;
+      modal.classList.add("hidden");
+    });
+    app.dataset.rollModalEscapeBound = "true";
+  }
   app.querySelector("#roll-reroll-btn")?.addEventListener("click", async () => {
     const rr = document.getElementById("roll-reroll-btn");
     if (rr?.disabled) return;
@@ -2182,8 +2197,37 @@ function bindEvents() {
 
   // Chat
   const chatInput = app.querySelector("#chat-input");
+  const CHAT_HISTORY_CAP = 80;
   app.querySelector("#chat-send")?.addEventListener("click", () => sendChat());
+  chatInput?.addEventListener("input", () => {
+    state._chatHistoryIndex = null;
+    state._chatHistoryDraft = "";
+  });
   chatInput?.addEventListener("keydown", (e) => {
+    const hist = state._chatSendHistory;
+    if (e.key === "ArrowUp" && hist.length) {
+      e.preventDefault();
+      if (state._chatHistoryIndex == null) {
+        state._chatHistoryDraft = chatInput.value;
+        state._chatHistoryIndex = hist.length - 1;
+      } else if (state._chatHistoryIndex > 0) {
+        state._chatHistoryIndex -= 1;
+      }
+      chatInput.value = hist[state._chatHistoryIndex] ?? "";
+      return;
+    }
+    if (e.key === "ArrowDown" && hist.length && state._chatHistoryIndex != null) {
+      e.preventDefault();
+      if (state._chatHistoryIndex < hist.length - 1) {
+        state._chatHistoryIndex += 1;
+        chatInput.value = hist[state._chatHistoryIndex] ?? "";
+      } else {
+        state._chatHistoryIndex = null;
+        chatInput.value = state._chatHistoryDraft;
+        state._chatHistoryDraft = "";
+      }
+      return;
+    }
     if (e.key === "Enter") sendChat();
   });
   app.querySelectorAll(".chat-msg-delete-btn").forEach((btn) => {
@@ -2228,6 +2272,14 @@ function bindEvents() {
         body: bodyToSend,
       });
       appendChatMessageIfNew(row);
+      const hist = state._chatSendHistory;
+      const last = hist[hist.length - 1];
+      if (last !== line) {
+        hist.push(line);
+        if (hist.length > CHAT_HISTORY_CAP) hist.splice(0, hist.length - CHAT_HISTORY_CAP);
+      }
+      state._chatHistoryIndex = null;
+      state._chatHistoryDraft = "";
       chatInput.value = "";
       render();
       requestAnimationFrame(() => {
