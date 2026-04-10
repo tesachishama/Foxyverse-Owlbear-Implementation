@@ -693,24 +693,6 @@ button:disabled {
   margin: 0;
 }
 
-#chat-messages .chat-msg-bubble.chat-msg-bubble--system,
-#chat-messages .chat-body.chat-body--system {
-  text-align: center;
-}
-
-#chat-messages .chat-body.chat-body--system .chat-sys-line {
-  display: block;
-  text-align: center;
-}
-
-.chat-msg-bubble--system {
-  text-align: center;
-}
-
-.chat-body--system {
-  text-align: center;
-}
-
 .chat-roll-line .chat-roll-head,
 .chat-roll-line .chat-roll-result {
   font-weight: 700;
@@ -725,6 +707,7 @@ button:disabled {
 }
 
 .chat-sys-line {
+  display: block;
   opacity: 0.92;
 }
 
@@ -1165,17 +1148,7 @@ button:disabled {
   margin-bottom: 0.4rem;
 }
 
-/* Chat: system centering + compact roll stack (specificity + !important vs host / cascade quirks). */
-#app main.tab-content #chat-messages .chat-msg.chat-msg--system .chat-msg-bubble.chat-msg-bubble--system,
-#app main.tab-content #chat-messages .chat-msg.chat-msg--system .chat-body.chat-body--system {
-  text-align: center !important;
-}
-
-#app main.tab-content #chat-messages .chat-msg.chat-msg--system .chat-sys-line {
-  display: block !important;
-  text-align: center !important;
-}
-
+/* Chat: compact roll stack (!important vs host / cascade quirks). */
 #app main.tab-content #chat-messages .chat-roll-wrap {
   display: inline-flex !important;
   flex-direction: column !important;

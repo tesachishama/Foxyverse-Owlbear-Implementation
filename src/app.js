@@ -1065,16 +1065,14 @@ function renderChatTab() {
           m.id && canDeleteChatMessage(m)
             ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
             : "";
-        const isSysBody = String(m.body || "").trimStart().startsWith("[[sys]]");
-        const sysAlign = isSysBody ? ' style="text-align:center"' : "";
-        const bubbleInner = `<div class="chat-body${isSysBody ? " chat-body--system" : ""}"${sysAlign}>${renderChatBody(m.body)}</div>`;
+        const bubbleInner = `<div class="chat-body">${renderChatBody(m.body)}</div>`;
         return `
-        <div class="chat-msg${isSysBody ? " chat-msg--system" : ""}" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
+        <div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
           <div class="chat-msg-header">
             <div class="chat-msg-header-text"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>
             ${deleteBtn}
           </div>
-          <div class="chat-msg-bubble${isSysBody ? " chat-msg-bubble--system" : ""}"${sysAlign}>${bubbleInner}</div>
+          <div class="chat-msg-bubble">${bubbleInner}</div>
         </div>`;
       }
     )
