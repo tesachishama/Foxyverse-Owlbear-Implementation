@@ -899,9 +899,24 @@ button:disabled {
 }
 
 .inline-roll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
   padding: 0.15rem 0.4rem;
   margin: 0 0.15rem;
   cursor: pointer;
+  vertical-align: middle;
+}
+
+.inline-roll-btn .inline-roll-dice {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+  display: block;
+}
+
+.inline-roll-btn .inline-roll-caption {
+  min-width: 0;
 }
 
 #notes-area {
@@ -1135,7 +1150,7 @@ button:disabled {
 }
 
 .notes-preview .inline-roll-btn {
-  vertical-align: baseline;
+  vertical-align: middle;
 }
 
 /* Stats / inventory tab cards */

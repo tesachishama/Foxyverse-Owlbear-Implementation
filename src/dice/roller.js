@@ -127,6 +127,35 @@ export function parseChatCommand(line) {
   return null;
 }
 
+const POLYHEDRAL_ICONS = [4, 6, 8, 10, 12, 20];
+
+/**
+ * Pick which dice SVG to show (d4…d20) from the first NdM in the formula.
+ * If there is no die (e.g. stat rolls like [str +4]), default to d20.
+ */
+export function pickInlineDiceIconKey(formula) {
+  const f = String(formula || "");
+  const re = /(\d+)\s*d\s*(\d+)/gi;
+  let m = re.exec(f);
+  if (!m) {
+    return "d20";
+  }
+  const faces = parseInt(m[2], 10);
+  if (!Number.isFinite(faces) || faces < 1) {
+    return "d20";
+  }
+  let best = POLYHEDRAL_ICONS[0];
+  let bestDist = Math.abs(faces - best);
+  for (const p of POLYHEDRAL_ICONS) {
+    const d = Math.abs(faces - p);
+    if (d < bestDist || (d === bestDist && p < best)) {
+      best = p;
+      bestDist = d;
+    }
+  }
+  return `d${best}`;
+}
+
 /** Find all inline roll buttons in text: [type formula] (new spec only). */
 export function getInlineButtons(text) {
   const s = String(text || "");

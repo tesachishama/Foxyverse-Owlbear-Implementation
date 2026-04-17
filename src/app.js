@@ -34,7 +34,25 @@ import {
   getSheetMagicalDefense,
 } from "./data/schema.js";
 import * as storage from "./data/storage.js";
-import { executeRoll, getInlineButtons, parseChatCommand, applyPhysicalDamage, applyMagicDamage, applyTrueDamage, applyHeal, applyOverHeal, applyMana, canReroll } from "./dice/roller.js";
+import {
+  executeRoll,
+  getInlineButtons,
+  parseChatCommand,
+  applyPhysicalDamage,
+  applyMagicDamage,
+  applyTrueDamage,
+  applyHeal,
+  applyOverHeal,
+  applyMana,
+  canReroll,
+  pickInlineDiceIconKey,
+} from "./dice/roller.js";
+import d4Icon from "./data/icons/Icons_d4.svg?raw";
+import d6Icon from "./data/icons/Icons_d6.svg?raw";
+import d8Icon from "./data/icons/Icons_d8.svg?raw";
+import d10Icon from "./data/icons/Icons_d10.svg?raw";
+import d12Icon from "./data/icons/Icons_d12.svg?raw";
+import d20Icon from "./data/icons/Icons_d20.svg?raw";
 
 const ROOT_ID = "app";
 const TABS = ["bio", "stats", "spells", "inventory", "chat", "notes", "settings"];
@@ -316,6 +334,33 @@ function inlineSvg(svg, className = "", color = "var(--text)") {
     cleaned = cleaned.replace(classSelectorPattern, `.${nextClass}`);
   });
   return cleaned;
+}
+
+const INLINE_DICE_SVG = {
+  d4: d4Icon,
+  d6: d6Icon,
+  d8: d8Icon,
+  d10: d10Icon,
+  d12: d12Icon,
+  d20: d20Icon,
+};
+
+function formatInlineRollButtonCaption(btn) {
+  const formula = String(btn.formula ?? "").trim();
+  if (btn.kind === "stat" && btn.stat) {
+    const abbr = t(`statAbbr_${btn.stat}`);
+    if (!formula) return abbr;
+    if (/^[+-]/.test(formula)) return `${abbr}${formula}`;
+    return `${abbr} ${formula}`;
+  }
+  const typeLbl = t(`inlineRoll_${btn.kind}`);
+  return formula ? `${typeLbl} ${formula}` : typeLbl;
+}
+
+function inlineDiceMarkupForButton(btn) {
+  const key = pickInlineDiceIconKey(String(btn.formula ?? ""));
+  const raw = INLINE_DICE_SVG[key] || d20Icon;
+  return inlineSvg(raw, "inline-svg inline-roll-dice", "var(--text)");
 }
 
 function getSheetTitle() {
@@ -1172,10 +1217,11 @@ function renderChatBody(body) {
   buttons.forEach((btn) => {
     const stat = (btn.stat || "").toString();
     const formula = (btn.formula || "").toString();
-    const label = (btn.label || btn.raw || "").toString();
+    const caption = escapeAttr(formatInlineRollButtonCaption(btn));
+    const iconHtml = inlineDiceMarkupForButton(btn);
     text = text.replace(
       btn.raw,
-      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}">${escapeAttr(label)}</button>`
+      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`
     );
   });
   return text;

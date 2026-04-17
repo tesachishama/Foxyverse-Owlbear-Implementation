@@ -70,6 +70,24 @@ export const translations = {
     agility: "Agility",
     focus: "Focus",
 
+    /** Short stat keys for inline roll buttons [str +2] */
+    statAbbr_constitution: "con",
+    statAbbr_strength: "str",
+    statAbbr_intelligence: "int",
+    statAbbr_perception: "per",
+    statAbbr_social: "soc",
+    statAbbr_agility: "agi",
+    statAbbr_focus: "foc",
+
+    /** Inline roll type labels (locale-specific command aliases) */
+    inlineRoll_pdmg: "pdmg",
+    inlineRoll_mdmg: "mdmg",
+    inlineRoll_tdmg: "tdmg",
+    inlineRoll_heal: "heal",
+    inlineRoll_theal: "theal",
+    inlineRoll_mana: "mana",
+    inlineRoll_roll: "roll",
+
     // Rolls
     statRoll: "Stat roll",
     nat1: "Nat 1",
@@ -298,6 +316,22 @@ export const translations = {
     social: "Social",
     agility: "Agilité",
     focus: "Focus",
+
+    statAbbr_constitution: "con",
+    statAbbr_strength: "for",
+    statAbbr_intelligence: "int",
+    statAbbr_perception: "per",
+    statAbbr_social: "soc",
+    statAbbr_agility: "agi",
+    statAbbr_focus: "foc",
+
+    inlineRoll_pdmg: "dgtp",
+    inlineRoll_mdmg: "dgtm",
+    inlineRoll_tdmg: "dgtb",
+    inlineRoll_heal: "soin",
+    inlineRoll_theal: "soint",
+    inlineRoll_mana: "mana",
+    inlineRoll_roll: "r",
 
     // Jets de dés
     statRoll: "Jet de stat",
