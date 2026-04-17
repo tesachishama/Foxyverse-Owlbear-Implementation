@@ -360,7 +360,7 @@ function formatInlineRollButtonCaption(btn) {
 function inlineDiceMarkupForButton(btn) {
   const key = pickInlineDiceIconKey(String(btn.formula ?? ""));
   const raw = INLINE_DICE_SVG[key] || d20Icon;
-  return inlineSvg(raw, "inline-svg inline-roll-dice", "var(--text)");
+  return inlineSvg(raw, "inline-svg inline-roll-dice", "var(--bg)");
 }
 
 function getSheetTitle() {

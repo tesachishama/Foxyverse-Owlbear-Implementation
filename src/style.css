@@ -901,11 +901,13 @@ button:disabled {
 .inline-roll-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.28rem;
-  padding: 0.15rem 0.4rem;
+  padding: 0.18rem 0.45rem 0.14rem;
   margin: 0 0.15rem;
   cursor: pointer;
   vertical-align: middle;
+  line-height: 1;
 }
 
 .inline-roll-btn .inline-roll-dice {
@@ -913,10 +915,15 @@ button:disabled {
   height: 1.1em;
   flex-shrink: 0;
   display: block;
+  align-self: center;
 }
 
 .inline-roll-btn .inline-roll-caption {
   min-width: 0;
+  line-height: 1.15;
+  display: inline-block;
+  /* Optical vertical center vs dice art (cap height vs icon box). */
+  transform: translateY(-0.06em);
 }
 
 #notes-area {
