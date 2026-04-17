@@ -47,9 +47,65 @@ Stat abbreviations match `src/dice/parser.js`: `str`, `con`, `int`, `per`, `soc`
 
 Used after the command (chat) or inside inline buttons (notes/chat). Not case sensitive.
 
-- **Dice**: `XdY` rolls X dice with Y faces.\n  - X and/or Y can be expressions when parenthesized: `(1d4)d4`.\n  - Without parentheses, `d` binds to the nearest atoms until the first operator.\n- **Operators**: `+`, `-`, `*`, `/` (round), `\\` (floor), `%` (ceil), `^` (power), parentheses.\n- **Success operators**: `<` means “left <= right”, `>` means “left >= right” (adds a success/failure tag to non-stat rolls).\n- **Whitespace** is ignored.
+- **Dice**: `XdY` rolls X dice with Y faces.
+  - X and/or Y can be expressions when parenthesized: `(1d4)d4`.
+  - Without parentheses, `d` binds to the nearest atoms until the first operator.
+- **Operators**: `+`, `-`, `*`, `/` (round), `\\` (floor), `%` (ceil), `^` (power), parentheses.
+- **Success operators**: `<` means “left <= right”, `>` means “left >= right” (adds a success/failure tag to non-stat rolls).
+- **Whitespace** is ignored.
 
-Implementation reference: [`src/dice/parser.js`](src/dice/parser.js), [`src/dice/roller.js`](src/dice/roller.js).
+### Formula variables (active sheet)
+
+Identifiers are resolved from the **current character sheet** when you roll (chat command or inline button). Names are matched **case-insensitively**. Any unknown name is treated as **0** (which can produce odd rolls like `1d0` in the translated line if you typo a variable).
+
+Below, each bullet lists **all aliases** for one value (same number everywhere).
+
+**Stat totals** (computed total including gear/passives, etc.)
+
+| Value | Aliases |
+|--------|---------|
+| Constitution total | `con`, `constitution` |
+| Strength total | `str`, `strength`, `for`, `force` |
+| Intelligence total | `int`, `intelligence` |
+| Perception total | `per`, `perception` |
+| Social total | `soc`, `social` |
+| Agility total | `agi`, `agility` |
+| Focus total | `foc`, `focus` |
+
+**HP**
+
+| Meaning | Aliases |
+|---------|---------|
+| Max HP | `maxhp`, `hpmax`, `pvmax`, `maxpv` |
+| Current HP | `curhp`, `hpcur`, `pvact`, `curpv`, `pvcur` |
+| Temp HP | `temhp`, `hptem`, `pvtem`, `temphp` |
+
+**MP**
+
+| Meaning | Aliases |
+|---------|---------|
+| Max MP | `maxmp`, `mpmax`, `pmmax`, `maxpm` |
+| Current MP | `curmp`, `mpcur`, `pmact`, `curpm` |
+
+**Favor**
+
+| Meaning | Aliases |
+|---------|---------|
+| Max favor | `maxfav`, `favmax` |
+| Current favor | `curfav`, `favact`, `favcur` |
+
+**Other sheet values**
+
+| Meaning | Aliases |
+|---------|---------|
+| Action count (computed) | `act` |
+| Character level | `lvl`, `niv`, `level` |
+| Physical defense | `pdef`, `defp` |
+| Magical defense | `mdef`, `defm` |
+| Action modifier (sheet field) | `bonact`, `actbon` |
+| Speed modifier (sheet field) | `bonspe`, `vitbon` |
+
+Implementation reference: [`src/dice/parser.js`](src/dice/parser.js), [`src/dice/roller.js`](src/dice/roller.js) (`buildFormulaContext`).
 
 ## Inline roll buttons (notes & chat)
 
