@@ -205,34 +205,62 @@ function buildFormulaContext(sheet) {
   const bonact = Number(sheet.actionModifier) || 0;
   const bonspe = Number(sheet.speedModifier) || 0;
 
-  // Provide all aliases as lowercased keys.
+  // Provide all aliases as lowercased keys (word-order variants + FR shorthand).
   return {
     con,
+    constitution: con,
     str,
+    strength: str,
     for: str,
+    force: str,
     int,
+    intelligence: int,
     per,
+    perception: per,
     soc,
+    social: soc,
     agi,
+    agility: agi,
     foc,
+    focus: foc,
+
     maxhp,
-    pvmax: maxhp,
     hpmax: maxhp,
+    pvmax: maxhp,
+    maxpv: maxhp,
+
     curhp,
+    hpcur: curhp,
     pvact: curhp,
+    curpv: curhp,
+    pvcur: curhp,
+
     temhp,
+    hptem: temhp,
     pvtem: temhp,
+    temphp: temhp,
+
     maxmp,
+    mpmax: maxmp,
     pmmax: maxmp,
+    maxpm: maxmp,
+
     curmp,
+    mpcur: curmp,
     pmact: curmp,
+    curpm: curmp,
+
     maxfav,
     favmax: maxfav,
+
     curfav,
     favact: curfav,
+    favcur: curfav,
+
     act,
     lvl,
     niv: lvl,
+    level: lvl,
     pdef,
     defp: pdef,
     mdef,
