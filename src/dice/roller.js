@@ -217,6 +217,7 @@ function buildFormulaContext(sheet) {
     foc,
     maxhp,
     pvmax: maxhp,
+    hpmax: maxhp,
     curhp,
     pvact: curhp,
     temhp,
