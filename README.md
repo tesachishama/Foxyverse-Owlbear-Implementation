@@ -64,46 +64,46 @@ Below, each bullet lists **all aliases** for one value (same number everywhere).
 
 | Value | Aliases |
 |--------|---------|
-| Constitution total | `con`, `constitution` |
-| Strength total | `str`, `strength`, `for`, `force` |
-| Intelligence total | `int`, `intelligence` |
-| Perception total | `per`, `perception` |
-| Social total | `soc`, `social` |
-| Agility total | `agi`, `agility` |
-| Focus total | `foc`, `focus` |
+| Constitution total | `con` |
+| Strength total | `str`, `for` |
+| Intelligence total | `int` |
+| Perception total | `per` |
+| Social total | `soc` |
+| Agility total | `agi` |
+| Focus total | `foc` |
 
 **HP**
 
 | Meaning | Aliases |
 |---------|---------|
 | Max HP | `maxhp`, `hpmax`, `pvmax`, `maxpv` |
-| Current HP | `curhp`, `hpcur`, `pvact`, `curpv`, `pvcur` |
-| Temp HP | `temhp`, `hptem`, `pvtem`, `temphp` |
+| Current HP | `curhp`, `hpcur`, `pvact`, `actpv` |
+| Temp HP | `temhp`, `hptem`, `pvtem`, `tempv`, `temphp`, `hptemp`, `temppv`, `pvtemp` |
 
 **MP**
 
 | Meaning | Aliases |
 |---------|---------|
 | Max MP | `maxmp`, `mpmax`, `pmmax`, `maxpm` |
-| Current MP | `curmp`, `mpcur`, `pmact`, `curpm` |
+| Current MP | `curmp`, `mpcur`, `pmact`, `actpm` |
 
 **Favor**
 
 | Meaning | Aliases |
 |---------|---------|
 | Max favor | `maxfav`, `favmax` |
-| Current favor | `curfav`, `favact`, `favcur` |
+| Current favor | `curfav`, `favcur`, `favact`, `actfav` |
 
 **Other sheet values**
 
 | Meaning | Aliases |
 |---------|---------|
 | Action count (computed) | `act` |
-| Character level | `lvl`, `niv`, `level` |
+| Character level | `lvl`, `niv`, `level`, `niveau` |
 | Physical defense | `pdef`, `defp` |
 | Magical defense | `mdef`, `defm` |
 | Action modifier (sheet field) | `bonact`, `actbon` |
-| Speed modifier (sheet field) | `bonspe`, `vitbon` |
+| Speed modifier (sheet field) | `bonspe`, `spebon`, `vitbon`, `bonvit` |
 
 Implementation reference: [`src/dice/parser.js`](src/dice/parser.js), [`src/dice/roller.js`](src/dice/roller.js) (`buildFormulaContext`).
 
