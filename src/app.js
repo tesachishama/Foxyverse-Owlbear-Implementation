@@ -348,6 +348,8 @@ const INLINE_DICE_SVG = {
 };
 
 function formatInlineRollButtonCaption(btn) {
+  const override = String(btn.customLabel ?? "").trim();
+  if (override) return override;
   const formula = String(btn.formula ?? "").trim();
   if (btn.kind === "stat" && btn.stat) {
     const abbr = t(`statAbbr_${btn.stat}`);

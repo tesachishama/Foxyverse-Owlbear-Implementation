@@ -165,16 +165,27 @@ export function getInlineButtons(text) {
   while ((match = re.exec(s)) !== null) {
     const inside = String(match[1] || "").trim();
     if (!inside) continue;
-    const parsed = parseTypeAndFormula(inside);
+    const pipeIdx = inside.indexOf("|");
+    const left = pipeIdx >= 0 ? inside.slice(0, pipeIdx).trim() : inside;
+    const customLabel = pipeIdx >= 0 ? inside.slice(pipeIdx + 1).trim() : "";
+
+    const parsed = parseTypeAndFormula(left);
     if (!parsed) continue;
     const typeKey = normalizeKey(parsed.rawType);
     if (STAT_TYPE_ALIASES[typeKey]) {
-      out.push({ raw: match[0], kind: "stat", stat: STAT_TYPE_ALIASES[typeKey], formula: parsed.formula, label: inside });
+      out.push({
+        raw: match[0],
+        kind: "stat",
+        stat: STAT_TYPE_ALIASES[typeKey],
+        formula: parsed.formula,
+        label: inside,
+        customLabel,
+      });
       continue;
     }
     const mapped = ROLL_TYPE_ALIASES[typeKey];
     if (mapped) {
-      out.push({ raw: match[0], kind: mapped, formula: parsed.formula, label: inside });
+      out.push({ raw: match[0], kind: mapped, formula: parsed.formula, label: inside, customLabel });
     }
   }
   return out;

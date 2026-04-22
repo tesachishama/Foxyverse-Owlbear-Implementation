@@ -1186,7 +1186,7 @@ button:disabled {
   gap: 0.25rem;
   margin-bottom: 0.45rem;
   padding-bottom: 0.35rem;
-  border-bottom: 3px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-bottom: 3px solid var(--accent);
   /* Make divider line span full bubble width. */
   margin-left: -0.65rem;
   padding-left: 0.65rem;
