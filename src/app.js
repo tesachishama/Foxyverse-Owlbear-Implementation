@@ -561,7 +561,11 @@ function handleChatMessageRemoved(messageId) {
   const safe = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(sid) : sid;
   root.querySelector(`.chat-msg[data-chat-id="${safe}"]`)?.remove();
   setupChatScrollbar();
-  setupNotesScrollbar();
+  // Notes scrollbar needs layout to settle (track height depends on flex).
+  requestAnimationFrame(() => {
+    setupNotesScrollbar();
+    requestAnimationFrame(() => setupNotesScrollbar());
+  });
 }
 
 function getLockOwner(lockId) {
