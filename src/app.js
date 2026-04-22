@@ -15,6 +15,7 @@ import inventoryIcon from "./data/icons/Icons_inventory.svg?raw";
 import chatIcon from "./data/icons/Icons_chat.svg?raw";
 import notesIcon from "./data/icons/Icons_notes.svg?raw";
 import settingsIcon from "./data/icons/Icons_settings.svg?raw";
+import editIcon from "./data/icons/Icons_edit.svg?raw";
 import frenchFlagIcon from "./data/icons/Icons_francais.svg";
 import englishFlagIcon from "./data/icons/Icons_anglais.svg";
 import {
@@ -90,6 +91,7 @@ const state = {
   _chatSendHistory: [],
   _chatHistoryIndex: null,
   _chatHistoryDraft: "",
+  notesEditMode: false,
   sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
@@ -361,6 +363,48 @@ function inlineDiceMarkupForButton(btn) {
   const key = pickInlineDiceIconKey(String(btn.formula ?? ""));
   const raw = INLINE_DICE_SVG[key] || d20Icon;
   return inlineSvg(raw, "inline-svg inline-roll-dice", "var(--bg)");
+}
+
+function applyInlineMdFormatting(escapedText) {
+  // escapedText is already HTML-escaped. We only inject <strong>/<em>.
+  let out = String(escapedText || "");
+  // Bold: **text**
+  out = out.replace(/\*\*([^*][\s\S]*?)\*\*/g, "<strong>$1</strong>");
+  // Italic: *text* (avoid matching **)
+  out = out.replace(/(^|[^*])\*([^*\s][\s\S]*?)\*(?!\*)/g, "$1<em>$2</em>");
+  return out;
+}
+
+function renderNotesBody(raw) {
+  const s = String(raw ?? "");
+  const lines = s.split(/\r?\n/);
+  let html = lines
+    .map((ln) => {
+      const trimmed = ln.replace(/\s+$/, "");
+      if (!trimmed) return `<div class="notes-line notes-line--empty">&nbsp;</div>`;
+      const m = /^(#{1,3})\s+(.*)$/.exec(trimmed);
+      if (m) {
+        const level = m[1].length;
+        const text = applyInlineMdFormatting(escapeAttr(m[2] || ""));
+        return `<div class="notes-line notes-h notes-h${level}">${text}</div>`;
+      }
+      const text = applyInlineMdFormatting(escapeAttr(trimmed));
+      return `<div class="notes-line">${text}</div>`;
+    })
+    .join("");
+
+  // Inline roll buttons: replace bracket syntax with interactive buttons.
+  const buttons = getInlineButtons(s);
+  buttons.forEach((btn) => {
+    const stat = (btn.stat || "").toString();
+    const formula = (btn.formula || "").toString();
+    const caption = escapeAttr(formatInlineRollButtonCaption(btn));
+    const iconHtml = inlineDiceMarkupForButton(btn);
+    html = html.split(escapeAttr(btn.raw)).join(
+      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`
+    );
+  });
+  return html;
 }
 
 function getSheetTitle() {
@@ -1368,19 +1412,35 @@ function renderNotesTab() {
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const notes = s?.notes ?? "";
   const editable = canEdit(state.activeSheetId);
-  const previewHtml = renderChatBody(notes);
+  const viewing = !editable || !state.notesEditMode;
+  const bodyHtml = viewing ? renderNotesBody(notes) : "";
+  const editBtn = editable
+    ? `<button type="button" class="notes-edit-btn" id="notes-edit-toggle" aria-label="${escapeAttr(state.notesEditMode ? t("done") : t("edit"))}" title="${escapeAttr(state.notesEditMode ? t("done") : t("edit"))}">
+        ${inlineSvg(editIcon, "inline-svg notes-edit-icon", "var(--text)")}
+      </button>`
+    : "";
+  const toolbar = editable && state.notesEditMode
+    ? `<div class="notes-toolbar" role="toolbar" aria-label="${escapeAttr(t("formatting"))}">
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="bold"><strong>B</strong></button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="italic"><em>I</em></button>
+        <span class="notes-tbar-sep" aria-hidden="true"></span>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h1">H1</button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h2">H2</button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h3">H3</button>
+      </div>`
+    : "";
   return `
     <div class="card notes-card">
-      <h2>${t("tabNotes")}</h2>
-      <div class="notes-split">
-        <div class="notes-editor-col">
-          <label class="notes-col-label">${t("notesEditor")}</label>
-          <textarea id="notes-area" rows="12" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>
-        </div>
-        <div class="notes-preview-col">
-          <label class="notes-col-label">${t("notesPreview")}</label>
-          <div id="notes-preview" class="notes-preview">${previewHtml}</div>
-        </div>
+      <div class="notes-header-row">
+        <h2 class="notes-title">${t("tabNotes")}</h2>
+        ${editBtn}
+      </div>
+      <div class="notes-bubble">
+        ${toolbar}
+        ${viewing
+          ? `<div id="notes-view" class="notes-view">${bodyHtml || `<span class="muted">${escapeAttr(t("notesEmpty"))}</span>`}</div>`
+          : `<textarea id="notes-area" class="notes-area" rows="14" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>`
+        }
       </div>
     </div>
   `;
@@ -2222,13 +2282,20 @@ function bindEvents() {
   });
 
   // Notes
+  app.querySelector("#notes-edit-toggle")?.addEventListener("click", () => {
+    if (!canEdit(state.activeSheetId)) return;
+    state.notesEditMode = !state.notesEditMode;
+    render();
+    requestAnimationFrame(() => {
+      if (state.notesEditMode) document.getElementById("notes-area")?.focus();
+    });
+  });
+
   const notesArea = app.querySelector("#notes-area");
   notesArea?.addEventListener("input", (e) => {
     if (!state.sheet) return;
     const val = e.target.value;
     state.sheet.notes = val;
-    const prev = document.getElementById("notes-preview");
-    if (prev) prev.innerHTML = renderChatBody(val);
   });
   notesArea?.addEventListener("change", async (e) => {
     if (state.sheet) {
@@ -2239,6 +2306,51 @@ function bindEvents() {
         storage.updateSheetCore(state.roomId, state.activeSheetId, { notes: e.target.value }).catch(console.error);
       }
     }
+  });
+
+  app.querySelectorAll("[data-notes-format]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kind = btn.getAttribute("data-notes-format");
+      const ta = document.getElementById("notes-area");
+      if (!kind || !(ta instanceof HTMLTextAreaElement)) return;
+      const start = ta.selectionStart ?? 0;
+      const end = ta.selectionEnd ?? 0;
+      const value = ta.value || "";
+      const before = value.slice(0, start);
+      const sel = value.slice(start, end);
+      const after = value.slice(end);
+
+      const setVal = (next, nextStart, nextEnd) => {
+        ta.value = next;
+        ta.focus();
+        ta.setSelectionRange(nextStart, nextEnd);
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+
+      if (kind === "bold") {
+        const wrap = "**";
+        const placeholder = sel || t("bold");
+        setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        return;
+      }
+      if (kind === "italic") {
+        const wrap = "*";
+        const placeholder = sel || t("italic");
+        setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        return;
+      }
+      if (kind === "h1" || kind === "h2" || kind === "h3") {
+        const hashes = kind === "h1" ? "# " : kind === "h2" ? "## " : "### ";
+        const lineStart = before.lastIndexOf("\n") + 1;
+        const lineEndRel = value.indexOf("\n", end);
+        const lineEnd = lineEndRel >= 0 ? lineEndRel : value.length;
+        const line = value.slice(lineStart, lineEnd);
+        const nextLine = line.replace(/^#{1,3}\s+/, "");
+        const next = `${value.slice(0, lineStart)}${hashes}${nextLine}${value.slice(lineEnd)}`;
+        const caret = lineStart + hashes.length;
+        setVal(next, caret, caret + nextLine.length);
+      }
+    });
   });
 
   // Chat

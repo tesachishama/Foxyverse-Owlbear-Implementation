@@ -207,6 +207,10 @@ export const translations = {
     scrollUp: "Scroll up",
     scrollDown: "Scroll down",
     send: "Send",
+    edit: "Edit",
+    done: "Done",
+    bold: "Bold",
+    italic: "Italic",
     rolled: "Rolled",
     rerolled: "Rerolled",
     usingAFavor: "using a favor",
@@ -219,6 +223,8 @@ export const translations = {
     notesPlaceholder: "Notes... Type inline rolls like [str +5] or [pdmg 2d6]...",
     notesEditor: "Editor",
     notesPreview: "Preview (rolls)",
+    notesEmpty: "These are notes made on this sheet.",
+    formatting: "Formatting",
 
     spellElement: "Element",
 
@@ -452,6 +458,10 @@ export const translations = {
     scrollUp: "Défiler vers le haut",
     scrollDown: "Défiler vers le bas",
     send: "Envoyer",
+    edit: "Éditer",
+    done: "Terminer",
+    bold: "Gras",
+    italic: "Italique",
     rolled: "Jet",
     rerolled: "Relancé",
     usingAFavor: "en utilisant une faveur",
@@ -464,6 +474,8 @@ export const translations = {
     notesPlaceholder: "Notes... Jets inline comme [str +5] ou [pdmg 2d6]...",
     notesEditor: "Éditeur",
     notesPreview: "Aperçu (jets)",
+    notesEmpty: "Ce sont des notes prises sur cette fiche.",
+    formatting: "Mise en forme",
 
     spellElement: "Élément",
 
