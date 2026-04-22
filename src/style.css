@@ -1206,10 +1206,28 @@ button:disabled {
 .notes-line:last-child { margin-bottom: 0; }
 .notes-line--empty { margin: 0 0 0.45rem; }
 
-.notes-h { display: block; line-height: 1.1; }
-.notes-h1 { font-size: 1.45em; font-weight: 800; margin-top: 0.25rem; }
-.notes-h2 { font-size: 1.25em; font-weight: 800; margin-top: 0.2rem; }
-.notes-h3 { font-size: 1.1em; font-weight: 800; margin-top: 0.15rem; }
+.notes-h {
+  display: block;
+  line-height: 1.1;
+  margin-top: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+.notes-h1 {
+  font-size: 1.55em;
+  font-weight: 900;
+  padding-bottom: 0.15rem;
+  border-bottom: 3px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.notes-h2 {
+  font-size: 1.32em;
+  font-weight: 900;
+  padding-bottom: 0.1rem;
+  border-bottom: 3px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.notes-h3 {
+  font-size: 1.14em;
+  font-weight: 900;
+}
 
 .notes-area {
   width: 100%;
