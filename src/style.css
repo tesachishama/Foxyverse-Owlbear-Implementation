@@ -1369,6 +1369,14 @@ button:disabled {
   resize: none;
   overflow: hidden;
   display: block;
+  outline: none;
+  box-shadow: none;
+  -webkit-appearance: none;
+}
+
+.notes-area:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 /* Stats / inventory tab cards */
