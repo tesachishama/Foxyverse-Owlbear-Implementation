@@ -2350,14 +2350,24 @@ function bindEvents() {
       }
       if (kind === "h1" || kind === "h2" || kind === "h3") {
         const hashes = kind === "h1" ? "# " : kind === "h2" ? "## " : "### ";
-        const lineStart = before.lastIndexOf("\n") + 1;
-        const lineEndRel = value.indexOf("\n", end);
-        const lineEnd = lineEndRel >= 0 ? lineEndRel : value.length;
-        const line = value.slice(lineStart, lineEnd);
-        const nextLine = line.replace(/^#{1,3}\s+/, "");
-        const next = `${value.slice(0, lineStart)}${hashes}${nextLine}${value.slice(lineEnd)}`;
-        const caret = lineStart + hashes.length;
-        setVal(next, caret, caret + nextLine.length);
+        const selStart = Math.min(start, end);
+        const selEnd = Math.max(start, end);
+
+        const blockStart = value.lastIndexOf("\n", selStart - 1) + 1;
+        const blockEndIdx = value.indexOf("\n", selEnd);
+        const blockEnd = blockEndIdx >= 0 ? blockEndIdx : value.length;
+
+        const block = value.slice(blockStart, blockEnd);
+        const lines = block.split("\n");
+        const nextLines = lines.map((ln) => {
+          const stripped = ln.replace(/^#{1,3}\s+/, "");
+          return `${hashes}${stripped}`;
+        });
+        const nextBlock = nextLines.join("\n");
+        const next = `${value.slice(0, blockStart)}${nextBlock}${value.slice(blockEnd)}`;
+        const nextSelStart = blockStart + hashes.length;
+        const nextSelEnd = blockStart + nextBlock.length;
+        setVal(next, nextSelStart, nextSelEnd);
       }
     });
   });
