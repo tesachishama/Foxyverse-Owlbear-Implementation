@@ -2,6 +2,8 @@
 
 Vite-built extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Character sheets sync via **Supabase** (PostgreSQL + Realtime).
 
+Quick reference: see [`COMMAND_HELPER.md`](COMMAND_HELPER.md).
+
 ## Setup
 
 1. Clone and install: `npm install`
