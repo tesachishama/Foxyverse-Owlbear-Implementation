@@ -373,12 +373,31 @@ function inlineDiceMarkupForButton(btn) {
 function applyInlineMdFormatting(escapedText) {
   // escapedText is already HTML-escaped. We only inject <strong>/<em>/<u>.
   let out = String(escapedText || "");
+  // Support escaping formatting markers with a leading backslash.
+  // Examples: \* \** \__ \# and \--- should render literally.
+  const ESC = {
+    "\\**": "\uE000",
+    "\\*": "\uE001",
+    "\\__": "\uE002",
+    "\\_": "\uE003",
+  };
+  out = out
+    .split("\\**").join(ESC["\\**"])
+    .split("\\*").join(ESC["\\*"])
+    .split("\\__").join(ESC["\\__"])
+    .split("\\_").join(ESC["\\_"]);
   // Bold: **text**
   out = out.replace(/\*\*([^*][\s\S]*?)\*\*/g, "<strong>$1</strong>");
   // Underline: __text__ (common lightweight convention; not standard Markdown)
   out = out.replace(/__([^_][\s\S]*?)__/g, "<u>$1</u>");
   // Italic: *text* (avoid matching **)
   out = out.replace(/(^|[^*])\*([^*\s][\s\S]*?)\*(?!\*)/g, "$1<em>$2</em>");
+  // Restore escaped markers.
+  out = out
+    .split(ESC["\\**"]).join("**")
+    .split(ESC["\\*"]).join("*")
+    .split(ESC["\\__"]).join("__")
+    .split(ESC["\\_"]).join("_");
   return out;
 }
 
@@ -389,12 +408,23 @@ function renderNotesBody(raw) {
     .map((ln) => {
       const trimmed = ln.replace(/\s+$/, "");
       if (!trimmed) return `<div class="notes-line notes-line--empty">&nbsp;</div>`;
+      if (/^\\---+$/.test(trimmed)) {
+        // Escaped separator line, show as raw text.
+        const text = applyInlineMdFormatting(escapeAttr(trimmed.slice(1)));
+        return `<div class="notes-line">${text}</div>`;
+      }
       if (/^---+$/.test(trimmed)) return `<hr class="notes-hr" />`;
       const m = /^(#{1,3})\s+(.*)$/.exec(trimmed);
       if (m) {
         const level = m[1].length;
         const text = applyInlineMdFormatting(escapeAttr(m[2] || ""));
         return `<div class="notes-line notes-h notes-h${level}">${text}</div>`;
+      }
+      // Escaped headings: \# Title should show as "# Title"
+      const escHead = /^\\(#{1,3}\s+.*)$/.exec(trimmed);
+      if (escHead) {
+        const text = applyInlineMdFormatting(escapeAttr(escHead[1]));
+        return `<div class="notes-line">${text}</div>`;
       }
       const text = applyInlineMdFormatting(escapeAttr(trimmed));
       return `<div class="notes-line">${text}</div>`;
@@ -1583,10 +1613,17 @@ function syncNotesEditorHeight() {
   const ta = document.getElementById("notes-area");
   const scrollWrap = document.getElementById("notes-scroll");
   if (!(ta instanceof HTMLTextAreaElement) || !scrollWrap) return;
+  const maxScroll = Math.max(0, scrollWrap.scrollHeight - scrollWrap.clientHeight);
+  const fromBottom = Math.max(0, maxScroll - scrollWrap.scrollTop);
+  const wasAtBottom = fromBottom <= 4;
+  const prevTop = scrollWrap.scrollTop;
   // Auto-size textarea so the outer wrapper is the only scroller.
   ta.style.height = "0px";
   const next = Math.max(scrollWrap.clientHeight, ta.scrollHeight);
   ta.style.height = `${next}px`;
+  // Prevent the scroll container from jumping while typing.
+  if (wasAtBottom) scrollWrap.scrollTop = scrollWrap.scrollHeight;
+  else scrollWrap.scrollTop = prevTop;
 }
 
 function renderNotesTab() {
@@ -2541,20 +2578,38 @@ function bindEvents() {
 
       if (kind === "bold") {
         const wrap = "**";
-        const placeholder = sel || t("bold");
-        setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        if (sel.includes("\n")) {
+          const lines = sel.split("\n").map((ln) => (ln ? `${wrap}${ln}${wrap}` : ln));
+          const replaced = lines.join("\n");
+          setVal(`${before}${replaced}${after}`, start, start + replaced.length);
+        } else {
+          const placeholder = sel || t("bold");
+          setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        }
         return;
       }
       if (kind === "italic") {
         const wrap = "*";
-        const placeholder = sel || t("italic");
-        setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        if (sel.includes("\n")) {
+          const lines = sel.split("\n").map((ln) => (ln ? `${wrap}${ln}${wrap}` : ln));
+          const replaced = lines.join("\n");
+          setVal(`${before}${replaced}${after}`, start, start + replaced.length);
+        } else {
+          const placeholder = sel || t("italic");
+          setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        }
         return;
       }
       if (kind === "underline") {
         const wrap = "__";
-        const placeholder = sel || t("underline");
-        setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        if (sel.includes("\n")) {
+          const lines = sel.split("\n").map((ln) => (ln ? `${wrap}${ln}${wrap}` : ln));
+          const replaced = lines.join("\n");
+          setVal(`${before}${replaced}${after}`, start, start + replaced.length);
+        } else {
+          const placeholder = sel || t("underline");
+          setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        }
         return;
       }
       if (kind === "hr") {
