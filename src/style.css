@@ -1225,7 +1225,7 @@ button:disabled {
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding-right: calc(0.25rem / 3);
+  padding-right: 0;
 }
 
 .notes-scroll::-webkit-scrollbar {
@@ -1242,7 +1242,7 @@ button:disabled {
   align-self: stretch;
   width: 1.75rem;
   flex-shrink: 0;
-  padding: 0.15rem max(0px, calc(0.25rem - 2px)) 0.15rem calc(0.25rem / 3);
+  padding: 0.15rem 0 0.15rem 0;
   box-sizing: border-box;
   min-height: 0;
 }
@@ -1358,6 +1358,15 @@ button:disabled {
   border-radius: 12px;
   font: inherit;
   resize: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.notes-area::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Stats / inventory tab cards */

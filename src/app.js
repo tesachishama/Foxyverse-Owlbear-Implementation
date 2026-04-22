@@ -1412,7 +1412,13 @@ function setupChatScrollbar() {
 }
 
 function setupNotesScrollbar() {
-  const scrollEl = document.getElementById("notes-scroll");
+  const scrollWrap = document.getElementById("notes-scroll");
+  // In view mode we scroll the wrapper; in edit mode the textarea is the scroll container.
+  const editor = document.getElementById("notes-area");
+  const scrollEl =
+    editor && editor instanceof HTMLTextAreaElement
+      ? editor
+      : scrollWrap;
   const track = document.getElementById("notes-scroll-track");
   const thumb = document.getElementById("notes-scroll-thumb");
   const btnUp = document.getElementById("notes-scroll-up");
