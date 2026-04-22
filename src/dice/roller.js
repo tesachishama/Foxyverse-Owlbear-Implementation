@@ -106,6 +106,18 @@ function parseTypeAndFormula(text) {
   return { rawType, formula };
 }
 
+function parseLeadingRepeatCount(formulaText) {
+  const parts = String(formulaText || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+    const n = Math.max(1, Math.min(100, parseInt(parts[0], 10) || 1));
+    return { count: n, formula: parts.slice(1).join(" ") };
+  }
+  return { count: 1, formula: String(formulaText || "").trim() };
+}
+
 /** Parse chat command: /<type> <formula> (new spec). */
 export function parseChatCommand(line) {
   const s = String(line || "").trim();
@@ -114,15 +126,16 @@ export function parseChatCommand(line) {
   const parsed = parseTypeAndFormula(rest);
   if (!parsed) return null;
   const typeKey = normalizeKey(parsed.rawType);
+  const rep = parseLeadingRepeatCount(parsed.formula);
 
   // Stat check?
   if (STAT_TYPE_ALIASES[typeKey]) {
-    return { kind: "stat", stat: STAT_TYPE_ALIASES[typeKey], formula: parsed.formula };
+    return { kind: "stat", stat: STAT_TYPE_ALIASES[typeKey], formula: rep.formula, count: rep.count };
   }
 
   // Other roll types
   const mapped = ROLL_TYPE_ALIASES[typeKey];
-  if (mapped) return { kind: mapped, formula: parsed.formula };
+  if (mapped) return { kind: mapped, formula: rep.formula, count: rep.count };
 
   return null;
 }
@@ -171,13 +184,15 @@ export function getInlineButtons(text) {
 
     const parsed = parseTypeAndFormula(left);
     if (!parsed) continue;
+    const rep = parseLeadingRepeatCount(parsed.formula);
     const typeKey = normalizeKey(parsed.rawType);
     if (STAT_TYPE_ALIASES[typeKey]) {
       out.push({
         raw: match[0],
         kind: "stat",
         stat: STAT_TYPE_ALIASES[typeKey],
-        formula: parsed.formula,
+        formula: rep.formula,
+        count: rep.count,
         label: inside,
         customLabel,
       });
@@ -185,7 +200,7 @@ export function getInlineButtons(text) {
     }
     const mapped = ROLL_TYPE_ALIASES[typeKey];
     if (mapped) {
-      out.push({ raw: match[0], kind: mapped, formula: parsed.formula, label: inside, customLabel });
+      out.push({ raw: match[0], kind: mapped, formula: rep.formula, count: rep.count, label: inside, customLabel });
     }
   }
   return out;
@@ -357,11 +372,43 @@ export function executeRoll(payload, sheet, _unused = null) {
   if (!payload || !payload.kind) return null;
 
   const ctx = buildFormulaContext(sheet);
+  const repeat = Math.max(1, Math.min(100, Number(payload.count) || 1));
 
   if (payload.kind === "stat") {
     const statId = String(payload.stat || "").toLowerCase();
     const statTotal = getStatTotal(sheet, statId);
     const effectiveFormula = normalizeStatFormula(payload.formula || "");
+    if (repeat > 1) {
+      const multi = [];
+      const allDice = [];
+      for (let i = 0; i < repeat; i++) {
+        const evalRes = evaluateFormula(effectiveFormula, ctx);
+        const first = findFirstDie(evalRes.diceEvents);
+        const outcome = statOutcomeFromFirstDie(evalRes.value, statTotal, first);
+        multi.push({
+          value: evalRes.value,
+          diceResults: evalRes.diceResults,
+          outcome,
+          nat: first?.roll ?? null,
+        });
+        allDice.push(...(evalRes.diceResults || []));
+      }
+      return {
+        kind: "stat",
+        stat: statId,
+        statTotal,
+        formula: effectiveFormula,
+        translatedFormula: multi[0]?.diceResults ? effectiveFormula : effectiveFormula,
+        diceResults: allDice,
+        value: multi[multi.length - 1]?.value ?? 0,
+        outcome: null,
+        comparison: null,
+        canApply: false,
+        nat: null,
+        count: repeat,
+        multi,
+      };
+    }
     const evalRes = evaluateFormula(effectiveFormula, ctx);
     const first = findFirstDie(evalRes.diceEvents);
     const outcome = statOutcomeFromFirstDie(evalRes.value, statTotal, first);
@@ -377,10 +424,49 @@ export function executeRoll(payload, sheet, _unused = null) {
       comparison: null,
       canApply: false,
       nat: first?.roll ?? null,
+      count: 1,
+      multi: null,
     };
   }
 
   const formula = String(payload.formula || "").trim();
+  if (repeat > 1) {
+    const multi = [];
+    const allDice = [];
+    for (let i = 0; i < repeat; i++) {
+      const evalRes = evaluateFormula(formula, ctx);
+      const comparison = evalRes.comparison || null;
+      let outcome = null;
+      if (comparison && typeof comparison.success === "boolean") {
+        const first = findFirstDie(evalRes.diceEvents);
+        outcome = outcomeFromNatAdjustment(!!comparison.success, first?.roll ?? null, first?.faces ?? null, comparison.kind);
+      }
+      multi.push({
+        value: evalRes.value,
+        diceResults: evalRes.diceResults,
+        translatedFormula: evalRes.translatedFormula,
+        comparison,
+        outcome,
+      });
+      allDice.push(...(evalRes.diceResults || []));
+    }
+    const base = {
+      kind: payload.kind,
+      formula,
+      translatedFormula: multi[0]?.translatedFormula || "",
+      diceResults: allDice,
+      value: multi.reduce((a, r) => a + (Number(r.value) || 0), 0),
+      comparison: null,
+      outcome: null,
+      count: repeat,
+      multi,
+    };
+    if (payload.kind === "pdmg" || payload.kind === "mdmg" || payload.kind === "tdmg" || payload.kind === "heal" || payload.kind === "theal" || payload.kind === "mana") {
+      return { ...base, canApply: true };
+    }
+    return { ...base, canApply: false };
+  }
+
   const evalRes = evaluateFormula(formula, ctx);
   const comparison = evalRes.comparison || null;
   let outcome = null;
@@ -397,6 +483,8 @@ export function executeRoll(payload, sheet, _unused = null) {
     value: evalRes.value,
     comparison,
     outcome,
+    count: 1,
+    multi: null,
   };
 
   if (payload.kind === "pdmg" || payload.kind === "mdmg" || payload.kind === "tdmg" || payload.kind === "heal" || payload.kind === "theal" || payload.kind === "mana") {

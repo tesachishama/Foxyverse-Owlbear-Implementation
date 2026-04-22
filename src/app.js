@@ -351,14 +351,17 @@ function formatInlineRollButtonCaption(btn) {
   const override = String(btn.customLabel ?? "").trim();
   if (override) return override;
   const formula = String(btn.formula ?? "").trim();
+  const cnt = Math.max(1, Number(btn.count) || 1);
   if (btn.kind === "stat" && btn.stat) {
     const abbr = t(`statAbbr_${btn.stat}`);
     if (!formula) return abbr;
     if (/^[+-]/.test(formula)) return `${abbr}${formula}`;
-    return `${abbr} ${formula}`;
+    const base = `${abbr} ${formula}`;
+    return cnt > 1 ? `${base} ×${cnt}` : base;
   }
   const typeLbl = t(`inlineRoll_${btn.kind}`);
-  return formula ? `${typeLbl} ${formula}` : typeLbl;
+  const base = formula ? `${typeLbl} ${formula}` : typeLbl;
+  return cnt > 1 ? `${base} ×${cnt}` : base;
 }
 
 function inlineDiceMarkupForButton(btn) {
@@ -789,44 +792,52 @@ function rollWinFromPayload(payload) {
  * Apply damage/heal/mana from a chat roll to the active sheet.
  * @returns {{ success: true, applyFx: object[] } | { success: false }}
  */
-function applyChatRollToActiveSheet(kind, value) {
-  if (!state.sheet || !state.roomId || !state.activeSheetId || !Number.isFinite(value)) return { success: false };
+function applyChatRollToActiveSheet(kind, valueOrValues) {
+  if (!state.sheet || !state.roomId || !state.activeSheetId) return { success: false };
   const name = resolveCharacterDisplayName(state.activeSheetId);
   const roomId = state.roomId;
   const sheetId = state.activeSheetId;
-  const amt = Number(value) || 0;
+  const values = Array.isArray(valueOrValues) ? valueOrValues : [valueOrValues];
+  const cleanValues = values.map((v) => Number(v)).filter((n) => Number.isFinite(n));
+  if (!cleanValues.length) return { success: false };
   const applyFx = [];
 
   switch (kind) {
     case "pdmg": {
-      const raw = Math.max(0, Math.floor(amt));
       const def = Math.floor(Math.max(0, Number(getSheetDefense(state.sheet)) || 0));
-      const actual = Math.max(0, raw - def);
-      const next = applyPhysicalDamage(state.sheet, value);
-      Object.assign(state.sheet, next);
+      cleanValues.forEach((val) => {
+        const raw = Math.max(0, Math.floor(Number(val) || 0));
+        const actual = Math.max(0, raw - def);
+        const next = applyPhysicalDamage(state.sheet, val);
+        Object.assign(state.sheet, next);
+        applyFx.push({ fx: "pdmgApply", name, actual, raw, def });
+      });
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      applyFx.push({ fx: "pdmgApply", name, actual, raw, def });
       return { success: true, applyFx };
     }
     case "mdmg": {
-      const raw = Math.max(0, Math.floor(amt));
       const def = Math.floor(Math.max(0, Number(getSheetMagicalDefense(state.sheet)) || 0));
-      const actual = Math.max(0, raw - def);
-      const next = applyMagicDamage(state.sheet, value);
-      Object.assign(state.sheet, next);
+      cleanValues.forEach((val) => {
+        const raw = Math.max(0, Math.floor(Number(val) || 0));
+        const actual = Math.max(0, raw - def);
+        const next = applyMagicDamage(state.sheet, val);
+        Object.assign(state.sheet, next);
+        applyFx.push({ fx: "mdmgApply", name, actual, raw, def });
+      });
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      applyFx.push({ fx: "mdmgApply", name, actual, raw, def });
       return { success: true, applyFx };
     }
     case "tdmg": {
-      const actual = Math.max(0, Math.floor(amt));
-      const next = applyTrueDamage(state.sheet, value);
-      Object.assign(state.sheet, next);
+      cleanValues.forEach((val) => {
+        const actual = Math.max(0, Math.floor(Number(val) || 0));
+        const next = applyTrueDamage(state.sheet, val);
+        Object.assign(state.sheet, next);
+        applyFx.push({ fx: "tdmgApply", name, actual });
+      });
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      applyFx.push({ fx: "tdmgApply", name, actual });
       return { success: true, applyFx };
     }
     case "heal": {
@@ -836,24 +847,31 @@ function applyChatRollToActiveSheet(kind, value) {
         applyFx.push({ fx: "healAlreadyFull", name });
         return { success: true, applyFx };
       }
-      const space = Math.max(0, maxHP - cur);
-      const gained = Math.min(Math.max(0, amt), space);
-      const next = applyHeal(state.sheet, value, maxHP);
-      Object.assign(state.sheet, next);
+      let totalGained = 0;
+      cleanValues.forEach((val) => {
+        const before = Math.max(0, Number(state.sheet.currentHP) || 0);
+        const space = Math.max(0, maxHP - before);
+        const gained = Math.min(Math.max(0, Number(val) || 0), space);
+        const next = applyHeal(state.sheet, val, maxHP);
+        Object.assign(state.sheet, next);
+        totalGained += Math.floor(gained);
+      });
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      applyFx.push({ fx: "healGain", name, gained: Math.floor(gained) });
+      applyFx.push({ fx: "healGain", name, gained: totalGained });
       const after = Math.max(0, Number(state.sheet.currentHP) || 0);
       if (maxHP > 0 && after >= maxHP) applyFx.push({ fx: "healNowFull", name });
       return { success: true, applyFx };
     }
     case "theal": {
-      const v = Math.max(0, Math.floor(amt));
-      const next = applyOverHeal(state.sheet, value);
-      Object.assign(state.sheet, next);
+      const total = cleanValues.reduce((a, v) => a + Math.max(0, Math.floor(Number(v) || 0)), 0);
+      cleanValues.forEach((val) => {
+        const next = applyOverHeal(state.sheet, val);
+        Object.assign(state.sheet, next);
+      });
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
-      applyFx.push({ fx: "thealGain", name, amount: v });
+      applyFx.push({ fx: "thealGain", name, amount: total });
       return { success: true, applyFx };
     }
     case "mana": {
@@ -863,13 +881,18 @@ function applyChatRollToActiveSheet(kind, value) {
         applyFx.push({ fx: "manaAlreadyFull", name });
         return { success: true, applyFx };
       }
-      const space = Math.max(0, maxMP - cur);
-      const gained = Math.min(Math.max(0, amt), space);
-      const next = applyMana(state.sheet, value, maxMP);
-      Object.assign(state.sheet, next);
+      let totalGained = 0;
+      cleanValues.forEach((val) => {
+        const before = Math.max(0, Number(state.sheet.currentMP) || 0);
+        const space = Math.max(0, maxMP - before);
+        const gained = Math.min(Math.max(0, Number(val) || 0), space);
+        const next = applyMana(state.sheet, val, maxMP);
+        Object.assign(state.sheet, next);
+        totalGained += Math.floor(gained);
+      });
       saveSheet();
       storage.updateSheetCore(roomId, sheetId, { currentMP: state.sheet.currentMP }).catch(console.error);
-      applyFx.push({ fx: "manaGain", name, gained: Math.floor(gained) });
+      applyFx.push({ fx: "manaGain", name, gained: totalGained });
       const after = Math.max(0, Number(state.sheet.currentMP) || 0);
       if (maxMP > 0 && after >= maxMP) applyFx.push({ fx: "manaNowFull", name });
       return { success: true, applyFx };
@@ -902,13 +925,30 @@ function showRollResult(result) {
   state.lastRoll = result;
   state.rollModalOpen = true;
   modal.classList.remove("hidden");
-  if (result.kind === "stat") {
+  const cnt = Math.max(1, Number(result.count) || 1);
+  const cntSeg = cnt > 1 ? ` ×${cnt}` : "";
+  if (Array.isArray(result.multi) && result.multi.length) {
+    if (result.kind === "stat") {
+      const parts = result.multi.map((r) => {
+        const o = r?.outcome;
+        const tag = o ? t(o === "critical_success" ? "criticalSuccess" : o === "success" ? "success" : o === "failure" ? "failure" : "criticalFailure") : "";
+        return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
+      });
+      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}`;
+    } else {
+      const parts = result.multi.map((r) => {
+        const win = r?.comparison && typeof r.comparison.success === "boolean" ? ` [${t(r.comparison.success ? "success" : "failure")}]` : "";
+        return `${r?.value ?? 0}${win}`;
+      });
+      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}`;
+    }
+  } else if (result.kind === "stat") {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
-    text.textContent = `${t("rolled")} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
+    text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
   } else {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
     const win = result.comparison && typeof result.comparison.success === "boolean" ? ` [${t(result.comparison.success ? "success" : "failure")}]` : "";
-    text.textContent = `${t("rolled")} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
+    text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
   }
   syncRollModalRerollState();
   if (applyBox) {
@@ -1234,13 +1274,19 @@ function renderChatBody(body) {
       const payload = JSON.parse(bodyTrim.slice("[[roll]]".length));
       const rawType = rollTypeLabelFromPayload(payload);
       const typeSeg = rawType ? ` ${rawType}` : "";
+      const cnt = Math.max(1, Number(payload.count) || 1);
+      const cntSeg = cnt > 1 ? ` ×${cnt}` : "";
       const headPlain = payload.isFavorReroll
         ? `${t("rerolled")}${typeSeg} ${t("usingAFavor")}`.trim()
         : `${t("rolled")}${typeSeg}`.trim();
-      const headHtml = escapeAttr(headPlain);
+      const headWithCount = `${headPlain}${cntSeg}`.trim();
+      const headHtml = escapeAttr(headWithCount);
       const formulaText = escapeAttr(String(payload.formula || ""));
       const diceText = escapeAttr(String(payload.dice || ""));
-      const resultText = escapeAttr(String(payload.value ?? 0));
+      const isMulti = Array.isArray(payload.values) && payload.values.length;
+      const resultText = escapeAttr(
+        isMulti ? payload.values.map((v) => String(v ?? 0)).join(", ") : String(payload.value ?? 0)
+      );
       const winStr = rollWinFromPayload(payload);
       const winText = winStr ? `<em class="chat-roll-win">${escapeAttr(winStr)}</em>` : "";
       const line = `
@@ -1251,11 +1297,14 @@ function renderChatBody(body) {
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
       let applyBlock = "";
-      if (CHAT_APPLY_ROLL_KINDS.has(rk) && Number.isFinite(v)) {
+      if (CHAT_APPLY_ROLL_KINDS.has(rk) && (isMulti || Number.isFinite(v))) {
         const canUse = !!(state.sheet && state.activeSheetId && canEdit(state.activeSheetId));
         const lbl = escapeAttr(chatRollApplyButtonLabel(rk));
         const dis = canUse ? "" : " disabled";
-        applyBlock = `<div class="chat-roll-apply-row"><button type="button" class="chat-roll-apply-btn btn-sm"${dis} data-apply-kind="${escapeAttr(rk)}" data-apply-value="${escapeAttr(String(v))}">${lbl}</button></div>`;
+        const vals = isMulti ? escapeAttr(JSON.stringify(payload.values)) : "";
+        const valAttr = isMulti ? "" : ` data-apply-value="${escapeAttr(String(v))}"`;
+        const valsAttr = isMulti ? ` data-apply-values="${vals}"` : "";
+        applyBlock = `<div class="chat-roll-apply-row"><button type="button" class="chat-roll-apply-btn btn-sm"${dis} data-apply-kind="${escapeAttr(rk)}"${valAttr}${valsAttr}>${lbl}</button></div>`;
       }
       return `<div class="chat-roll-wrap">${line}${applyBlock}</div>`;
     } catch (_) {
@@ -1271,7 +1320,7 @@ function renderChatBody(body) {
     const iconHtml = inlineDiceMarkupForButton(btn);
     text = text.replace(
       btn.raw,
-      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`
+      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`
     );
   });
   return text;
@@ -1288,6 +1337,13 @@ function formatRollChatLine(result, options = {}) {
     dice,
     value: result?.value ?? 0,
   };
+  if (result?.count && Number(result.count) > 1) payload.count = Number(result.count) || 1;
+  if (Array.isArray(result?.multi) && result.multi.length) {
+    payload.values = result.multi.map((r) => r?.value ?? 0);
+    payload.diceList = result.multi.map((r) => Array.isArray(r?.diceResults) ? r.diceResults.join(", ") : "");
+    if (result.kind === "stat") payload.outcomes = result.multi.map((r) => r?.outcome || "");
+    if (result.kind !== "stat") payload.cmpList = result.multi.map((r) => (r?.comparison && typeof r.comparison.success === "boolean") ? !!r.comparison.success : null);
+  }
   if (result?.kind === "stat" && result.stat) payload.stat = String(result.stat).toLowerCase();
   if (result?.outcome) payload.outcome = result.outcome;
   else if (result?.comparison && typeof result.comparison.success === "boolean") {
@@ -1748,7 +1804,8 @@ function bindEvents() {
       const kind = btn.dataset.kind || "";
       const stat = btn.dataset.stat || "";
       const formula = btn.dataset.formula || "";
-      const payload = kind === "stat" ? { kind: "stat", stat, formula } : { kind, formula };
+      const count = Math.max(1, Math.min(100, Number(btn.dataset.count) || 1));
+      const payload = kind === "stat" ? { kind: "stat", stat, formula, count } : { kind, formula, count };
       const result = executeRoll(payload, state.sheet);
       if (!result) return;
       state.lastRoll = result;
@@ -1786,10 +1843,12 @@ function bindEvents() {
       if (!btn) return;
       if (btn.disabled) return;
       const kind = btn.dataset.applyKind || "";
+      const valuesRaw = btn.dataset.applyValues;
       const value = Number(btn.dataset.applyValue);
-      if (!CHAT_APPLY_ROLL_KINDS.has(kind) || !Number.isFinite(value)) return;
+      const values = valuesRaw ? JSON.parse(valuesRaw) : value;
+      if (!CHAT_APPLY_ROLL_KINDS.has(kind)) return;
       if (!canEdit(state.activeSheetId)) return;
-      const applied = applyChatRollToActiveSheet(kind, value);
+      const applied = applyChatRollToActiveSheet(kind, values);
       if (!applied.success) return;
       try {
         if (state.roomId && applied.applyFx?.length) {
