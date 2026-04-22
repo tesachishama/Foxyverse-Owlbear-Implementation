@@ -384,6 +384,7 @@ function renderNotesBody(raw) {
     .map((ln) => {
       const trimmed = ln.replace(/\s+$/, "");
       if (!trimmed) return `<div class="notes-line notes-line--empty">&nbsp;</div>`;
+      if (/^---+$/.test(trimmed)) return `<hr class="notes-hr" />`;
       const m = /^(#{1,3})\s+(.*)$/.exec(trimmed);
       if (m) {
         const level = m[1].length;
@@ -1427,6 +1428,8 @@ function renderNotesTab() {
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="italic"><em>I</em></button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="underline"><u>U</u></button>
         <span class="notes-tbar-sep" aria-hidden="true"></span>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="hr" title="${escapeAttr(t("separator"))}" aria-label="${escapeAttr(t("separator"))}">─</button>
+        <span class="notes-tbar-sep" aria-hidden="true"></span>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h1">H1</button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h2">H2</button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h3">H3</button>
@@ -2346,6 +2349,13 @@ function bindEvents() {
         const wrap = "__";
         const placeholder = sel || t("underline");
         setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        return;
+      }
+      if (kind === "hr") {
+        const insert = "\n---\n";
+        const next = `${before}${insert}${after}`;
+        const caret = start + insert.length;
+        setVal(next, caret, caret);
         return;
       }
       if (kind === "h1" || kind === "h2" || kind === "h3") {

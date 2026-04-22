@@ -1211,22 +1211,27 @@ button:disabled {
   line-height: 1.1;
   margin-top: 0.35rem;
   margin-bottom: 0.45rem;
+  text-align: center;
 }
 .notes-h1 {
-  font-size: 1.55em;
+  font-size: 1.75em !important;
   font-weight: 900;
-  padding-bottom: 0.15rem;
-  border-bottom: 3px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 .notes-h2 {
-  font-size: 1.32em;
+  font-size: 1.5em !important;
   font-weight: 900;
-  padding-bottom: 0.1rem;
-  border-bottom: 3px solid color-mix(in srgb, var(--border) 55%, transparent);
 }
 .notes-h3 {
-  font-size: 1.14em;
+  font-size: 1.25em !important;
   font-weight: 900;
+}
+
+.notes-hr {
+  border: none;
+  height: 3px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  margin: 0.6rem 0;
 }
 
 .notes-area {
