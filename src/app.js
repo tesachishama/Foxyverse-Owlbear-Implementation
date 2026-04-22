@@ -1415,10 +1415,7 @@ function setupNotesScrollbar() {
   const scrollWrap = document.getElementById("notes-scroll");
   // In view mode we scroll the wrapper; in edit mode the textarea is the scroll container.
   const editor = document.getElementById("notes-area");
-  const scrollEl =
-    editor && editor instanceof HTMLTextAreaElement
-      ? editor
-      : scrollWrap;
+  const scrollEl = editor instanceof HTMLTextAreaElement ? editor : scrollWrap;
   const track = document.getElementById("notes-scroll-track");
   const thumb = document.getElementById("notes-scroll-thumb");
   const btnUp = document.getElementById("notes-scroll-up");
@@ -1436,6 +1433,11 @@ function setupNotesScrollbar() {
     thumb.style.transform = `translateY(${top}px)`;
   };
 
+  const scrollByPx = (dy) => {
+    // Textareas don't reliably implement scrollBy/scrollTo, so use scrollTop directly.
+    scrollEl.scrollTop = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight, scrollEl.scrollTop + dy));
+  };
+
   scrollEl.addEventListener("scroll", () => updateThumb(), { passive: true });
   try {
     const ro = new ResizeObserver(() => updateThumb());
@@ -1444,8 +1446,8 @@ function setupNotesScrollbar() {
   } catch (_) {}
 
   const step = () => Math.max(60, Math.floor(scrollEl.clientHeight * 0.85));
-  btnUp?.addEventListener("click", () => scrollEl.scrollBy({ top: -step(), behavior: "smooth" }));
-  btnDown?.addEventListener("click", () => scrollEl.scrollBy({ top: step(), behavior: "smooth" }));
+  btnUp?.addEventListener("click", () => scrollByPx(-step()));
+  btnDown?.addEventListener("click", () => scrollByPx(step()));
 
   track.addEventListener("click", (e) => {
     if (e.target === thumb || thumb.contains(e.target)) return;
@@ -1479,7 +1481,7 @@ function setupNotesScrollbar() {
     document.addEventListener("mouseup", onUp);
   });
 
-  updateThumb();
+  requestAnimationFrame(() => updateThumb());
 }
 
 function renderNotesTab() {

@@ -1169,7 +1169,8 @@ button:disabled {
   margin-top: 0.5rem;
   border: 3px solid var(--border);
   border-radius: 18px;
-  padding: 0.55rem 0.65rem;
+  /* No right padding so scrollbar column can sit on the border. */
+  padding: 0.55rem 0 0.55rem 0.65rem;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   flex: 1 1 auto;
   min-height: 0;
@@ -1216,6 +1217,9 @@ button:disabled {
   flex-direction: row;
   align-items: stretch;
   overflow: hidden;
+  /* Pull the scrollbar column to the bubble border. */
+  margin-right: -0.65rem;
+  padding-right: 0.65rem;
 }
 
 .notes-scroll {
