@@ -561,11 +561,7 @@ function handleChatMessageRemoved(messageId) {
   const safe = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(sid) : sid;
   root.querySelector(`.chat-msg[data-chat-id="${safe}"]`)?.remove();
   setupChatScrollbar();
-  // Notes scrollbar needs layout to settle (track height depends on flex).
-  requestAnimationFrame(() => {
-    setupNotesScrollbar();
-    requestAnimationFrame(() => setupNotesScrollbar());
-  });
+  // Notes scrollbar is initialized from render() when the notes tab is active.
 }
 
 function getLockOwner(lockId) {
@@ -1680,6 +1676,13 @@ function render() {
         el.scrollTop = el.scrollHeight;
       }
     }
+  }
+  if (state.activeTab === "notes") {
+    // Notes scrollbar needs layout to settle (flex heights + rich content).
+    requestAnimationFrame(() => {
+      setupNotesScrollbar();
+      requestAnimationFrame(() => setupNotesScrollbar());
+    });
   }
   if (state.rollModalOpen && state.lastRoll) {
     requestAnimationFrame(() => showRollResult(state.lastRoll));
