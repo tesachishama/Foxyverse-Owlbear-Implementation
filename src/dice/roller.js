@@ -58,20 +58,13 @@ const STAT_TYPE_ALIASES = {
 
 const ROLL_TYPE_ALIASES = {
   // damage
-  physicaldamage: "pdmg",
   pdmg: "pdmg",
-  degatphysique: "pdmg",
-  dgttphysique: "pdmg", // tolerate typos
   dgtp: "pdmg",
 
-  magicaldamage: "mdmg",
   mdmg: "mdmg",
-  degatmagique: "mdmg",
   dgtm: "mdmg",
 
-  truedamage: "tdmg",
   tdmg: "tdmg",
-  degatbrut: "tdmg",
   dgtb: "tdmg",
 
   // heal / temp heal / mana
@@ -282,8 +275,6 @@ function buildFormulaContext(sheet) {
     act,
     lvl,
     niv: lvl,
-    level: lvl,
-    niveau: lvl,
     pdef,
     defp: pdef,
     mdef,

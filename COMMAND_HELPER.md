@@ -96,9 +96,9 @@ Aliases:
 
 ### Other roll types
 
-- Physical damage: `physicaldamage`, `pdmg`, `degatphysique`, `dégâtphysique`, `dgtp`
-- Magical damage: `magicaldamage`, `mdmg`, `degatmagique`, `dégâtmagique`, `dgtm`
-- True damage: `truedamage`, `tdmg`
+- Physical damage: `pdmg`, `dgtp`
+- Magical damage: `mdmg`, `dgtm`
+- True damage: `tdmg`, `dgtb`
 - Heal: `heal`, `soin`
 - Temp heal: `theal`, `soint`
 - Mana: `mana`
@@ -179,7 +179,7 @@ Identifiers resolve from the **active character sheet**. Unknown names resolve t
 #### Other
 
 - Action count: `act`
-- Level: `lvl`, `niv`, `level`, `niveau`
+- Level: `lvl`, `niv`
 - Physical defense: `pdef`, `defp`
 - Magical defense: `mdef`, `defm`
 - Action modifier: `bonact`, `actbon`

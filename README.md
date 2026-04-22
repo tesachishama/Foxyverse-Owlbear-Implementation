@@ -47,9 +47,9 @@ When you send a command, the **command itself is not stored** in chat — only t
 | `/social`, `/soc` | Social stat check. |
 | `/agility`, `/agi`, `/agilité`, `/agilite` | Agility stat check. |
 | `/focus`, `/foc` | Focus stat check. |
-| `/physicaldamage`, `/pdmg`, `/degatphysique`, `/dégâtphysique`, `/dgtp` | Physical damage roll (Apply button accounts for defenses). |
-| `/magicaldamage`, `/mdmg`, `/degatmagique`, `/dégâtmagique`, `/dgtm` | Magical damage roll. |
-| `/truedamage`, `/tdmg` | True damage roll (ignores defenses). |
+| `/pdmg`, `/dgtp` | Physical damage roll (Apply button accounts for defenses). |
+| `/mdmg`, `/dgtm` | Magical damage roll. |
+| `/tdmg`, `/dgtb` | True damage roll (ignores defenses). |
 | `/heal`, `/soin` | Heal roll (Apply adds HP). |
 | `/theal`, `/soint` | Temp heal roll (Apply adds temp HP). |
 | `/mana` | Mana roll (Apply adds MP). |
@@ -113,7 +113,7 @@ Below, each bullet lists **all aliases** for one value (same number everywhere).
 | Meaning | Aliases |
 |---------|---------|
 | Action count (computed) | `act` |
-| Character level | `lvl`, `niv`, `level`, `niveau` |
+| Character level | `lvl`, `niv` |
 | Physical defense | `pdef`, `defp` |
 | Magical defense | `mdef`, `defm` |
 | Action modifier (sheet field) | `bonact`, `actbon` |

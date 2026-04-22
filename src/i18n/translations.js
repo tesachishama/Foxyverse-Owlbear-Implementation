@@ -358,7 +358,7 @@ export const translations = {
     noTokenSelected: "Sélectionnez un token sur la carte d'abord",
     physicalDamage: "Dégâts physiques",
     magicDamage: "Dégâts magiques",
-    trueDamage: "Dégâts bruts",
+    trueDamage: "Dégât Brut",
     heal: "Soin",
     overHeal: "Soin temporaire (PV temp)",
     otherRoll: "Autre jet",

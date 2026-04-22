@@ -929,6 +929,11 @@ function showRollResult(result) {
   const cntSeg = cnt > 1 ? ` ×${cnt}` : "";
   if (Array.isArray(result.multi) && result.multi.length) {
     const total = result.multi.reduce((a, r) => a + (Number(r?.value) || 0), 0);
+    const isComparatorMulti = result.multi.some((r) => r?.comparison && typeof r.comparison.success === "boolean");
+    const succ = isComparatorMulti ? result.multi.filter((r) => r?.comparison?.success === true).length : 0;
+    const fail = isComparatorMulti ? result.multi.filter((r) => r?.comparison?.success === false).length : 0;
+    const critSucc = result.multi.filter((r) => r?.outcome === "critical_success").length;
+    const critFail = result.multi.filter((r) => r?.outcome === "critical_failure").length;
     if (result.kind === "stat") {
       const parts = result.multi.map((r) => {
         const o = r?.outcome;
@@ -941,7 +946,10 @@ function showRollResult(result) {
         const win = r?.comparison && typeof r.comparison.success === "boolean" ? ` [${t(r.comparison.success ? "success" : "failure")}]` : "";
         return `${r?.value ?? 0}${win}`;
       });
-      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${total}`;
+      const totalLine = isComparatorMulti
+        ? `${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`
+        : String(total);
+      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${totalLine}`;
     }
   } else if (result.kind === "stat") {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
@@ -1286,6 +1294,11 @@ function renderChatBody(body) {
       const diceText = escapeAttr(String(payload.dice || ""));
       const isMulti = Array.isArray(payload.values) && payload.values.length;
       const total = isMulti ? payload.values.reduce((a, v) => a + (Number(v) || 0), 0) : Number(payload.value ?? 0);
+      const isComparatorMulti = isMulti && Array.isArray(payload.cmpList) && payload.cmpList.some((x) => typeof x === "boolean");
+      const critSucc = isMulti && Array.isArray(payload.outcomes) ? payload.outcomes.filter((o) => o === "critical_success").length : 0;
+      const critFail = isMulti && Array.isArray(payload.outcomes) ? payload.outcomes.filter((o) => o === "critical_failure").length : 0;
+      const succ = isComparatorMulti ? payload.cmpList.filter((b) => b === true).length : 0;
+      const fail = isComparatorMulti ? payload.cmpList.filter((b) => b === false).length : 0;
       const resultText = escapeAttr(
         isMulti ? payload.values.map((v) => String(v ?? 0)).join(", ") : String(payload.value ?? 0)
       );
@@ -1295,7 +1308,11 @@ function renderChatBody(body) {
         <div class="chat-roll-row chat-roll-row-head"><strong class="chat-roll-head">${headHtml}</strong></div>
         <div class="chat-roll-row chat-roll-row-formula"><em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span></div>
         <div class="chat-roll-row chat-roll-row-result"><strong class="chat-roll-result">${resultText}</strong> ${winText}</div>
-        ${isMulti ? `<div class="chat-roll-row chat-roll-row-total"><span class="chat-roll-total-label">Total :</span> <strong class="chat-roll-total">${escapeAttr(String(total))}</strong></div>` : ""}
+        ${isMulti ? `<div class="chat-roll-row chat-roll-row-total"><span class="chat-roll-total-label">Total :</span> <strong class="chat-roll-total">${
+          isComparatorMulti
+            ? escapeAttr(`${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`)
+            : escapeAttr(String(total))
+        }</strong></div>` : ""}
       `.trim();
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
@@ -1349,8 +1366,8 @@ function formatRollChatLine(result, options = {}) {
   if (Array.isArray(result?.multi) && result.multi.length) {
     payload.values = result.multi.map((r) => r?.value ?? 0);
     payload.diceList = result.multi.map((r) => Array.isArray(r?.diceResults) ? r.diceResults.join(", ") : "");
-    if (result.kind === "stat") payload.outcomes = result.multi.map((r) => r?.outcome || "");
-    if (result.kind !== "stat") payload.cmpList = result.multi.map((r) => (r?.comparison && typeof r.comparison.success === "boolean") ? !!r.comparison.success : null);
+    payload.outcomes = result.multi.map((r) => r?.outcome || "");
+    payload.cmpList = result.multi.map((r) => (r?.comparison && typeof r.comparison.success === "boolean") ? !!r.comparison.success : null);
   }
   if (result?.kind === "stat" && result.stat) payload.stat = String(result.stat).toLowerCase();
   if (result?.outcome) payload.outcome = result.outcome;
