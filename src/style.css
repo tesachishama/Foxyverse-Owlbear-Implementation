@@ -1189,9 +1189,7 @@ button:disabled {
   border-bottom: 3px solid color-mix(in srgb, var(--border) 70%, transparent);
   /* Make divider line span full bubble width. */
   margin-left: -0.65rem;
-  margin-right: -0.65rem;
   padding-left: 0.65rem;
-  padding-right: 0.65rem;
 }
 
 .notes-tbar-btn {
