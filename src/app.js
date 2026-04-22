@@ -1413,9 +1413,7 @@ function setupChatScrollbar() {
 
 function setupNotesScrollbar() {
   const scrollWrap = document.getElementById("notes-scroll");
-  // In view mode we scroll the wrapper; in edit mode the textarea is the scroll container.
-  const editor = document.getElementById("notes-area");
-  const scrollEl = editor instanceof HTMLTextAreaElement ? editor : scrollWrap;
+  const scrollEl = scrollWrap;
   const track = document.getElementById("notes-scroll-track");
   const thumb = document.getElementById("notes-scroll-thumb");
   const btnUp = document.getElementById("notes-scroll-up");
@@ -1434,7 +1432,6 @@ function setupNotesScrollbar() {
   };
 
   const scrollByPx = (dy) => {
-    // Textareas don't reliably implement scrollBy/scrollTo, so use scrollTop directly.
     scrollEl.scrollTop = Math.max(0, Math.min(scrollEl.scrollHeight - scrollEl.clientHeight, scrollEl.scrollTop + dy));
   };
 
@@ -1482,6 +1479,16 @@ function setupNotesScrollbar() {
   });
 
   requestAnimationFrame(() => updateThumb());
+}
+
+function syncNotesEditorHeight() {
+  const ta = document.getElementById("notes-area");
+  const scrollWrap = document.getElementById("notes-scroll");
+  if (!(ta instanceof HTMLTextAreaElement) || !scrollWrap) return;
+  // Auto-size textarea so the outer wrapper is the only scroller.
+  ta.style.height = "0px";
+  const next = Math.max(scrollWrap.clientHeight, ta.scrollHeight);
+  ta.style.height = `${next}px`;
 }
 
 function renderNotesTab() {
@@ -2378,7 +2385,11 @@ function bindEvents() {
     state.notesEditMode = !state.notesEditMode;
     render();
     requestAnimationFrame(() => {
-      if (state.notesEditMode) document.getElementById("notes-area")?.focus();
+      if (state.notesEditMode) {
+        syncNotesEditorHeight();
+        document.getElementById("notes-area")?.focus();
+      }
+      setupNotesScrollbar();
     });
   });
 
@@ -2387,6 +2398,8 @@ function bindEvents() {
     if (!state.sheet) return;
     const val = e.target.value;
     state.sheet.notes = val;
+    syncNotesEditorHeight();
+    setupNotesScrollbar();
   });
   notesArea?.addEventListener("change", async (e) => {
     if (state.sheet) {
