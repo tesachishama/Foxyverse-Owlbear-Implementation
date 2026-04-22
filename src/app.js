@@ -943,8 +943,14 @@ function showRollResult(result) {
       text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${total}`;
     } else {
       const parts = result.multi.map((r) => {
-        const win = r?.comparison && typeof r.comparison.success === "boolean" ? ` [${t(r.comparison.success ? "success" : "failure")}]` : "";
-        return `${r?.value ?? 0}${win}`;
+        const o = r?.outcome;
+        const critTag = o === "critical_success" ? t("criticalSuccess") : o === "critical_failure" ? t("criticalFailure") : "";
+        const winTag =
+          !critTag && r?.comparison && typeof r.comparison.success === "boolean"
+            ? t(r.comparison.success ? "success" : "failure")
+            : "";
+        const tag = critTag || winTag;
+        return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
       });
       const totalLine = isComparatorMulti
         ? `${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`
@@ -956,8 +962,15 @@ function showRollResult(result) {
     text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
   } else {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
-    const win = result.comparison && typeof result.comparison.success === "boolean" ? ` [${t(result.comparison.success ? "success" : "failure")}]` : "";
-    text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${win}`;
+    const o = result?.outcome;
+    const critTag = o === "critical_success" ? t("criticalSuccess") : o === "critical_failure" ? t("criticalFailure") : "";
+    const winTag =
+      !critTag && result.comparison && typeof result.comparison.success === "boolean"
+        ? t(result.comparison.success ? "success" : "failure")
+        : "";
+    const tag = critTag || winTag;
+    const suffix = tag ? ` [${tag}]` : "";
+    text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${suffix}`;
   }
   syncRollModalRerollState();
   if (applyBox) {
