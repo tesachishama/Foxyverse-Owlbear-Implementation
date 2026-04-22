@@ -22,6 +22,18 @@ The client stores only IDs; **player name** and **Name Surname** are resolved at
 
 Commands start with `/`. The word after `/` is the **roll type**; the rest of the line is the **formula** (see below).
 
+### Repeating rolls (multi-roll)
+
+You can repeat a roll by putting an integer **count** as the first token of the formula:
+
+- `/str 5 +3` → 5 stat rolls (each is `1d20+3`)
+- `/pdmg 10 2d4` → 10 physical damage rolls (each is `2d4`)
+
+Notes:
+
+- Count is clamped to `1..100`.
+- Favor reroll rerolls the **whole set** when you reroll a multi-roll.
+
 When you send a command, the **command itself is not stored** in chat — only the generated roll result line is saved.
 
 | Command | Meaning |
@@ -118,6 +130,26 @@ In any text field that renders rich content (chat messages, **Notes preview**), 
 ```
 
 Bracket form: `[type formula]` where `type` matches the commands above. Click the rendered button to roll using the **current character sheet**; it posts the roll result line into chat.
+
+### Repeating inline rolls
+
+Same rule as commands: start the formula with a count.
+
+```text
+[str 5 +3]
+[pdmg 10 2d4]
+```
+
+### Custom button label
+
+You can optionally provide a label after a `|`:
+
+```text
+[str +5|hit hard]
+[pdmg 10 2d4|full-auto burst]
+```
+
+If there is no `|`, the button caption is the default (`str+5`, `dgtp 2d4 ×10`, etc.).
 
 ## Spells: element field
 
