@@ -92,6 +92,7 @@ const state = {
   _chatHistoryIndex: null,
   _chatHistoryDraft: "",
   notesEditMode: false,
+  notesDraft: "",
   sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
@@ -1663,7 +1664,7 @@ function renderNotesTab() {
           <div class="notes-scroll" id="notes-scroll">
             ${viewing
               ? `<div id="notes-view" class="notes-view">${bodyHtml || `<span class="muted">${escapeAttr(t("notesEmpty"))}</span>`}</div>`
-              : `<textarea id="notes-area" class="notes-area" rows="14" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>`
+              : `<textarea id="notes-area" class="notes-area" rows="14" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(state.notesDraft ?? notes)}</textarea>`
             }
           </div>
           <div class="notes-scrollbar-col" aria-hidden="true">
@@ -2527,34 +2528,42 @@ function bindEvents() {
   // Notes
   app.querySelector("#notes-edit-toggle")?.addEventListener("click", () => {
     if (!canEdit(state.activeSheetId)) return;
-    state.notesEditMode = !state.notesEditMode;
-    render();
-    requestAnimationFrame(() => {
-      if (state.notesEditMode) {
+    const nextMode = !state.notesEditMode;
+    if (nextMode) {
+      // Entering edit mode: snapshot current notes into a local draft.
+      state.notesDraft = String(state.sheet?.notes ?? "");
+      state.notesEditMode = true;
+      render();
+      requestAnimationFrame(() => {
         syncNotesEditorHeight();
         document.getElementById("notes-area")?.focus();
+        setupNotesScrollbar();
+      });
+      return;
+    }
+
+    // Leaving edit mode: persist draft once.
+    const draft = String(state.notesDraft ?? "");
+    state.notesEditMode = false;
+    state.notesDraft = "";
+    if (state.sheet) {
+      applyLocalMutation((sheet) => {
+        sheet.notes = draft;
+      });
+      if (state.roomId && state.activeSheetId) {
+        storage.updateSheetCore(state.roomId, state.activeSheetId, { notes: draft }).catch(console.error);
       }
-      setupNotesScrollbar();
-    });
+    }
+    render();
   });
 
   const notesArea = app.querySelector("#notes-area");
   notesArea?.addEventListener("input", (e) => {
-    if (!state.sheet) return;
     const val = e.target.value;
-    state.sheet.notes = val;
+    // Only update local draft while editing; persist on exit.
+    state.notesDraft = val;
     syncNotesEditorHeight();
     setupNotesScrollbar();
-  });
-  notesArea?.addEventListener("change", async (e) => {
-    if (state.sheet) {
-      applyLocalMutation((sheet) => {
-        sheet.notes = e.target.value;
-      });
-      if (state.roomId && state.activeSheetId) {
-        storage.updateSheetCore(state.roomId, state.activeSheetId, { notes: e.target.value }).catch(console.error);
-      }
-    }
   });
 
   app.querySelectorAll("[data-notes-format]").forEach((btn) => {
