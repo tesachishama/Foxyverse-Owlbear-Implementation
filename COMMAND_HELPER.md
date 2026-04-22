@@ -39,7 +39,7 @@ Examples:
 ```
 
 In **view mode**, these render as clickable buttons.
-In **notes edit mode**, you see the raw bracket syntax.
+In **edit mode**, you see the raw bracket syntax.
 
 ## 2) Multi-roll (repeat count)
 
