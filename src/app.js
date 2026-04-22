@@ -929,18 +929,19 @@ function showRollResult(result) {
   const cntSeg = cnt > 1 ? ` ×${cnt}` : "";
   if (Array.isArray(result.multi) && result.multi.length) {
     const total = result.multi.reduce((a, r) => a + (Number(r?.value) || 0), 0);
-    const isComparatorMulti = result.multi.some((r) => r?.comparison && typeof r.comparison.success === "boolean");
-    const succ = isComparatorMulti ? result.multi.filter((r) => r?.comparison?.success === true).length : 0;
-    const fail = isComparatorMulti ? result.multi.filter((r) => r?.comparison?.success === false).length : 0;
-    const critSucc = result.multi.filter((r) => r?.outcome === "critical_success").length;
-    const critFail = result.multi.filter((r) => r?.outcome === "critical_failure").length;
+    const isSucceedableMulti = result.kind === "stat" || result.multi.some((r) => r?.comparison && typeof r.comparison.success === "boolean");
+    const succ = isSucceedableMulti ? result.multi.filter((r) => r?.outcome === "success").length : 0;
+    const fail = isSucceedableMulti ? result.multi.filter((r) => r?.outcome === "failure").length : 0;
+    const critSucc = isSucceedableMulti ? result.multi.filter((r) => r?.outcome === "critical_success").length : 0;
+    const critFail = isSucceedableMulti ? result.multi.filter((r) => r?.outcome === "critical_failure").length : 0;
     if (result.kind === "stat") {
       const parts = result.multi.map((r) => {
         const o = r?.outcome;
         const tag = o ? t(o === "critical_success" ? "criticalSuccess" : o === "success" ? "success" : o === "failure" ? "failure" : "criticalFailure") : "";
         return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
       });
-      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${total}`;
+      const totalLine = `${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`;
+      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${totalLine}`;
     } else {
       const parts = result.multi.map((r) => {
         const o = r?.outcome;
@@ -952,7 +953,7 @@ function showRollResult(result) {
         const tag = critTag || winTag;
         return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
       });
-      const totalLine = isComparatorMulti
+      const totalLine = isSucceedableMulti
         ? `${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`
         : String(total);
       text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${totalLine}`;
@@ -1308,10 +1309,11 @@ function renderChatBody(body) {
       const isMulti = Array.isArray(payload.values) && payload.values.length;
       const total = isMulti ? payload.values.reduce((a, v) => a + (Number(v) || 0), 0) : Number(payload.value ?? 0);
       const isComparatorMulti = isMulti && Array.isArray(payload.cmpList) && payload.cmpList.some((x) => typeof x === "boolean");
-      const critSucc = isMulti && Array.isArray(payload.outcomes) ? payload.outcomes.filter((o) => o === "critical_success").length : 0;
-      const critFail = isMulti && Array.isArray(payload.outcomes) ? payload.outcomes.filter((o) => o === "critical_failure").length : 0;
-      const succ = isComparatorMulti ? payload.cmpList.filter((b) => b === true).length : 0;
-      const fail = isComparatorMulti ? payload.cmpList.filter((b) => b === false).length : 0;
+      const hasOutcomeList = isMulti && Array.isArray(payload.outcomes) && payload.outcomes.some(Boolean);
+      const critSucc = hasOutcomeList ? payload.outcomes.filter((o) => o === "critical_success").length : 0;
+      const critFail = hasOutcomeList ? payload.outcomes.filter((o) => o === "critical_failure").length : 0;
+      const succ = hasOutcomeList ? payload.outcomes.filter((o) => o === "success").length : (isComparatorMulti ? payload.cmpList.filter((b) => b === true).length : 0);
+      const fail = hasOutcomeList ? payload.outcomes.filter((o) => o === "failure").length : (isComparatorMulti ? payload.cmpList.filter((b) => b === false).length : 0);
       const resultText = escapeAttr(
         isMulti ? payload.values.map((v) => String(v ?? 0)).join(", ") : String(payload.value ?? 0)
       );
@@ -1322,7 +1324,7 @@ function renderChatBody(body) {
         <div class="chat-roll-row chat-roll-row-formula"><em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span></div>
         <div class="chat-roll-row chat-roll-row-result"><strong class="chat-roll-result">${resultText}</strong> ${winText}</div>
         ${isMulti ? `<div class="chat-roll-row chat-roll-row-total"><span class="chat-roll-total-label">Total :</span> <strong class="chat-roll-total">${
-          isComparatorMulti
+          (payload.kind === "stat" || isComparatorMulti)
             ? escapeAttr(`${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`)
             : escapeAttr(String(total))
         }</strong></div>` : ""}
@@ -1351,10 +1353,10 @@ function renderChatBody(body) {
     const formula = (btn.formula || "").toString();
     const caption = escapeAttr(formatInlineRollButtonCaption(btn));
     const iconHtml = inlineDiceMarkupForButton(btn);
-    text = text.replace(
-      btn.raw,
-      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`
-    );
+    const rawEsc = escapeAttr(btn.raw);
+    const html = `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`;
+    // Replace in escaped text so special chars like < or > don't break matching.
+    text = text.split(rawEsc).join(html);
   });
   return text;
 }
