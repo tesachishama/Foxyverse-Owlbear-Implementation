@@ -561,6 +561,7 @@ function handleChatMessageRemoved(messageId) {
   const safe = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(sid) : sid;
   root.querySelector(`.chat-msg[data-chat-id="${safe}"]`)?.remove();
   setupChatScrollbar();
+  setupNotesScrollbar();
 }
 
 function getLockOwner(lockId) {
@@ -1410,6 +1411,71 @@ function setupChatScrollbar() {
   updateStick();
 }
 
+function setupNotesScrollbar() {
+  const scrollEl = document.getElementById("notes-scroll");
+  const track = document.getElementById("notes-scroll-track");
+  const thumb = document.getElementById("notes-scroll-thumb");
+  const btnUp = document.getElementById("notes-scroll-up");
+  const btnDown = document.getElementById("notes-scroll-down");
+  if (!scrollEl || !track || !thumb) return;
+
+  const updateThumb = () => {
+    const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+    const trackH = track.clientHeight;
+    const thumbH = Math.max(22, Math.min(trackH, (clientHeight / Math.max(scrollHeight, 1)) * trackH));
+    const maxScroll = Math.max(0, scrollHeight - clientHeight);
+    const maxThumbTop = Math.max(0, trackH - thumbH);
+    const top = maxScroll <= 0 ? 0 : (scrollTop / maxScroll) * maxThumbTop;
+    thumb.style.height = `${thumbH}px`;
+    thumb.style.transform = `translateY(${top}px)`;
+  };
+
+  scrollEl.addEventListener("scroll", () => updateThumb(), { passive: true });
+  try {
+    const ro = new ResizeObserver(() => updateThumb());
+    ro.observe(scrollEl);
+    ro.observe(track);
+  } catch (_) {}
+
+  const step = () => Math.max(60, Math.floor(scrollEl.clientHeight * 0.85));
+  btnUp?.addEventListener("click", () => scrollEl.scrollBy({ top: -step(), behavior: "smooth" }));
+  btnDown?.addEventListener("click", () => scrollEl.scrollBy({ top: step(), behavior: "smooth" }));
+
+  track.addEventListener("click", (e) => {
+    if (e.target === thumb || thumb.contains(e.target)) return;
+    const rect = track.getBoundingClientRect();
+    const clickY = e.clientY - rect.top;
+    const pct = clickY / rect.height;
+    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+    scrollEl.scrollTop = pct * maxScroll;
+  });
+
+  thumb.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startScroll = scrollEl.scrollTop;
+    const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+    const trackH = track.clientHeight;
+    const thumbH = thumb.offsetHeight;
+    const denom = Math.max(1, trackH - thumbH);
+    const scrollPerPx = maxScroll / denom;
+    function onMove(e2) {
+      const dy = e2.clientY - startY;
+      scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, startScroll + dy * scrollPerPx));
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      thumb.classList.remove("dragging");
+    }
+    thumb.classList.add("dragging");
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+
+  updateThumb();
+}
+
 function renderNotesTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
@@ -1443,10 +1509,21 @@ function renderNotesTab() {
       </div>
       <div class="notes-bubble">
         ${toolbar}
-        ${viewing
-          ? `<div id="notes-view" class="notes-view">${bodyHtml || `<span class="muted">${escapeAttr(t("notesEmpty"))}</span>`}</div>`
-          : `<textarea id="notes-area" class="notes-area" rows="14" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>`
-        }
+        <div class="notes-scroll-outer">
+          <div class="notes-scroll" id="notes-scroll">
+            ${viewing
+              ? `<div id="notes-view" class="notes-view">${bodyHtml || `<span class="muted">${escapeAttr(t("notesEmpty"))}</span>`}</div>`
+              : `<textarea id="notes-area" class="notes-area" rows="14" placeholder="${t("notesPlaceholder")}" ${editable ? "" : "readonly"}>${escapeAttr(notes)}</textarea>`
+            }
+          </div>
+          <div class="notes-scrollbar-col" aria-hidden="true">
+            <button type="button" class="notes-scroll-arrow notes-scroll-up" id="notes-scroll-up" tabindex="-1" title="${t("scrollUp")}">${inlineSvg(arrowIcon, "inline-svg notes-scroll-arrow-svg", "var(--text)")}</button>
+            <div class="notes-scroll-track-outer">
+              <div class="notes-scroll-track" id="notes-scroll-track"><div class="notes-scroll-thumb" id="notes-scroll-thumb"></div></div>
+            </div>
+            <button type="button" class="notes-scroll-arrow notes-scroll-down" id="notes-scroll-down" tabindex="-1" title="${t("scrollDown")}">${inlineSvg(arrowIcon, "inline-svg notes-scroll-arrow-svg", "var(--text)")}</button>
+          </div>
+        </div>
       </div>
     </div>
   `;

@@ -1121,6 +1121,10 @@ button:disabled {
   border: none;
   padding: 0;
   margin-bottom: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .notes-header-row {
@@ -1167,12 +1171,17 @@ button:disabled {
   border-radius: 18px;
   padding: 0.55rem 0.65rem;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
-  min-height: 14rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .notes-toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin-bottom: 0.45rem;
   padding-bottom: 0.35rem;
@@ -1198,6 +1207,111 @@ button:disabled {
 .notes-view {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.notes-scroll-outer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.notes-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-right: calc(0.25rem / 3);
+}
+
+.notes-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.notes-scrollbar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: stretch;
+  align-self: stretch;
+  width: 1.75rem;
+  flex-shrink: 0;
+  padding: 0.15rem max(0px, calc(0.25rem - 2px)) 0.15rem calc(0.25rem / 3);
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.notes-scroll-arrow {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.05rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.notes-scroll-arrow:active {
+  opacity: 0.85;
+}
+
+.notes-scroll-arrow-svg {
+  width: 1.05rem;
+  height: 0.7rem;
+}
+
+.notes-scroll-up .notes-scroll-arrow-svg {
+  transform: rotate(0deg);
+}
+
+.notes-scroll-down .notes-scroll-arrow-svg {
+  transform: rotate(180deg);
+}
+
+.notes-scroll-track-outer {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.notes-scroll-track {
+  position: relative;
+  flex: 1;
+  width: 6px;
+  min-width: 6px;
+  min-height: 72px;
+  margin: 0.2rem 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.notes-scroll-thumb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  min-height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 90%, transparent);
+  cursor: grab;
+}
+
+.notes-scroll-thumb.dragging {
+  cursor: grabbing;
 }
 
 .notes-line {
@@ -1236,14 +1350,14 @@ button:disabled {
 
 .notes-area {
   width: 100%;
-  min-height: 14rem;
+  min-height: 100%;
   padding: 0.5rem;
   background: var(--bg);
   border: 3px solid var(--border);
   color: var(--text);
   border-radius: 12px;
   font: inherit;
-  resize: vertical;
+  resize: none;
 }
 
 /* Stats / inventory tab cards */
