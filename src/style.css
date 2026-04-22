@@ -500,6 +500,10 @@ button:disabled {
   margin-top: 1rem;
 }
 
+#roll-result-text {
+  white-space: pre-wrap;
+}
+
 .roll-modal-close-btn {
   margin: 0;
 }

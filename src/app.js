@@ -928,19 +928,20 @@ function showRollResult(result) {
   const cnt = Math.max(1, Number(result.count) || 1);
   const cntSeg = cnt > 1 ? ` ×${cnt}` : "";
   if (Array.isArray(result.multi) && result.multi.length) {
+    const total = result.multi.reduce((a, r) => a + (Number(r?.value) || 0), 0);
     if (result.kind === "stat") {
       const parts = result.multi.map((r) => {
         const o = r?.outcome;
         const tag = o ? t(o === "critical_success" ? "criticalSuccess" : o === "success" ? "success" : o === "failure" ? "failure" : "criticalFailure") : "";
         return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
       });
-      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}`;
+      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${total}`;
     } else {
       const parts = result.multi.map((r) => {
         const win = r?.comparison && typeof r.comparison.success === "boolean" ? ` [${t(r.comparison.success ? "success" : "failure")}]` : "";
         return `${r?.value ?? 0}${win}`;
       });
-      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}`;
+      text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${total}`;
     }
   } else if (result.kind === "stat") {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
@@ -1284,6 +1285,7 @@ function renderChatBody(body) {
       const formulaText = escapeAttr(String(payload.formula || ""));
       const diceText = escapeAttr(String(payload.dice || ""));
       const isMulti = Array.isArray(payload.values) && payload.values.length;
+      const total = isMulti ? payload.values.reduce((a, v) => a + (Number(v) || 0), 0) : Number(payload.value ?? 0);
       const resultText = escapeAttr(
         isMulti ? payload.values.map((v) => String(v ?? 0)).join(", ") : String(payload.value ?? 0)
       );
@@ -1293,6 +1295,7 @@ function renderChatBody(body) {
         <div class="chat-roll-row chat-roll-row-head"><strong class="chat-roll-head">${headHtml}</strong></div>
         <div class="chat-roll-row chat-roll-row-formula"><em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span></div>
         <div class="chat-roll-row chat-roll-row-result"><strong class="chat-roll-result">${resultText}</strong> ${winText}</div>
+        ${isMulti ? `<div class="chat-roll-row chat-roll-row-total"><span class="chat-roll-total-label">Total :</span> <strong class="chat-roll-total">${escapeAttr(String(total))}</strong></div>` : ""}
       `.trim();
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
@@ -1328,7 +1331,12 @@ function renderChatBody(body) {
 
 function formatRollChatLine(result, options = {}) {
   const formula = (result?.translatedFormula || result?.formula || "").toString();
-  const dice = Array.isArray(result?.diceResults) ? result.diceResults.join(", ") : "";
+  const dice =
+    Array.isArray(result?.multi) && result.multi.length
+      ? result.multi.map((r) => (Array.isArray(r?.diceResults) ? r.diceResults.join(", ") : "")).join(" | ")
+      : Array.isArray(result?.diceResults)
+        ? result.diceResults.join(", ")
+        : "";
 
   // Locale-neutral payload: labels/outcomes resolved in renderChatBody via t() for current locale.
   const payload = {
