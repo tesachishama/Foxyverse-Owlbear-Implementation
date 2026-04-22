@@ -366,10 +366,12 @@ function inlineDiceMarkupForButton(btn) {
 }
 
 function applyInlineMdFormatting(escapedText) {
-  // escapedText is already HTML-escaped. We only inject <strong>/<em>.
+  // escapedText is already HTML-escaped. We only inject <strong>/<em>/<u>.
   let out = String(escapedText || "");
   // Bold: **text**
   out = out.replace(/\*\*([^*][\s\S]*?)\*\*/g, "<strong>$1</strong>");
+  // Underline: __text__ (common lightweight convention; not standard Markdown)
+  out = out.replace(/__([^_][\s\S]*?)__/g, "<u>$1</u>");
   // Italic: *text* (avoid matching **)
   out = out.replace(/(^|[^*])\*([^*\s][\s\S]*?)\*(?!\*)/g, "$1<em>$2</em>");
   return out;
@@ -1423,6 +1425,7 @@ function renderNotesTab() {
     ? `<div class="notes-toolbar" role="toolbar" aria-label="${escapeAttr(t("formatting"))}">
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="bold"><strong>B</strong></button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="italic"><em>I</em></button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="underline"><u>U</u></button>
         <span class="notes-tbar-sep" aria-hidden="true"></span>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h1">H1</button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h2">H2</button>
@@ -2336,6 +2339,12 @@ function bindEvents() {
       if (kind === "italic") {
         const wrap = "*";
         const placeholder = sel || t("italic");
+        setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
+        return;
+      }
+      if (kind === "underline") {
+        const wrap = "__";
+        const placeholder = sel || t("underline");
         setVal(`${before}${wrap}${placeholder}${wrap}${after}`, start + wrap.length, start + wrap.length + placeholder.length);
         return;
       }
