@@ -546,6 +546,21 @@ function normalizeImportedSheet(raw, options = {}) {
   return next;
 }
 
+function finalizeNotesEditIfOpen() {
+  if (!state.notesEditMode) return;
+  const draft = String(state.notesDraft ?? "");
+  state.notesEditMode = false;
+  state.notesDraft = "";
+  if (state.sheet) {
+    applyLocalMutation((sheet) => {
+      sheet.notes = draft;
+    });
+    if (state.roomId && state.activeSheetId) {
+      storage.updateSheetCore(state.roomId, state.activeSheetId, { notes: draft }).catch(console.error);
+    }
+  }
+}
+
 function resolvePlayerDisplayName(playerId) {
   if (!playerId) return "Player";
   const d = state.playerDirectory?.[playerId];
@@ -1953,6 +1968,7 @@ function bindEvents() {
 
   app.querySelectorAll("[data-sheet-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
+      finalizeNotesEditIfOpen();
       state.sheetMenuOpen = false;
       await loadSheet(btn.dataset.sheetId || null, { forceRefresh: true });
       render();
@@ -2016,6 +2032,7 @@ function bindEvents() {
 
   app.querySelectorAll(".tab-icon-btn[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      finalizeNotesEditIfOpen();
       state.activeTab = btn.dataset.tab;
       render();
     });
