@@ -97,6 +97,7 @@ const state = {
   /** Spells UI state (session-only) */
   _openSpells: {}, // spellId -> boolean
   _editingSpellId: null,
+  _spellEditDraft: null, // { id, name, effect, element, cost, costType, isContinuous }
   sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
@@ -576,6 +577,51 @@ function setSpellOpen(spellId, open) {
 
 function setEditingSpellId(spellIdOrNull) {
   state._editingSpellId = spellIdOrNull ? String(spellIdOrNull) : null;
+}
+
+function startSpellEditDraft(spellId) {
+  const id = String(spellId || "");
+  const sp = (state.sheet?.spells || []).find((x) => String(x.id) === id);
+  if (!sp) return;
+  state._spellEditDraft = {
+    id,
+    name: sp.name || "",
+    effect: sp.effect || "",
+    element: sp.element || "",
+    cost: Math.max(0, Number(sp.cost) || 0),
+    costType: (sp.costType || "mp") === "hp" ? "hp" : "mp",
+    isContinuous: !!sp.isContinuous,
+  };
+}
+
+function finalizeSpellEditIfOpen() {
+  if (!state._editingSpellId || !state._spellEditDraft || !state.sheet) return;
+  const id = String(state._editingSpellId);
+  const d = state._spellEditDraft;
+  if (String(d.id) !== id) return;
+  const next = applyLocalMutation((sheet) => {
+    const sp = (sheet.spells || []).find((x) => String(x.id) === id);
+    if (!sp) return;
+    sp.name = d.name || "";
+    sp.effect = d.effect || "";
+    sp.element = d.element || "";
+    sp.cost = Math.max(0, Number(d.cost) || 0);
+    sp.costType = d.costType === "hp" ? "hp" : "mp";
+    sp.isContinuous = !!d.isContinuous;
+  });
+  const sp = next?.spells?.find((x) => String(x.id) === id);
+  if (sp && state.roomId && state.activeSheetId) {
+    storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, {
+      name: sp.name || "",
+      description: sp.effect || "",
+      element: sp.element || "",
+      cost: sp.cost ?? 0,
+      is_hp: (sp.costType || "mp") === "hp",
+      is_continuous: !!sp.isContinuous,
+    }).catch(console.error);
+  }
+  state._editingSpellId = null;
+  state._spellEditDraft = null;
 }
 
 function resolvePlayerDisplayName(playerId) {
@@ -1205,6 +1251,7 @@ function renderSpellsTab() {
       const id = String(sp.id || i);
       const open = isSpellOpen(id);
       const editing = editable && String(state._editingSpellId || "") === id;
+      const draft = editing && state._spellEditDraft && String(state._spellEditDraft.id) === id ? state._spellEditDraft : null;
       const name = (sp.name || "").trim() || t("spellName");
       const used = Math.max(0, Number(sp.useCounter) || 0);
       const cost = Math.max(0, Number(sp.cost) || 0);
@@ -1222,39 +1269,41 @@ function renderSpellsTab() {
         <div class="spell-meta-row">
           <span class="spell-cost-label">${t("cost")}</span>
           <span class="spell-cost-pill">${escapeAttr(String(cost))}</span>
-          <span class="spell-cost-type-pill">${costType === "mp" ? "MP" : "HP"}</span>
-          <span class="spell-cont-pill ${cont ? "" : "hidden"}">${t("continuous")}</span>
+          <button type="button" class="spell-pill-toggle ${costType === "mp" ? "active" : ""}" disabled>MP</button>
+          <button type="button" class="spell-pill-toggle ${costType === "hp" ? "active" : ""}" disabled>HP</button>
+          <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" disabled>${t("continuous")}</button>
         </div>
       `;
 
       const editDetails = `
         <div class="spell-edit-fields">
-          <input type="text" class="spell-name-inp" value="${escapeAttr(sp.name || "")}" data-spell-name="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellName"))}" />
+          <input type="text" class="spell-name-inp" value="${escapeAttr(draft ? draft.name : (sp.name || ""))}" data-spell-name="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellName"))}" />
           <div class="spell-effect-edit-row">
-            <textarea class="spell-effect-inp" data-spell-effect="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellEffect"))}" rows="3">${escapeAttr(sp.effect || "")}</textarea>
+            <textarea class="spell-effect-inp" data-spell-effect="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellEffect"))}" rows="3">${escapeAttr(draft ? draft.effect : (sp.effect || ""))}</textarea>
           </div>
           <div class="spell-edit-meta">
-            <div class="spell-cost-stepper" data-spell-cost-stepper="${escapeAttr(id)}">
+            <div class="spell-cost-pill-control" data-spell-cost-pill="${escapeAttr(id)}">
               <span class="spell-cost-label">${t("cost")}</span>
-              <button type="button" class="spell-step-btn" data-spell-cost-step="${escapeAttr(id)}" data-step="-1">−</button>
-              <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(cost))}</span>
-              <button type="button" class="spell-step-btn" data-spell-cost-step="${escapeAttr(id)}" data-step="1">+</button>
+              <div class="spell-cost-pill">
+                <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(draft ? draft.cost : cost))}</span>
+                <div class="spell-cost-arrows">
+                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-step="1" aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--accent)")}</button>
+                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-step="-1" aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--accent)")}</button>
+                </div>
+              </div>
             </div>
             <div class="spell-toggle-row">
-              <button type="button" class="spell-pill-toggle ${costType === "mp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="mp">MP</button>
-              <button type="button" class="spell-pill-toggle ${costType === "hp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="hp">HP</button>
-              <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
+              <button type="button" class="spell-pill-toggle ${(draft ? draft.costType : costType) === "mp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="mp">MP</button>
+              <button type="button" class="spell-pill-toggle ${(draft ? draft.costType : costType) === "hp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="hp">HP</button>
+              <button type="button" class="spell-pill-toggle ${(draft ? draft.isContinuous : cont) ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
             </div>
           </div>
-          <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element-inp" value="${escapeAttr(sp.element || "")}" data-spell-element="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellElement"))}" /></label>
-          <div class="spell-edit-actions">
-            <button type="button" class="btn-sm spell-done-btn" data-spell-done="${escapeAttr(id)}">${t("done")}</button>
-          </div>
+          <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element-inp" value="${escapeAttr(draft ? draft.element : (sp.element || ""))}" data-spell-element="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellElement"))}" /></label>
         </div>
       `;
 
       return `
-        <div class="spell-item-wrap" data-spell-id="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}">
+        <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}">
           <div class="spell-row">
             <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
             <div class="spell-name">${escapeAttr(name)}</div>
@@ -2073,6 +2122,7 @@ function bindEvents() {
   app.querySelectorAll("[data-sheet-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       finalizeNotesEditIfOpen();
+      finalizeSpellEditIfOpen();
       state.sheetMenuOpen = false;
       await loadSheet(btn.dataset.sheetId || null, { forceRefresh: true });
       render();
@@ -2137,6 +2187,7 @@ function bindEvents() {
   app.querySelectorAll(".tab-icon-btn[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       finalizeNotesEditIfOpen();
+      finalizeSpellEditIfOpen();
       state.activeTab = btn.dataset.tab;
       render();
     });
@@ -2422,6 +2473,7 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const id = btn.dataset.spellToggle;
       if (!id) return;
+      if (String(state._editingSpellId || "") === String(id)) finalizeSpellEditIfOpen();
       setSpellOpen(id, !isSpellOpen(id));
       render();
     });
@@ -2432,13 +2484,14 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const id = btn.dataset.spellEdit;
       if (!id) return;
-      setEditingSpellId(id);
-      render();
-    });
-  });
-  app.querySelectorAll("[data-spell-done]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setEditingSpellId(null);
+      // Toggle edit like Notes: no DB writes until closing edit mode.
+      if (String(state._editingSpellId || "") === String(id)) {
+        finalizeSpellEditIfOpen();
+      } else {
+        finalizeSpellEditIfOpen();
+        setEditingSpellId(id);
+        startSpellEditDraft(id);
+      }
       render();
     });
   });
@@ -2448,40 +2501,21 @@ function bindEvents() {
     el.addEventListener("input", (e) => {
       const id = el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellElement;
       if (!id) return;
-      const next = applyLocalMutation((sheet) => {
-        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
-        if (!sp) return;
-        if (el.dataset.spellName !== undefined) sp.name = e.target.value;
-        if (el.dataset.spellEffect !== undefined) sp.effect = e.target.value;
-        if (el.dataset.spellElement !== undefined) sp.element = e.target.value;
-      });
-      if (state.roomId && state.activeSheetId && next?.spells) {
-        const sp = next.spells.find((x) => String(x.id) === String(id));
-        if (!sp) return;
-        const patch = {};
-        if (el.dataset.spellName !== undefined) patch.name = sp.name || "";
-        if (el.dataset.spellEffect !== undefined) patch.description = sp.effect || "";
-        if (el.dataset.spellElement !== undefined) patch.element = sp.element || "";
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, patch).catch(console.error);
-      }
+      if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      if (el.dataset.spellName !== undefined) state._spellEditDraft.name = e.target.value;
+      if (el.dataset.spellEffect !== undefined) state._spellEditDraft.effect = e.target.value;
+      if (el.dataset.spellElement !== undefined) state._spellEditDraft.element = e.target.value;
     });
   });
 
   // Cost stepper
-  app.querySelectorAll("[data-spell-cost-step]").forEach((btn) => {
+  app.querySelectorAll("[data-spell-cost-arrow]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const id = btn.dataset.spellCostStep;
+      const id = btn.dataset.spellCostArrow;
       const step = parseInt(btn.dataset.step, 10) || 0;
       if (!id || !step) return;
-      const next = applyLocalMutation((sheet) => {
-        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
-        if (!sp) return;
-        sp.cost = Math.max(0, (Number(sp.cost) || 0) + step);
-      });
-      const sp = next?.spells?.find((x) => String(x.id) === String(id));
-      if (state.roomId && state.activeSheetId && sp) {
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { cost: sp.cost ?? 0 }).catch(console.error);
-      }
+      if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      state._spellEditDraft.cost = Math.max(0, (Number(state._spellEditDraft.cost) || 0) + step);
       render();
     });
   });
@@ -2492,15 +2526,8 @@ function bindEvents() {
       const id = btn.dataset.spellCostType;
       const nextType = btn.dataset.costType;
       if (!id || !nextType) return;
-      const next = applyLocalMutation((sheet) => {
-        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
-        if (!sp) return;
-        sp.costType = nextType === "hp" ? "hp" : "mp";
-      });
-      const sp = next?.spells?.find((x) => String(x.id) === String(id));
-      if (state.roomId && state.activeSheetId && sp) {
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { is_hp: (sp.costType || "mp") === "hp" }).catch(console.error);
-      }
+      if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      state._spellEditDraft.costType = nextType === "hp" ? "hp" : "mp";
       render();
     });
   });
@@ -2510,15 +2537,8 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const id = btn.dataset.spellCont;
       if (!id) return;
-      const next = applyLocalMutation((sheet) => {
-        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
-        if (!sp) return;
-        sp.isContinuous = !sp.isContinuous;
-      });
-      const sp = next?.spells?.find((x) => String(x.id) === String(id));
-      if (state.roomId && state.activeSheetId && sp) {
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { is_continuous: !!sp.isContinuous }).catch(console.error);
-      }
+      if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      state._spellEditDraft.isContinuous = !state._spellEditDraft.isContinuous;
       render();
     });
   });
