@@ -16,6 +16,7 @@ import chatIcon from "./data/icons/Icons_chat.svg?raw";
 import notesIcon from "./data/icons/Icons_notes.svg?raw";
 import settingsIcon from "./data/icons/Icons_settings.svg?raw";
 import editIcon from "./data/icons/Icons_edit.svg?raw";
+import handleIcon from "./data/icons/Icons_handle.svg?raw";
 import frenchFlagIcon from "./data/icons/Icons_francais.svg";
 import englishFlagIcon from "./data/icons/Icons_anglais.svg";
 import {
@@ -93,6 +94,9 @@ const state = {
   _chatHistoryDraft: "",
   notesEditMode: false,
   notesDraft: "",
+  /** Spells UI state (session-only) */
+  _openSpells: {}, // spellId -> boolean
+  _editingSpellId: null,
   sheetMenuOpen: false,
   colors: {
     bg: "#4b002c",
@@ -559,6 +563,19 @@ function finalizeNotesEditIfOpen() {
       storage.updateSheetCore(state.roomId, state.activeSheetId, { notes: draft }).catch(console.error);
     }
   }
+}
+
+function isSpellOpen(spellId) {
+  return !!state._openSpells?.[String(spellId || "")];
+}
+
+function setSpellOpen(spellId, open) {
+  const id = String(spellId || "");
+  state._openSpells = { ...(state._openSpells || {}), [id]: !!open };
+}
+
+function setEditingSpellId(spellIdOrNull) {
+  state._editingSpellId = spellIdOrNull ? String(spellIdOrNull) : null;
 }
 
 function resolvePlayerDisplayName(playerId) {
@@ -1153,34 +1170,121 @@ function renderRollModals() {
   `;
 }
 
+function renderSpellRemoveModal(spells) {
+  const options = (spells || [])
+    .map((sp) => {
+      const id = String(sp.id || "");
+      const name = (sp.name || "").trim() || t("spellName");
+      return `<option value="${escapeAttr(id)}">${escapeAttr(name)}</option>`;
+    })
+    .join("");
+  return `
+    <div id="spell-remove-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>${t("remove")}</h3>
+        <label class="label">${t("selectSpellToRemove")}</label>
+        <select id="spell-remove-select" class="spell-remove-select">
+          ${options}
+        </select>
+        <div class="roll-modal-footer">
+          <button type="button" id="spell-remove-confirm" class="btn-sm">${t("remove")}</button>
+          <button type="button" id="spell-remove-cancel" class="btn-sm">${t("cancel")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderSpellsTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
   const editable = canEdit(s.id);
   const spells = s.spells || [];
   const list = spells
-    .map(
-      (sp, i) => `
-    <div class="spell-item card" data-idx="${i}">
-      <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element" value="${escapeAttr(sp.element || "")}" data-spell-element="${i}" placeholder="${escapeAttr(enterField("spellElement"))}" ${editable ? "" : "readonly"} /></label>
-      <input type="text" class="spell-name" value="${escapeAttr(sp.name)}" data-spell-name="${i}" placeholder="${escapeAttr(enterField("spellName"))}" ${editable ? "" : "readonly"} />
-      <textarea class="spell-effect" data-spell-effect="${i}" placeholder="${escapeAttr(enterField("spellEffect"))}" ${editable ? "" : "readonly"} rows="2">${escapeAttr(sp.effect)}</textarea>
-      <div class="spell-cost">
-        <input type="number" min="0" value="${sp.cost ?? 0}" data-spell-cost="${i}" placeholder="${escapeAttr(enterField("spellCost"))}" ${editable ? "" : "readonly"} />
-        <label><input type="radio" name="costType-${i}" value="mp" ${(sp.costType || "mp") === "mp" ? "checked" : ""} ${editable ? "" : "disabled"} /> ${t("costMP")}</label>
-        <label><input type="radio" name="costType-${i}" value="hp" ${sp.costType === "hp" ? "checked" : ""} ${editable ? "" : "disabled"} /> ${t("costHP")}</label>
-        ${editable ? `<button type="button" class="btn-deduct-cost" data-idx="${i}">${t("deductCost")}</button>` : ""}
-      </div>
-      ${editable ? `<button type="button" class="btn-sm" data-remove-spell="${i}">${t("remove")}</button>` : ""}
-    </div>
-  `
-    )
+    .map((sp, i) => {
+      const id = String(sp.id || i);
+      const open = isSpellOpen(id);
+      const editing = editable && String(state._editingSpellId || "") === id;
+      const name = (sp.name || "").trim() || t("spellName");
+      const used = Math.max(0, Number(sp.useCounter) || 0);
+      const cost = Math.max(0, Number(sp.cost) || 0);
+      const costType = (sp.costType || "mp") === "hp" ? "hp" : "mp";
+      const cont = !!sp.isContinuous;
+      const arrow = inlineSvg(arrowIcon, "inline-svg spell-chevron-svg", "var(--text)");
+      const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--text)");
+      const edit = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--text)");
+
+      const viewDetails = `
+        <div class="spell-effect-row">
+          <div class="spell-effect-text">${escapeAttr(sp.effect || "") || `<span class="muted">${escapeAttr(t("spellEffect"))}</span>`}</div>
+          ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
+        </div>
+        <div class="spell-meta-row">
+          <span class="spell-cost-label">${t("cost")}</span>
+          <span class="spell-cost-pill">${escapeAttr(String(cost))}</span>
+          <span class="spell-cost-type-pill">${costType === "mp" ? "MP" : "HP"}</span>
+          <span class="spell-cont-pill ${cont ? "" : "hidden"}">${t("continuous")}</span>
+        </div>
+      `;
+
+      const editDetails = `
+        <div class="spell-edit-fields">
+          <input type="text" class="spell-name-inp" value="${escapeAttr(sp.name || "")}" data-spell-name="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellName"))}" />
+          <div class="spell-effect-edit-row">
+            <textarea class="spell-effect-inp" data-spell-effect="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellEffect"))}" rows="3">${escapeAttr(sp.effect || "")}</textarea>
+          </div>
+          <div class="spell-edit-meta">
+            <div class="spell-cost-stepper" data-spell-cost-stepper="${escapeAttr(id)}">
+              <span class="spell-cost-label">${t("cost")}</span>
+              <button type="button" class="spell-step-btn" data-spell-cost-step="${escapeAttr(id)}" data-step="-1">−</button>
+              <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(cost))}</span>
+              <button type="button" class="spell-step-btn" data-spell-cost-step="${escapeAttr(id)}" data-step="1">+</button>
+            </div>
+            <div class="spell-toggle-row">
+              <button type="button" class="spell-pill-toggle ${costType === "mp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="mp">MP</button>
+              <button type="button" class="spell-pill-toggle ${costType === "hp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="hp">HP</button>
+              <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
+            </div>
+          </div>
+          <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element-inp" value="${escapeAttr(sp.element || "")}" data-spell-element="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellElement"))}" /></label>
+          <div class="spell-edit-actions">
+            <button type="button" class="btn-sm spell-done-btn" data-spell-done="${escapeAttr(id)}">${t("done")}</button>
+          </div>
+        </div>
+      `;
+
+      return `
+        <div class="spell-item-wrap" data-spell-id="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}">
+          <div class="spell-row">
+            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
+            <div class="spell-name">${escapeAttr(name)}</div>
+            <button type="button" class="spell-use-btn" data-spell-use="${escapeAttr(id)}">${t("use")}</button>
+            <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-spell-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${arrow}</button>
+          </div>
+          ${open ? `<div class="spell-details">${editing ? editDetails : viewDetails}</div>` : ""}
+          <div class="spell-used-row ${open ? "" : "hidden"}">
+            <span class="spell-used-text">${t("used")} ${escapeAttr(String(used))} ${t("times")}</span>
+            <button type="button" class="spell-used-step" data-spell-used-step="${escapeAttr(id)}" data-step="-1">−</button>
+            <button type="button" class="spell-used-step" data-spell-used-step="${escapeAttr(id)}" data-step="1">+</button>
+          </div>
+        </div>
+      `;
+    })
     .join("");
+  const titleBtns = editable
+    ? `<div class="spells-title-btns">
+        <button type="button" class="spells-title-icon-btn" id="btn-add-spell" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg spells-title-icon", "var(--text)")}</button>
+        <button type="button" class="spells-title-icon-btn" id="btn-remove-spell" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg spells-title-icon", "var(--text)")}</button>
+      </div>`
+    : "";
   return `
-    <div class="card">
-      <h2>${t("tabSpells")}</h2>
+    <div class="card spells-card">
+      <div class="spells-title-row">
+        <h2 class="spells-title">${t("tabSpells")}</h2>
+        ${titleBtns}
+      </div>
       <div class="spell-list">${list}</div>
-      ${editable ? `<button type="button" id="btn-add-spell">${t("add")}</button>` : ""}
+      ${editable ? renderSpellRemoveModal(spells) : ""}
     </div>
   `;
 }
@@ -2267,7 +2371,7 @@ function bindEvents() {
     if (!state.sheet) return;
     const next = applyLocalMutation((sheet) => {
       if (!sheet.spells) sheet.spells = [];
-      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", element: "", cost: 0, costType: "mp" });
+      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, useCounter: 0 });
     });
     if (state.roomId && state.activeSheetId && next) {
       const idx = next.spells.length - 1;
@@ -2286,84 +2390,229 @@ function bindEvents() {
     }
     render();
   });
-  app.querySelectorAll("[data-remove-spell]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const idx = parseInt(btn.dataset.removeSpell, 10);
-      const removedId = state.sheet?.spells?.[idx]?.id;
-      const next = applyLocalMutation((sheet) => {
-        sheet.spells.splice(idx, 1);
-      });
-      if (state.roomId && state.activeSheetId) {
-        if (removedId) storage.deleteSpell(state.roomId, state.activeSheetId, removedId).catch(console.error);
-        const ordered = (next?.spells || []).map((s) => s.id);
-        storage.setSpellPositions(state.roomId, state.activeSheetId, ordered).catch(console.error);
-      }
+  // Remove modal open/close
+  app.querySelector("#btn-remove-spell")?.addEventListener("click", () => {
+    if (!canEdit(state.activeSheetId)) return;
+    document.getElementById("spell-remove-modal")?.classList.remove("hidden");
+  });
+  app.querySelector("#spell-remove-cancel")?.addEventListener("click", () => {
+    document.getElementById("spell-remove-modal")?.classList.add("hidden");
+  });
+  app.querySelector("#spell-remove-confirm")?.addEventListener("click", async () => {
+    const sel = document.getElementById("spell-remove-select");
+    const id = sel?.value || "";
+    if (!id || !state.sheet) return;
+    const idx = (state.sheet.spells || []).findIndex((x) => String(x.id) === String(id));
+    if (idx < 0) return;
+    const removedId = state.sheet.spells[idx]?.id;
+    const next = applyLocalMutation((sheet) => {
+      sheet.spells = (sheet.spells || []).filter((sp) => String(sp.id) !== String(id));
+    });
+    if (state.roomId && state.activeSheetId) {
+      if (removedId) storage.deleteSpell(state.roomId, state.activeSheetId, removedId).catch(console.error);
+      const ordered = (next?.spells || []).map((s) => s.id);
+      storage.setSpellPositions(state.roomId, state.activeSheetId, ordered).catch(console.error);
+    }
+    document.getElementById("spell-remove-modal")?.classList.add("hidden");
+    render();
+  });
+
+  // Toggle open
+  app.querySelectorAll("[data-spell-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.spellToggle;
+      if (!id) return;
+      setSpellOpen(id, !isSpellOpen(id));
       render();
     });
   });
-  app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-cost], [data-spell-element]").forEach((el) => {
-    el.addEventListener("change", async (e) => {
-      const idx = parseInt(el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellCost ?? el.dataset.spellElement, 10);
+
+  // Enter edit mode
+  app.querySelectorAll("[data-spell-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.spellEdit;
+      if (!id) return;
+      setEditingSpellId(id);
+      render();
+    });
+  });
+  app.querySelectorAll("[data-spell-done]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setEditingSpellId(null);
+      render();
+    });
+  });
+
+  // Edit fields
+  app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-element]").forEach((el) => {
+    el.addEventListener("input", (e) => {
+      const id = el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellElement;
+      if (!id) return;
       const next = applyLocalMutation((sheet) => {
-        const sp = sheet.spells[idx];
+        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
         if (!sp) return;
         if (el.dataset.spellName !== undefined) sp.name = e.target.value;
         if (el.dataset.spellEffect !== undefined) sp.effect = e.target.value;
-        if (el.dataset.spellCost !== undefined) sp.cost = parseInt(e.target.value, 10) || 0;
         if (el.dataset.spellElement !== undefined) sp.element = e.target.value;
       });
-      if (state.roomId && state.activeSheetId && next?.spells?.[idx]) {
-        const sp = next.spells[idx];
+      if (state.roomId && state.activeSheetId && next?.spells) {
+        const sp = next.spells.find((x) => String(x.id) === String(id));
+        if (!sp) return;
         const patch = {};
         if (el.dataset.spellName !== undefined) patch.name = sp.name || "";
         if (el.dataset.spellEffect !== undefined) patch.description = sp.effect || "";
-        if (el.dataset.spellCost !== undefined) patch.cost = sp.cost ?? 0;
         if (el.dataset.spellElement !== undefined) patch.element = sp.element || "";
         storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, patch).catch(console.error);
       }
     });
   });
-  app.querySelectorAll("[name^='costType-']").forEach((radio) => {
-    radio.addEventListener("change", async (e) => {
-      const idx = parseInt(e.target.name.replace("costType-", ""), 10);
-      const next = applyLocalMutation((sheet) => {
-        if (sheet.spells[idx]) sheet.spells[idx].costType = e.target.value;
-      });
-      if (state.roomId && state.activeSheetId && next?.spells?.[idx]) {
-        const sp = next.spells[idx];
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { is_hp: (sp.costType || "mp") === "hp" }).catch(console.error);
-      }
-    });
-  });
-  app.querySelectorAll(".btn-deduct-cost").forEach((btn) => {
+
+  // Cost stepper
+  app.querySelectorAll("[data-spell-cost-step]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const idx = parseInt(btn.dataset.idx, 10);
-      const sp = state.sheet.spells[idx];
-      const cost = sp.cost || 0;
-      const isMP = (sp.costType || "mp") === "mp";
-      if (isMP) {
-        const mp = state.sheet.currentMP || 0;
-        if (mp >= cost) {
-          state.sheet.currentMP = mp - cost;
-        } else {
-          const needHP = cost - mp;
-          if (!confirm(t("confirmUseHP"))) return;
-          state.sheet.currentMP = 0;
-          state.sheet.currentHP = Math.max(0, (state.sheet.currentHP || 0) - needHP);
-        }
-      } else {
-        state.sheet.currentHP = Math.max(0, (state.sheet.currentHP || 0) - cost);
-      }
-      saveSheet();
-      if (state.roomId && state.activeSheetId) {
-        storage.updateSheetCore(state.roomId, state.activeSheetId, {
-          currentHP: state.sheet.currentHP,
-          currentMP: state.sheet.currentMP,
-        }).catch(console.error);
+      const id = btn.dataset.spellCostStep;
+      const step = parseInt(btn.dataset.step, 10) || 0;
+      if (!id || !step) return;
+      const next = applyLocalMutation((sheet) => {
+        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
+        if (!sp) return;
+        sp.cost = Math.max(0, (Number(sp.cost) || 0) + step);
+      });
+      const sp = next?.spells?.find((x) => String(x.id) === String(id));
+      if (state.roomId && state.activeSheetId && sp) {
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { cost: sp.cost ?? 0 }).catch(console.error);
       }
       render();
     });
   });
+
+  // Cost type toggle
+  app.querySelectorAll("[data-spell-cost-type]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.spellCostType;
+      const nextType = btn.dataset.costType;
+      if (!id || !nextType) return;
+      const next = applyLocalMutation((sheet) => {
+        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
+        if (!sp) return;
+        sp.costType = nextType === "hp" ? "hp" : "mp";
+      });
+      const sp = next?.spells?.find((x) => String(x.id) === String(id));
+      if (state.roomId && state.activeSheetId && sp) {
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { is_hp: (sp.costType || "mp") === "hp" }).catch(console.error);
+      }
+      render();
+    });
+  });
+
+  // Continuous toggle
+  app.querySelectorAll("[data-spell-cont]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.spellCont;
+      if (!id) return;
+      const next = applyLocalMutation((sheet) => {
+        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
+        if (!sp) return;
+        sp.isContinuous = !sp.isContinuous;
+      });
+      const sp = next?.spells?.find((x) => String(x.id) === String(id));
+      if (state.roomId && state.activeSheetId && sp) {
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { is_continuous: !!sp.isContinuous }).catch(console.error);
+      }
+      render();
+    });
+  });
+
+  // Used counter +/- (visual)
+  app.querySelectorAll("[data-spell-used-step]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.spellUsedStep;
+      const step = parseInt(btn.dataset.step, 10) || 0;
+      if (!id || !step) return;
+      const next = applyLocalMutation((sheet) => {
+        const sp = (sheet.spells || []).find((x) => String(x.id) === String(id));
+        if (!sp) return;
+        sp.useCounter = Math.max(0, (Number(sp.useCounter) || 0) + step);
+      });
+      const sp = next?.spells?.find((x) => String(x.id) === String(id));
+      if (state.roomId && state.activeSheetId && sp) {
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch(console.error);
+      }
+      render();
+    });
+  });
+
+  // USE: pay resource + increment used
+  app.querySelectorAll("[data-spell-use]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.spellUse;
+      if (!id || !state.sheet || !state.roomId || !state.activeSheetId) return;
+      const sp = (state.sheet.spells || []).find((x) => String(x.id) === String(id));
+      if (!sp) return;
+      const cost = Math.max(0, Number(sp.cost) || 0);
+      const isMP = (sp.costType || "mp") === "mp";
+      if (isMP) {
+        const mp = Math.max(0, Number(state.sheet.currentMP) || 0);
+        if (mp >= cost) {
+          state.sheet.currentMP = mp - cost;
+        } else {
+          const needHP = cost - mp;
+          if (needHP > 0 && !confirm(t("confirmUseHP"))) return;
+          state.sheet.currentMP = 0;
+          state.sheet.currentHP = Math.max(0, (Number(state.sheet.currentHP) || 0) - needHP);
+        }
+      } else {
+        state.sheet.currentHP = Math.max(0, (Number(state.sheet.currentHP) || 0) - cost);
+      }
+      sp.useCounter = Math.max(0, (Number(sp.useCounter) || 0) + 1);
+      saveSheet();
+      storage.updateSheetCore(state.roomId, state.activeSheetId, { currentHP: state.sheet.currentHP, currentMP: state.sheet.currentMP }).catch(console.error);
+      storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch(console.error);
+      render();
+    });
+  });
+
+  // Reorder via drag and drop
+  const spellList = app.querySelector(".spell-list");
+  if (spellList && editable && !spellList.dataset.dragBound) {
+    let draggingId = null;
+    spellList.addEventListener("dragstart", (e) => {
+      const item = e.target.closest(".spell-item-wrap");
+      if (!item) return;
+      draggingId = item.dataset.spellId;
+      e.dataTransfer.effectAllowed = "move";
+      item.classList.add("dragging");
+    });
+    spellList.addEventListener("dragend", (e) => {
+      const item = e.target.closest(".spell-item-wrap");
+      item?.classList.remove("dragging");
+      draggingId = null;
+    });
+    spellList.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const over = e.target.closest(".spell-item-wrap");
+      if (!over || !draggingId) return;
+      const draggingEl = spellList.querySelector(`.spell-item-wrap[data-spell-id="${CSS.escape(draggingId)}"]`);
+      if (!draggingEl || over === draggingEl) return;
+      const rect = over.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      spellList.insertBefore(draggingEl, before ? over : over.nextSibling);
+    });
+    spellList.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      const orderedIds = Array.from(spellList.querySelectorAll(".spell-item-wrap")).map((el) => el.dataset.spellId).filter(Boolean);
+      const next = applyLocalMutation((sheet) => {
+        const map = new Map((sheet.spells || []).map((sp) => [String(sp.id), sp]));
+        sheet.spells = orderedIds.map((id) => map.get(String(id))).filter(Boolean);
+      });
+      if (next?.spells?.length) {
+        storage.setSpellPositions(state.roomId, state.activeSheetId, next.spells.map((s) => s.id)).catch(console.error);
+      }
+      render();
+    });
+    spellList.dataset.dragBound = "true";
+  }
 
   // Inventory
   app.querySelectorAll(".equip-select").forEach((el) => {
