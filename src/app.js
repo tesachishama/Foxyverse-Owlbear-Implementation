@@ -591,7 +591,6 @@ function startSpellEditDraft(spellId) {
     id,
     name: sp.name || "",
     effect: sp.effect || "",
-    element: sp.element || "",
     cost: Math.max(0, Number(sp.cost) || 0),
     costType: (sp.costType || "mp") === "hp" ? "hp" : "mp",
     isContinuous: !!sp.isContinuous,
@@ -608,7 +607,6 @@ function finalizeSpellEditIfOpen() {
     if (!sp) return;
     sp.name = d.name || "";
     sp.effect = d.effect || "";
-    sp.element = d.element || "";
     sp.cost = Math.max(0, Number(d.cost) || 0);
     sp.costType = d.costType === "hp" ? "hp" : "mp";
     sp.isContinuous = !!d.isContinuous;
@@ -618,7 +616,6 @@ function finalizeSpellEditIfOpen() {
     storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, {
       name: sp.name || "",
       description: sp.effect || "",
-      element: sp.element || "",
       cost: sp.cost ?? 0,
       is_hp: (sp.costType || "mp") === "hp",
       is_continuous: !!sp.isContinuous,
@@ -1275,10 +1272,12 @@ function renderSpellsTab() {
       const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--text)");
       const edit = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--text)");
 
+      const viewNameHtml = renderChatBody(displayName);
+      const viewEffectHtml = renderChatBody(sp.effect || "") || `<span class="muted">${escapeAttr(t("spellEffect"))}</span>`;
+
       const viewDetails = `
         <div class="spell-effect-row">
-          <div class="spell-effect-text">${escapeAttr(sp.effect || "") || `<span class="muted">${escapeAttr(t("spellEffect"))}</span>`}</div>
-          ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
+          <div class="spell-effect-text">${viewEffectHtml}</div>
         </div>
         <div class="spell-meta-row">
           <span class="spell-cost-label">${t("cost")}</span>
@@ -1311,13 +1310,12 @@ function renderSpellsTab() {
               <button type="button" class="spell-pill-toggle ${(draft ? draft.isContinuous : cont) ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
             </div>
           </div>
-          <label class="spell-element-row">${t("spellElement")} <input type="text" class="spell-element-inp" value="${escapeAttr(draft ? draft.element : (sp.element || ""))}" data-spell-element="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellElement"))}" /></label>
         </div>
       `;
 
       const nameCell = editing
         ? `<input type="text" class="spell-name spell-name-inp" value="${escapeAttr(draft ? draft.name : (sp.name || ""))}" data-spell-name="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellName"))}" />`
-        : `<div class="spell-name spell-name-display">${escapeAttr(displayName)}</div>`;
+        : `<div class="spell-name spell-name-display">${viewNameHtml}</div>`;
 
       return `
         <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="false">
@@ -1325,6 +1323,7 @@ function renderSpellsTab() {
             <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
             ${nameCell}
             <button type="button" class="spell-use-btn" data-spell-use="${escapeAttr(id)}">${t("use")}</button>
+            ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
             <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-spell-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${arrow}</button>
           </div>
           ${open ? `<div class="spell-details">${editing ? editDetails : viewDetails}</div>` : ""}
@@ -1348,6 +1347,7 @@ function renderSpellsTab() {
   return `
     <div class="card spells-card">
       <div class="spells-title-row">
+        <div class="spells-title-spacer"></div>
         <h2 class="spells-title">${t("tabSpells")}</h2>
         ${titleBtns}
       </div>
@@ -2550,14 +2550,13 @@ function bindEvents() {
   });
 
   // Edit fields
-  app.querySelectorAll("[data-spell-name], [data-spell-effect], [data-spell-element]").forEach((el) => {
+  app.querySelectorAll("[data-spell-name], [data-spell-effect]").forEach((el) => {
     el.addEventListener("input", (e) => {
       const id = el.dataset.spellName ?? el.dataset.spellEffect ?? el.dataset.spellElement;
       if (!id) return;
       if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
       if (el.dataset.spellName !== undefined) state._spellEditDraft.name = e.target.value;
       if (el.dataset.spellEffect !== undefined) state._spellEditDraft.effect = e.target.value;
-      if (el.dataset.spellElement !== undefined) state._spellEditDraft.element = e.target.value;
     });
   });
 

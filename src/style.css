@@ -519,11 +519,12 @@ button:disabled {
 }
 
 .spells-card { padding: 0.65rem 0.7rem 0.8rem; border-radius: 18px; }
-.spells-title-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.spells-title { margin: 0; text-align: center; flex: 1; }
-.spells-title-btns { display: inline-flex; gap: 0.25rem; }
+.spells-title-row { display: grid; grid-template-columns: 2.1rem 1fr auto; align-items: center; gap: 0.25rem; }
+.spells-title-spacer { width: 2.1rem; height: 2.1rem; }
+.spells-title { margin: 0; text-align: center; }
+.spells-title-btns { display: inline-flex; gap: 0.06rem; }
 .spells-title-icon-btn { width: 2.1rem; height: 2.1rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 999px; }
-.spells-title-icon { width: 1.05rem; height: 1.05rem; display: block; }
+.spells-title-icon { width: 1.7rem; height: 1.7rem; display: block; }
 
 .spell-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.35rem; }
 .spell-item-wrap { border: 3px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); }
@@ -531,7 +532,7 @@ button:disabled {
 .spell-item-wrap.open { border-radius: 18px; padding: 0.35rem 0.35rem 0.3rem; }
 .spell-item-wrap.dragging { opacity: 0.8; }
 
-.spell-row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.35rem; }
+.spell-row { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 0.25rem; }
 .spell-handle-btn { width: 1.9rem; height: 1.9rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: grab; opacity: 0.9; }
 .spell-handle-btn:active { cursor: grabbing; }
 .spell-handle-svg { width: 1.1rem; height: 0.9rem; display: block; }
@@ -560,8 +561,8 @@ button:disabled {
 .spell-details { margin-top: 0.35rem; padding-top: 0.15rem; border-top: none; }
 .spell-effect-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: start; }
 .spell-effect-text { white-space: pre-wrap; word-break: break-word; }
-.spell-edit-btn { width: 2rem; height: 2rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; }
-.spell-edit-svg { width: 1.05rem; height: 1.05rem; display: block; }
+.spell-edit-btn { width: 2.2rem; height: 2.2rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; }
+.spell-edit-svg { width: 1.15rem; height: 1.15rem; display: block; }
 
 .spell-meta-row { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.35rem; }
 .spell-cost-label { opacity: 0.95; }
@@ -569,7 +570,7 @@ button:disabled {
 
 .spell-used-row { display: flex; align-items: center; justify-content: flex-end; margin-top: 0.35rem; opacity: 0.95; }
 .spell-used-row.hidden { display: none; }
-.spell-used-cluster { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.35rem; margin-left: auto; flex-wrap: wrap; }
+.spell-used-cluster { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.18rem; margin-left: auto; flex-wrap: wrap; }
 .spell-used-step {
   width: 1.85rem;
   height: 1.85rem;
@@ -584,8 +585,9 @@ button:disabled {
 .spell-used-step-svg { width: 1.35rem; height: 1.35rem; display: block; }
 
 .spell-edit-fields { display: flex; flex-direction: column; gap: 0.35rem; }
-.spell-effect-inp { width: 100%; padding: 0.35rem 0.45rem; background: var(--bg); border: 3px solid var(--border); color: var(--text); border-radius: 10px; resize: vertical; }
-.spell-edit-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.spell-effect-inp { width: 100%; padding: 0; background: transparent; border: none; color: var(--text); border-radius: 0; resize: vertical; }
+.spell-effect-inp:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 6px; }
+.spell-edit-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: nowrap; }
 .spell-cost-pill-control { display: inline-flex; align-items: center; gap: 0.25rem; }
 .spell-cost-pill { display: inline-flex; align-items: center; gap: 0.35rem; }
 .spell-cost-arrows { display: inline-flex; flex-direction: column; gap: 0; margin-left: 0.15rem; }
@@ -593,7 +595,7 @@ button:disabled {
 .spell-cost-arrow-svg { width: 1rem; height: 0.65rem; display: block; }
 .spell-cost-arrow-down { transform: rotate(180deg); }
 .spell-cost-value { min-width: 2.2rem; text-align: center; font-weight: 800; }
-.spell-toggle-row { display: inline-flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+.spell-toggle-row { display: inline-flex; align-items: center; gap: 0.2rem; flex-wrap: nowrap; }
 .spell-pill-toggle { background: transparent; border: 3px solid var(--border); color: var(--text); padding: 0.18rem 0.55rem; border-radius: 999px; }
 .spell-pill-toggle.active { background: var(--accent); color: var(--bg); }
 .spell-pill-toggle.active:disabled,
@@ -609,7 +611,6 @@ button:disabled {
   opacity: 1;
   color: color-mix(in srgb, var(--text) 72%, transparent);
 }
-.spell-element-inp { width: 100%; padding: 0.3rem 0.45rem; background: var(--bg); border: 3px solid var(--border); color: var(--text); border-radius: 10px; }
 .spell-edit-actions { display: flex; justify-content: flex-end; }
 .spell-remove-modal-content .spell-remove-picker { width: 100%; margin-top: 0.35rem; }
 
