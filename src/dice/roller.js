@@ -173,7 +173,8 @@ export function getInlineButtons(text) {
     if (!inside) continue;
     const pipeIdx = inside.indexOf("|");
     const left = pipeIdx >= 0 ? inside.slice(0, pipeIdx).trim() : inside;
-    const customLabel = pipeIdx >= 0 ? inside.slice(pipeIdx + 1).trim() : "";
+    const hasCustomLabel = pipeIdx >= 0;
+    const customLabel = hasCustomLabel ? inside.slice(pipeIdx + 1) : null;
 
     const parsed = parseTypeAndFormula(left);
     if (!parsed) continue;
@@ -188,12 +189,13 @@ export function getInlineButtons(text) {
         count: rep.count,
         label: inside,
         customLabel,
+        hasCustomLabel,
       });
       continue;
     }
     const mapped = ROLL_TYPE_ALIASES[typeKey];
     if (mapped) {
-      out.push({ raw: match[0], kind: mapped, formula: rep.formula, count: rep.count, label: inside, customLabel });
+      out.push({ raw: match[0], kind: mapped, formula: rep.formula, count: rep.count, label: inside, customLabel, hasCustomLabel });
     }
   }
   return out;

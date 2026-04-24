@@ -358,8 +358,7 @@ const INLINE_DICE_SVG = {
 };
 
 function formatInlineRollButtonCaption(btn) {
-  const override = String(btn.customLabel ?? "").trim();
-  if (override) return override;
+  if (btn?.hasCustomLabel) return String(btn.customLabel ?? "").trim();
   const formula = String(btn.formula ?? "").trim();
   const cnt = Math.max(1, Number(btn.count) || 1);
   if (btn.kind === "stat" && btn.stat) {
@@ -446,10 +445,13 @@ function renderNotesBody(raw) {
   buttons.forEach((btn) => {
     const stat = (btn.stat || "").toString();
     const formula = (btn.formula || "").toString();
-    const caption = escapeAttr(formatInlineRollButtonCaption(btn));
+    const captionRaw = formatInlineRollButtonCaption(btn);
+    const caption = escapeAttr(captionRaw);
+    const aria = escapeAttr(captionRaw || formatInlineRollButtonCaption({ ...btn, hasCustomLabel: false }) || t("roll"));
     const iconHtml = inlineDiceMarkupForButton(btn);
+    const captionSpan = captionRaw ? `<span class="inline-roll-caption">${caption}</span>` : "";
     html = html.split(escapeAttr(btn.raw)).join(
-      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`
+      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" aria-label="${aria}">${iconHtml}${captionSpan}</button>`
     );
   });
   return html;
@@ -1278,6 +1280,7 @@ function renderSpellsTab() {
       const viewDetails = `
         <div class="spell-effect-row">
           <div class="spell-effect-text">${viewEffectHtml}</div>
+          ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
         </div>
         <div class="spell-meta-row">
           <span class="spell-cost-label">${t("cost")}</span>
@@ -1290,8 +1293,11 @@ function renderSpellsTab() {
 
       const editDetails = `
         <div class="spell-edit-fields">
-          <div class="spell-effect-edit-row">
-            <textarea class="spell-effect-inp" data-spell-effect="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellEffect"))}" rows="3">${escapeAttr(draft ? draft.effect : (sp.effect || ""))}</textarea>
+          <div class="spell-effect-row">
+            <div class="spell-effect-edit-row">
+              <textarea class="spell-effect-inp" data-spell-effect="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellEffect"))}" rows="3">${escapeAttr(draft ? draft.effect : (sp.effect || ""))}</textarea>
+            </div>
+            ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
           </div>
           <div class="spell-edit-meta">
             <div class="spell-cost-pill-control" data-spell-cost-pill="${escapeAttr(id)}">
@@ -1318,12 +1324,11 @@ function renderSpellsTab() {
         : `<div class="spell-name spell-name-display">${viewNameHtml}</div>`;
 
       return `
-        <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="false">
+        <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}">
           <div class="spell-row">
-            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
+            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
             ${nameCell}
             <button type="button" class="spell-use-btn" data-spell-use="${escapeAttr(id)}">${t("use")}</button>
-            ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
             <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-spell-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${arrow}</button>
           </div>
           ${open ? `<div class="spell-details">${editing ? editDetails : viewDetails}</div>` : ""}
@@ -1569,10 +1574,13 @@ function renderChatBody(body) {
   buttons.forEach((btn) => {
     const stat = (btn.stat || "").toString();
     const formula = (btn.formula || "").toString();
-    const caption = escapeAttr(formatInlineRollButtonCaption(btn));
+    const captionRaw = formatInlineRollButtonCaption(btn);
+    const caption = escapeAttr(captionRaw);
+    const aria = escapeAttr(captionRaw || formatInlineRollButtonCaption({ ...btn, hasCustomLabel: false }) || t("roll"));
     const iconHtml = inlineDiceMarkupForButton(btn);
     const rawEsc = escapeAttr(btn.raw);
-    const html = `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${caption}">${iconHtml}<span class="inline-roll-caption">${caption}</span></button>`;
+    const captionSpan = captionRaw ? `<span class="inline-roll-caption">${caption}</span>` : "";
+    const html = `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${aria}">${iconHtml}${captionSpan}</button>`;
     // Replace in escaped text so special chars like < or > don't break matching.
     text = text.split(rawEsc).join(html);
   });
