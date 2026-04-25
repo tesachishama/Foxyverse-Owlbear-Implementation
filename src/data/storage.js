@@ -2,6 +2,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import { supabase } from "./supabase.js";
 import { createEmptySheet, STAT_IDS } from "./schema.js";
 
+// DB column reference: see `docs/DB_SCHEMA.sql` (project-provided, reference only).
 const ROOM_META_KEY = "foxyverse";
 const STORAGE_PREFIX = "foxyverse_sheet_";
 
