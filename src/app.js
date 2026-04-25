@@ -2207,7 +2207,14 @@ function bindEvents() {
         sheet.spells = orderedIds.map((id) => map.get(String(id))).filter(Boolean);
       });
       if (next?.spells?.length) {
-        storage.setSpellPositions(state.roomId, state.activeSheetId, next.spells.map((s) => s.id)).catch(console.error);
+        try {
+          // Persist *all* positions immediately on drop to avoid duplicates.
+          await storage.setSpellPositions(state.roomId, state.activeSheetId, next.spells.map((s) => s.id));
+        } catch (err) {
+          console.error(err);
+          const msg = err?.message || err?.details || String(err);
+          try { OBR.notification.show(`Spell reorder save failed: ${msg}`); } catch (_) {}
+        }
       }
       render();
     };
