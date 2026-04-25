@@ -564,13 +564,13 @@ button:disabled {
 .spell-edit-btn { width: 2.2rem; height: 2.2rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; }
 .spell-edit-svg { width: 1.15rem; height: 1.15rem; display: block; }
 
-.spell-meta-row { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.35rem; }
+.spell-meta-row { display: flex; align-items: center; gap: 0.28rem; flex-wrap: nowrap; margin-top: 0.35rem; min-width: 0; }
 .spell-cost-label { opacity: 0.95; }
-.spell-cost-pill { border: 3px solid var(--border); border-radius: 999px; padding: 0.12rem 0.4rem; background: transparent; }
+.spell-cost-pill { border: 3px solid var(--border); border-radius: 999px; padding: 0.12rem 0.4rem; background: transparent; display: inline-flex; align-items: center; justify-content: center; min-width: 2.9rem; }
 
 .spell-used-row { display: flex; align-items: center; justify-content: flex-end; margin-top: 0.35rem; opacity: 0.95; }
 .spell-used-row.hidden { display: none; }
-.spell-used-cluster { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.08rem; margin-left: auto; flex-wrap: wrap; }
+.spell-used-cluster { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.04rem; margin-left: auto; flex-wrap: wrap; }
 .spell-used-step {
   width: 1.85rem;
   height: 1.85rem;
@@ -589,8 +589,8 @@ button:disabled {
 .spell-effect-inp:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 6px; }
 .spell-edit-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: nowrap; }
 .spell-cost-pill-control { display: inline-flex; align-items: center; gap: 0.25rem; }
-.spell-cost-pill { display: inline-flex; align-items: center; gap: 0.35rem; }
-.spell-cost-arrows { display: inline-flex; flex-direction: column; gap: 0; margin-left: 0.15rem; }
+.spell-cost-pill { display: inline-flex; align-items: center; gap: 0.18rem; }
+.spell-cost-arrows { display: inline-flex; flex-direction: column; gap: 0; margin-left: 0.05rem; }
 .spell-cost-arrow-btn { width: 1.05rem; height: 1rem; padding: 0; border: none; background: transparent; display: inline-flex; align-items: center; justify-content: center; }
 .spell-cost-arrow-svg { width: 0.9rem; height: 0.6rem; display: block; }
 .spell-cost-arrow-down { transform: rotate(180deg); }

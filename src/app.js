@@ -615,13 +615,24 @@ function finalizeSpellEditIfOpen() {
   });
   const sp = next?.spells?.find((x) => String(x.id) === id);
   if (sp && state.roomId && state.activeSheetId) {
-    storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, {
+    // Use upsert instead of update so newly-added spells always persist
+    // even if the initial insert failed (permissions/race/etc).
+    const position = Math.max(0, (next?.spells || []).findIndex((x) => String(x.id) === String(sp.id)));
+    storage.upsertSpell(state.roomId, state.activeSheetId, {
+      id: sp.id,
+      position,
       name: sp.name || "",
       description: sp.effect || "",
+      element: "",
       cost: sp.cost ?? 0,
       is_hp: (sp.costType || "mp") === "hp",
       is_continuous: !!sp.isContinuous,
-    }).catch(console.error);
+      use_counter: sp.useCounter ?? 0,
+    }).catch((err) => {
+      console.error(err);
+      const msg = err?.message || err?.details || String(err);
+      try { OBR.notification.show(`Spell save failed: ${msg}`); } catch (_) {}
+    });
   }
   state._editingSpellId = null;
   state._spellEditDraft = null;
@@ -2476,7 +2487,11 @@ function bindEvents() {
         is_hp: (sp.costType || "mp") === "hp",
         is_continuous: !!sp.isContinuous,
         use_counter: sp.useCounter ?? 0,
-      }).catch(console.error);
+      }).catch((err) => {
+        console.error(err);
+        const msg = err?.message || err?.details || String(err);
+        try { OBR.notification.show(`Spell add failed: ${msg}`); } catch (_) {}
+      });
     }
     render();
   });
@@ -2616,7 +2631,11 @@ function bindEvents() {
       });
       const sp = next?.spells?.find((x) => String(x.id) === String(id));
       if (state.roomId && state.activeSheetId && sp) {
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch(console.error);
+        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch((err) => {
+          console.error(err);
+          const msg = err?.message || err?.details || String(err);
+          try { OBR.notification.show(`Spell counter save failed: ${msg}`); } catch (_) {}
+        });
       }
       render();
     });
@@ -2647,7 +2666,11 @@ function bindEvents() {
       sp.useCounter = Math.max(0, (Number(sp.useCounter) || 0) + 1);
       saveSheet();
       storage.updateSheetCore(state.roomId, state.activeSheetId, { currentHP: state.sheet.currentHP, currentMP: state.sheet.currentMP }).catch(console.error);
-      storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch(console.error);
+      storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch((err) => {
+        console.error(err);
+        const msg = err?.message || err?.details || String(err);
+        try { OBR.notification.show(`Spell counter save failed: ${msg}`); } catch (_) {}
+      });
       render();
     });
   });
