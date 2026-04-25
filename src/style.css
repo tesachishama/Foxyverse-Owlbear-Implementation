@@ -531,6 +531,14 @@ button:disabled {
 .spell-item-wrap.wrapped { border-radius: 999px; padding: 0.2rem 0.35rem; }
 .spell-item-wrap.open { border-radius: 18px; padding: 0.35rem 0.35rem 0.3rem; }
 .spell-item-wrap.dragging { opacity: 0.8; }
+.spell-list.dragging-active .spell-item-wrap.dragging {
+  opacity: 0.92;
+  transform: scale(1.015);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+}
+.spell-list.dragging-active .spell-handle-btn {
+  cursor: grabbing;
+}
 
 .spell-row { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 0.25rem; }
 .spell-handle-btn { width: 1.9rem; height: 1.9rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: grab; opacity: 0.9; }

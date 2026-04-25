@@ -2692,16 +2692,27 @@ function bindEvents() {
       try {
         e.dataTransfer.setData("text/plain", draggingId || "");
       } catch (_) {}
+      // In some environments (incl. embedded browsers), drag will show a "forbidden"
+      // cursor unless a supported effect is set.
       e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
+      // Use the full spell block as the drag image (modern reorder feel).
+      try {
+        const r = item.getBoundingClientRect();
+        e.dataTransfer.setDragImage(item, Math.max(1, Math.floor(r.width * 0.5)), Math.max(1, Math.floor(r.height * 0.5)));
+      } catch (_) {}
       item.classList.add("dragging");
+      spellList.classList.add("dragging-active");
     });
     spellList.addEventListener("dragend", (e) => {
       const item = e.target.closest(".spell-item-wrap");
       item?.classList.remove("dragging");
       draggingId = null;
+      spellList.classList.remove("dragging-active");
     });
     spellList.addEventListener("dragover", (e) => {
       e.preventDefault();
+      try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
       const over = e.target.closest(".spell-item-wrap");
       if (!over || !draggingId) return;
       const draggingEl = spellList.querySelector(`.spell-item-wrap[data-spell-id="${CSS.escape(draggingId)}"]`);
