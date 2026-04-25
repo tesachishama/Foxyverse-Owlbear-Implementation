@@ -121,6 +121,9 @@ const state = {
   _realtimePendingAfterEdit: false,
   _scheduleRealtimeFlush: null,
   _debouncedSaves: {},
+  // Talents (stats tab) modal state
+  talentModalOpen: false,
+  talentDraft: null, // { id, name, description, tier, bonusOverride }
 };
 
 function canView(sheetId) {
@@ -1114,98 +1117,330 @@ function renderStatsTab() {
   const maxMP = getMaxMP(s);
   const maxFavor = getMaxFavor(s);
   const actions = getActionCount(s);
-  const speedFormula = getSpeedFormula(s);
+  const speedFormula = "1d6+agi%5+bonspe";
   const editable = canEdit(s.id);
 
-  let hpMp = `
-    <div class="stat-row">
-      <span class="label">${t("tempHP")}</span>
-      <input type="number" min="0" value="${s.tempHP ?? 0}" data-field="tempHP" placeholder="${escapeAttr(enterField("tempHP"))}" ${editable ? "" : "readonly"} />
-    </div>
-    <div class="stat-row">
-      <span class="label">${t("currentHP")}</span>
-      <input type="number" min="0" max="${maxHP}" value="${s.currentHP ?? 0}" data-field="currentHP" placeholder="${escapeAttr(enterField("currentHP"))}" ${editable ? "" : "readonly"} />
-      <span class="muted">/ ${maxHP}</span>
-    </div>
-    <div class="stat-row">
-      <span class="label">${t("currentMP")}</span>
-      <input type="number" min="0" max="${maxMP}" value="${s.currentMP ?? 0}" data-field="currentMP" placeholder="${escapeAttr(enterField("currentMP"))}" ${editable ? "" : "readonly"} />
-      <span class="muted">/ ${maxMP}</span>
-    </div>
-    <div class="stat-row">
-      <span class="label">${t("currentFavor")}</span>
-      <input type="number" min="0" max="${maxFavor}" value="${s.currentFavor ?? 0}" data-field="currentFavor" placeholder="${escapeAttr(enterField("currentFavor"))}" ${editable ? "" : "readonly"} />
-      <span class="muted">/ ${maxFavor}</span>
-    </div>
-    <div class="stat-row">
-      <span class="label">${t("action")}</span>
-      <span>${actions}</span>
-      ${editable ? `<input type="text" placeholder="${escapeAttr(enterField("actionModifier"))}" value="${escapeAttr(s.actionModifier)}" data-field="actionModifier" class="short-input" />` : ""}
-    </div>
-    <div class="stat-row">
-      <span class="label">${t("speed")}</span>
-      <span class="formula">${speedFormula}</span>
-      ${editable ? `<input type="text" placeholder="${escapeAttr(enterField("speedModifier"))}" value="${escapeAttr(s.speedModifier)}" data-field="speedModifier" class="short-input" />` : ""}
-      <button type="button" id="btn-roll-speed" class="btn-sm">${t("rollSpeed")}</button>
-    </div>
+  const talents = s.knowledge || [];
+
+  const signed = (n) => {
+    const v = Number(n) || 0;
+    return v >= 0 ? `+${v}` : String(v);
+  };
+
+  const pill = (value, { signedValue = false } = {}) => `<div class="stats-pill">${escapeAttr(signedValue ? signed(value) : String(value))}</div>`;
+
+  const stepper = (key, value, opts = {}) => {
+    const {
+      min = null,
+      max = null,
+      allowNegative = false,
+      signedValue = false,
+      aria = "",
+    } = opts;
+    const v = Number(value) || 0;
+    const minAttr = min == null ? "" : ` data-min="${escapeAttr(String(min))}"`;
+    const maxAttr = max == null ? "" : ` data-max="${escapeAttr(String(max))}"`;
+    const negAttr = allowNegative ? ` data-allow-negative="1"` : "";
+    const signedAttr = signedValue ? ` data-signed="1"` : "";
+    return `
+      <div class="stats-pill-stepper" data-stepper="${escapeAttr(key)}"${minAttr}${maxAttr}${negAttr}${signedAttr} aria-label="${escapeAttr(aria || key)}">
+        <div class="stats-pill-value">${escapeAttr(signedValue ? signed(v) : String(v))}</div>
+        <div class="stats-pill-arrows">
+          <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-stepper-step="${escapeAttr(key)}" data-delta="1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--accent)")}</button>
+          <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-stepper-step="${escapeAttr(key)}" data-delta="-1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--accent)")}</button>
+        </div>
+      </div>
+    `;
+  };
+
+  const itemBonusFor = (statId) => {
+    const equipped = s.equipped || {};
+    const seen = new Set();
+    let sum = 0;
+    Object.values(equipped).forEach((itemId) => {
+      if (!itemId || seen.has(itemId)) return;
+      seen.add(itemId);
+      const it = findItemById(s, itemId);
+      if (!it) return;
+      sum += Number(it[statId]) || 0;
+    });
+    return sum;
+  };
+
+  const totalStatValueFor = (statId) => {
+    const st = s.stats?.[statId] || {};
+    const base = Number(st.base) || 0;
+    const passive = Number(st.passiveBonus) || 0;
+    const item = itemBonusFor(statId);
+    return base + passive + item;
+  };
+
+  const statStrip = STAT_IDS.map((statId) => {
+    const abbr = escapeAttr(t(`statAbbr_${statId}`));
+    const total = totalStatValueFor(statId);
+    const iconHtml = inlineDiceMarkupForButton({ formula: "1d20", kind: "stat" });
+    return `
+      <button type="button" class="stats-strip-btn inline-roll-btn" data-kind="stat" data-stat="${escapeAttr(statId)}" data-formula="" aria-label="${escapeAttr(t(statId))}">
+        <div class="stats-strip-abbr">${abbr}</div>
+        <div class="stats-strip-pill"><span class="stats-strip-dice">${iconHtml}</span><span class="stats-strip-val">${escapeAttr(String(total))}</span></div>
+      </button>
+    `;
+  }).join("");
+
+  const talentBonusText = (tl) => {
+    const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
+    const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
+    const override = tl.bonusOverride != null ? String(tl.bonusOverride) : "";
+    return override ? escapeAttr(String(override)) : tierMap[tier] || "+0";
+  };
+
+  const talentsGrid = talents
+    .map((tl, idx) => {
+      const name = String(tl.name || "").trim() || t("talentName");
+      const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
+      const tierLbl = `T${tier}`;
+      const bonusLbl = talentBonusText(tl);
+      return `
+        <div class="talent-pill" data-talent-id="${escapeAttr(String(tl.id || idx))}">
+          <div class="talent-name">${escapeAttr(name)}</div>
+          <div class="talent-tier">${escapeAttr(tierLbl)}</div>
+          <div class="talent-bonus">${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
+          ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(String(tl.id || idx))}" aria-label="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
+        </div>
+      `;
+    })
+    .join("");
+
+  const level = Number(s.bio?.level) || 1;
+  const totalPoints = (() => {
+    const costFor = (val) => {
+      const v = Math.max(0, Number(val) || 0);
+      const extra = Math.max(0, v - 5);
+      let cost = 0;
+      for (let i = 1; i <= extra; i++) {
+        const statVal = 5 + i;
+        const tier = Math.floor((Math.max(0, statVal - 1) - 20) / 10) + 1; // 1 for <=20
+        cost += tier <= 1 ? 1 : tier;
+      }
+      return cost;
+    };
+    return STAT_IDS.reduce((sum, id) => sum + costFor(s.stats?.[id]?.base), 0);
+  })();
+
+  const detailedRows = STAT_IDS.map((statId) => {
+    const st = s.stats?.[statId] || {};
+    const base = Number(st.base) || 0;
+    const passive = Number(st.passiveBonus) || 0;
+    const item = itemBonusFor(statId);
+    const minBase = level === 1 ? 5 : null;
+    const maxBase = level === 1 ? 15 : null;
+    return `
+      <div class="detail-row">
+        <div class="detail-name">${escapeAttr(t(statId))}</div>
+        <div class="detail-cell">${stepper(`stat:${statId}:base`, base, { min: minBase, max: maxBase, allowNegative: false })}</div>
+        <div class="detail-cell">${pill(item, { signedValue: true })}</div>
+        <div class="detail-cell">${stepper(`stat:${statId}:passive`, passive, { allowNegative: true, signedValue: true })}</div>
+      </div>
+    `;
+  }).join("");
+
+  const defensesPhysical = getSheetDefense(s);
+  const defensesMagical = getSheetMagicalDefense(s);
+
+  const speedRollBtn = `
+    <button type="button" id="btn-roll-speed" class="stats-speed-btn" aria-label="${escapeAttr(t("speed"))}">
+      ${inlineSvg(d6Icon, "inline-svg stats-speed-d6", "var(--bg)")}
+    </button>
   `;
 
-  const knowledgeList = (s.knowledge || []).map(
-    (k, i) => `
-    <div class="knowledge-item" data-idx="${i}">
-      <input type="text" value="${escapeAttr(k.name)}" data-knowledge-name="${i}" placeholder="${escapeAttr(enterField("knowledge"))}" ${editable ? "" : "readonly"} />
-      <select data-knowledge-tier="${i}" ${editable ? "" : "disabled"}>
-        ${[1, 2, 3, 4].map((tier) => `<option value="${tier}" ${k.tier === tier ? "selected" : ""}>${t("tier" + tier)}</option>`).join("")}
-      </select>
-      <label><input type="checkbox" data-knowledge-enabled="${i}" ${k.enabled ? "checked" : ""} ${editable ? "" : "disabled"} /> On</label>
-      ${editable ? `<button type="button" class="btn-sm" data-remove-knowledge="${i}">${t("remove")}</button>` : ""}
-    </div>
-  `
-  ).join("");
+  const renderRadarSvg = () => {
+    const labels = [
+      t("statAbbr_constitution"),
+      t("statAbbr_strength"),
+      t("statAbbr_intelligence"),
+      t("statAbbr_perception"),
+      t("statAbbr_social"),
+      t("statAbbr_agility"),
+      t("statAbbr_focus"),
+    ];
+    const stats = ["constitution", "strength", "intelligence", "perception", "social", "agility", "focus"];
+    const baseVals = stats.map((id) => Number(s.stats?.[id]?.base) || 0);
+    const totalVals = stats.map((id) => totalStatValueFor(id));
+    const maxVal = Math.max(10, ...baseVals, ...totalVals, 20);
+    const size = 240;
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = 92;
+    const rings = 5;
+    const angleStep = (Math.PI * 2) / stats.length;
+    const rot = -Math.PI / 2;
 
-  let statsTable = "";
-  STAT_IDS.forEach((statId) => {
-    const st = s.stats[statId] || {};
-    const total = getStatTotal(s, statId);
-    const labelKey = statId.charAt(0).toUpperCase() + statId.slice(1);
-    const label = t(statId);
-    statsTable += `
-      <tr>
-        <td>${label}</td>
-        <td><input type="number" data-stat="${statId}.base" value="${st.base ?? 0}" placeholder="${escapeAttr(enterField("baseStat"))}" ${editable ? "" : "readonly"} /></td>
-        <td><input type="number" data-stat="${statId}.xpBonus" value="${st.xpBonus ?? 0}" placeholder="${escapeAttr(enterField("xpBonus"))}" ${editable ? "" : "readonly"} /></td>
-        <td><input type="number" data-stat="${statId}.itemBonus" value="${st.itemBonus ?? 0}" readonly /></td>
-        <td><input type="number" data-stat="${statId}.passiveBonus" value="${st.passiveBonus ?? 0}" placeholder="${escapeAttr(enterField("passiveBonus"))}" ${editable ? "" : "readonly"} /></td>
-        <td class="total">${total}</td>
-        <td>
-          <button type="button" class="btn-roll-stat" data-stat="${statId}" data-dc="${total}">${t("roll")}</button>
-          <div class="quick-mods" data-stat="${statId}">
-            <button type="button" data-mod="-10">-10</button>
-            <button type="button" data-mod="-5">-5</button>
-            <button type="button" data-mod="-3">-3</button>
-            <button type="button" data-mod="-1">-1</button>
-            <button type="button" data-mod="+1">+1</button>
-            <button type="button" data-mod="+3">+3</button>
-            <button type="button" data-mod="+5">+5</button>
-            <button type="button" data-mod="+10">+10</button>
-          </div>
-        </td>
-      </tr>
+    const pt = (val, i) => {
+      const r = (Math.max(0, val) / maxVal) * radius;
+      const a = rot + i * angleStep;
+      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+    };
+    const poly = (vals) => vals.map((v, i) => pt(v, i).map((n) => n.toFixed(1)).join(",")).join(" ");
+
+    const gridPolys = Array.from({ length: rings }, (_, k) => {
+      const r = ((k + 1) / rings) * radius;
+      const pts = stats.map((_, i) => {
+        const a = rot + i * angleStep;
+        return [cx + Math.cos(a) * r, cy + Math.sin(a) * r].map((n) => n.toFixed(1)).join(",");
+      }).join(" ");
+      return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.7" />`;
+    }).join("");
+
+    const axes = stats.map((_, i) => {
+      const a = rot + i * angleStep;
+      const x = cx + Math.cos(a) * radius;
+      const y = cy + Math.sin(a) * radius;
+      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="1" opacity="0.7" />`;
+    }).join("");
+
+    const textLabels = stats.map((_, i) => {
+      const a = rot + i * angleStep;
+      const x = cx + Math.cos(a) * (radius + 18);
+      const y = cy + Math.sin(a) * (radius + 18);
+      const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
+      const dy = Math.sin(a) > 0.7 ? "0.9em" : Math.sin(a) < -0.7 ? "-0.2em" : "0.35em";
+      return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dy="${dy}" font-weight="900" font-size="12" fill="var(--text)">${escapeAttr(labels[i])}</text>`;
+    }).join("");
+
+    const basePoly = poly(baseVals);
+    const totalPoly = poly(totalVals);
+
+    return `
+      <svg class="stats-radar" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Stats graph">
+        ${gridPolys}
+        ${axes}
+        <polygon points="${escapeAttr(totalPoly)}" fill="var(--accent)" opacity="0.35" stroke="var(--accent)" stroke-width="2" />
+        <polygon points="${escapeAttr(basePoly)}" fill="var(--text)" opacity="0.25" stroke="var(--text)" stroke-width="2" />
+        ${textLabels}
+      </svg>
     `;
-  });
+  };
 
   return `
-    <div class="card stats-tab-card">
-      <h2>${t("tabStats")}</h2>
-      <div class="hp-mp-block">${hpMp}</div>
-      <h3>${t("knowledge")}</h3>
-      <div class="knowledge-list">${knowledgeList}</div>
-      ${editable ? `<button type="button" id="btn-add-knowledge" class="btn-sm">${t("addKnowledge")}</button>` : ""}
-      <table class="stats-table">
-        <thead><tr><th></th><th>${t("baseStat")}</th><th>${t("xpBonus")}</th><th>${t("itemBonus")}</th><th>${t("passiveBonus")}</th><th>${t("total")}</th><th>${t("roll")}</th></tr></thead>
-        <tbody>${statsTable}</tbody>
-      </table>
+    <div class="card stats-tab-card stats-template">
+      <div class="stats-bubble">
+        <div class="stats-bubble-title">${t("currentHP")}</div>
+        <div class="stats-3col">
+          <div class="stats-col">
+            <div class="stats-col-label">${t("maxHP")}</div>
+            ${pill(maxHP)}
+          </div>
+          <div class="stats-col">
+            <div class="stats-col-label">${t("currentHP")}</div>
+            ${stepper("currentHP", s.currentHP ?? 0, { max: maxHP, allowNegative: true, aria: t("currentHP") })}
+          </div>
+          <div class="stats-col">
+            <div class="stats-col-label">${t("tempHP")}</div>
+            ${stepper("tempHP", s.tempHP ?? 0, { min: 0, allowNegative: false, aria: t("tempHP") })}
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-2col-line">
+        <div class="stats-bubble">
+          <div class="stats-bubble-title">${t("currentMP")}</div>
+          <div class="stats-2col">
+            <div class="stats-col">
+              <div class="stats-col-label">${t("maxMP")}</div>
+              ${pill(maxMP)}
+            </div>
+            <div class="stats-col">
+              <div class="stats-col-label">${t("currentMP")}</div>
+              ${stepper("currentMP", s.currentMP ?? 0, { min: 0, max: maxMP, aria: t("currentMP") })}
+            </div>
+          </div>
+        </div>
+        <div class="stats-bubble">
+          <div class="stats-bubble-title">${t("currentFavor")}</div>
+          <div class="stats-2col">
+            <div class="stats-col">
+              <div class="stats-col-label">${t("maxFavor")}</div>
+              ${pill(maxFavor)}
+            </div>
+            <div class="stats-col">
+              <div class="stats-col-label">${t("currentFavor")}</div>
+              ${stepper("currentFavor", s.currentFavor ?? 0, { min: 0, max: maxFavor, aria: t("currentFavor") })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-bubble">
+        <div class="stats-3sub">
+          <div class="stats-sub">
+            <div class="stats-sub-title">${t("action")}</div>
+            <div class="stats-sub-row">
+              <div class="stats-mini-col">
+                <div class="stats-mini-label">${t("total")}</div>
+                ${pill(actions)}
+              </div>
+              <div class="stats-mini-col">
+                <div class="stats-mini-label">${t("xpBonus")}</div>
+                ${stepper("bonusAction", s.bonusAction ?? 0, { allowNegative: true, signedValue: true, aria: t("actionModifier") })}
+              </div>
+            </div>
+          </div>
+          <div class="stats-sub">
+            <div class="stats-sub-title">${t("speed")}</div>
+            <div class="stats-sub-row">
+              <div class="stats-mini-col">
+                <div class="stats-mini-label">${t("roll")}</div>
+                ${speedRollBtn}
+              </div>
+              <div class="stats-mini-col">
+                <div class="stats-mini-label">${t("xpBonus")}</div>
+                ${stepper("bonusSpeed", s.bonusSpeed ?? 0, { allowNegative: true, signedValue: true, aria: t("speedModifier") })}
+              </div>
+            </div>
+          </div>
+          <div class="stats-sub">
+            <div class="stats-sub-title">${t("defense")}</div>
+            <div class="stats-sub-row">
+              <div class="stats-mini-col">
+                <div class="stats-mini-label">${t("physicalDamage")}</div>
+                ${pill(defensesPhysical)}
+              </div>
+              <div class="stats-mini-col">
+                <div class="stats-mini-label">${t("magicDamage")}</div>
+                ${pill(defensesMagical)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-bubble">
+        <div class="stats-bubble-title">${t("tabStats")}</div>
+        <div class="stats-strip">${statStrip}</div>
+      </div>
+
+      <div class="stats-bubble">
+        <div class="stats-bubble-title-row">
+          <div class="stats-bubble-title">${t("knowledge")}</div>
+          ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--text)")}</button>` : ""}
+        </div>
+        <div class="talents-grid">${talentsGrid}</div>
+      </div>
+
+      <div class="stats-bubble">
+        <div class="stats-bubble-title">${t("detailedStatistics") || "Detailled Statistics"}</div>
+        <div class="detail-head">
+          <div></div>
+          <div class="detail-col">${t("baseStat")}</div>
+          <div class="detail-col">${t("itemBonus")}</div>
+          <div class="detail-col">${t("passiveBonus")}</div>
+        </div>
+        <div class="detail-body">${detailedRows}</div>
+        <div class="detail-points">${t("total")} ${t("points") || "Points"}: ${escapeAttr(String(totalPoints))}</div>
+        <div class="stats-graph-wrap">${renderRadarSvg()}</div>
+      </div>
     </div>
+    ${editable ? renderTalentModal() : ""}
   `;
 }
 
@@ -1270,6 +1505,39 @@ function renderSpellRemoveModal(spells) {
         <div class="roll-modal-footer">
           <button type="button" id="spell-remove-confirm" class="btn-sm">${t("remove")}</button>
           <button type="button" id="spell-remove-cancel" class="btn-sm">${t("cancel")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTalentModal() {
+  if (!state.talentModalOpen || !state.talentDraft) return "";
+  const d = state.talentDraft;
+  const tier = Math.max(0, Math.min(4, Number(d.tier) || 0));
+  const bonusText = d.bonusOverride == null || d.bonusOverride === "" ? "" : String(d.bonusOverride);
+  return `
+    <div id="talent-modal" class="modal">
+      <div class="modal-content talent-modal-content">
+        <h3>${t("edit")}</h3>
+        <div class="talent-modal-grid">
+          <label class="label">${t("name")}</label>
+          <input type="text" id="talent-name-inp" value="${escapeAttr(d.name || "")}" />
+          <label class="label">${t("itemDescription")}</label>
+          <textarea id="talent-desc-inp" rows="4">${escapeAttr(d.description || "")}</textarea>
+        </div>
+        <div class="talent-modal-row">
+          <select id="talent-tier-sel">
+            ${[0, 1, 2, 3, 4].map((n) => `<option value="${n}" ${tier === n ? "selected" : ""}>T${n}</option>`).join("")}
+          </select>
+          <input type="text" id="talent-override-inp" value="${escapeAttr(bonusText)}" placeholder="${escapeAttr(t("overwriteBonusesHere") || "Overwrite bonuses here")}" />
+        </div>
+        <div class="talent-modal-footer">
+          <button type="button" id="talent-delete" class="btn-sm">${t("remove")}</button>
+          <div class="talent-modal-actions">
+            <button type="button" id="talent-cancel" class="btn-sm">${t("cancel")}</button>
+            <button type="button" id="talent-save" class="btn-sm">${t("save") || "Save"}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2529,52 +2797,187 @@ function bindEvents() {
     });
   });
 
-  // Stat roll buttons
-  app.querySelectorAll(".btn-roll-stat").forEach((btn) => {
+  // Stats steppers (sheet core + stat base/passive)
+  app.querySelectorAll("[data-stepper-step]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state._rollStat = btn.dataset.stat;
-      document.getElementById("stat-roll-modal")?.classList.remove("hidden");
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const key = btn.getAttribute("data-stepper-step") || "";
+      const delta = Number(btn.getAttribute("data-delta"));
+      if (!key || !Number.isFinite(delta) || delta === 0) return;
+      const wrap = app.querySelector(`[data-stepper="${CSS.escape(key)}"]`);
+      const minRaw = wrap?.getAttribute("data-min");
+      const maxRaw = wrap?.getAttribute("data-max");
+      const allowNeg = wrap?.getAttribute("data-allow-negative") === "1";
+      const min = minRaw == null ? null : Number(minRaw);
+      const max = maxRaw == null ? null : Number(maxRaw);
+
+      const applyClamp = (v) => {
+        let out = Number(v) || 0;
+        if (!allowNeg) out = Math.max(0, out);
+        if (Number.isFinite(min)) out = Math.max(min, out);
+        if (Number.isFinite(max)) out = Math.min(max, out);
+        return out;
+      };
+
+      // Stat fields: stat:<id>:base|passive
+      if (key.startsWith("stat:")) {
+        const parts = key.split(":");
+        const statId = parts[1];
+        const field = parts[2];
+        if (!statId || !field) return;
+        const next = applyLocalMutation((sheet) => {
+          if (!sheet.stats) sheet.stats = {};
+          if (!sheet.stats[statId]) sheet.stats[statId] = { base: 5, xpBonus: 0, itemBonus: 0, passiveBonus: 0 };
+          const cur = Number(sheet.stats[statId][field === "base" ? "base" : "passiveBonus"]) || 0;
+          const nxt = applyClamp(cur + delta);
+          if (field === "base") sheet.stats[statId].base = nxt;
+          else sheet.stats[statId].passiveBonus = nxt;
+        });
+        scheduleDebouncedSave(`stat_${statId}_${field}`, 450, () => {
+          const st = next?.stats?.[statId];
+          if (!st) return;
+          storage.updateStat(state.roomId, state.activeSheetId, statId, {
+            base: st.base,
+            passiveBonus: st.passiveBonus,
+          }).catch(console.error);
+        });
+        render();
+        return;
+      }
+
+      // Sheet core steppers
+      const next = applyLocalMutation((sheet) => {
+        const cur = Number(sheet[key]) || 0;
+        sheet[key] = applyClamp(cur + delta);
+      });
+      scheduleDebouncedSave(`sheet_${key}`, 450, () => {
+        storage.updateSheetCore(state.roomId, state.activeSheetId, { [key]: next?.[key] }).catch(console.error);
+      });
+      render();
     });
   });
-  app.querySelector("#stat-roll-do")?.addEventListener("click", () => {
-    const mod = document.getElementById("stat-roll-modifier")?.value || "";
-    if (!state.sheet) return;
-    const payload = { kind: "stat", stat: state._rollStat, formula: mod };
+
+  // Speed roll button (standard roll behavior + chat message labeled as Speed)
+  app.querySelector("#btn-roll-speed")?.addEventListener("click", async () => {
+    if (!state.sheet || !state.roomId) return;
+    const payload = { kind: "roll", formula: "1d6+agi%5+bonspe", count: 1, typeLabel: t("speed") };
     const result = executeRoll(payload, state.sheet);
     if (!result) return;
     state.lastRoll = result;
     state.lastRollPayload = payload;
-    document.getElementById("stat-roll-modal")?.classList.add("hidden");
-    showRollResult(result);
-    OBR.notification.show(result.outcome === "critical_success" ? t("criticalSuccess") : result.outcome === "success" ? t("success") : result.outcome === "failure" ? t("failure") : t("criticalFailure"));
-  });
-  app.querySelector("#stat-roll-cancel")?.addEventListener("click", () => {
-    document.getElementById("stat-roll-modal")?.classList.add("hidden");
-  });
-
-  app.querySelector("#btn-roll-speed")?.addEventListener("click", () => {
-    if (!state.sheet) return;
-    const agi = getStatTotal(state.sheet, "agility");
-    const d6 = Math.floor(Math.random() * 6) + 1;
-    const mod = evalModifier(state.sheet.speedModifier || "");
-    const value = Math.floor(agi / 4) + d6 + mod;
-    state.lastRoll = { kind: "roll", value, diceResults: [d6], translatedFormula: "", formula: "" };
-    state.lastRollPayload = null;
-    showRollResult(state.lastRoll);
+    try {
+      const row = await storage.insertChatMessage(state.roomId, {
+        playerId: state.playerId || "",
+        sheetId: state.activeSheetId || null,
+        body: formatRollChatLine(result),
+      });
+      appendChatMessageIfNew(row);
+    } catch (err) {
+      console.error(err);
+    }
+    render();
+    requestAnimationFrame(() => showRollResult(result));
   });
 
-  app.querySelectorAll(".quick-mods button").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const stat = e.target.closest(".quick-mods").dataset.stat;
-      const mod = e.target.dataset.mod;
-      if (!state.sheet) return;
-      const payload = { kind: "stat", stat, formula: mod };
-      const result = executeRoll(payload, state.sheet);
-      if (!result) return;
-      state.lastRoll = result;
-      state.lastRollPayload = payload;
-      showRollResult(result);
+  // Talents (stored in sheet.knowledge)
+  app.querySelector("#btn-add-talent")?.addEventListener("click", async () => {
+    if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+    if (!canEdit(state.activeSheetId)) return;
+    const id = crypto.randomUUID();
+    const next = applyLocalMutation((sheet) => {
+      if (!sheet.knowledge) sheet.knowledge = [];
+      sheet.knowledge.push({ id, name: t("talentName"), description: "", tier: 0, bonusOverride: null, enabled: false });
     });
+    const idx = (next?.knowledge || []).findIndex((x) => String(x.id) === String(id));
+    if (idx >= 0) {
+      storage.upsertTalent(state.roomId, state.activeSheetId, {
+        id,
+        position: idx,
+        name: t("talentName"),
+        description: "",
+        tier: 0,
+        bonus_override: null,
+        is_enabled: false,
+      }).catch(console.error);
+    }
+    state.talentModalOpen = true;
+    state.talentDraft = { id, name: t("talentName"), description: "", tier: 0, bonusOverride: "" };
+    render();
+  });
+
+  app.querySelectorAll("[data-talent-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.talentEdit;
+      if (!id || !state.sheet) return;
+      const tl = (state.sheet.knowledge || []).find((x) => String(x.id) === String(id));
+      if (!tl) return;
+      state.talentModalOpen = true;
+      state.talentDraft = {
+        id: String(tl.id),
+        name: tl.name || "",
+        description: tl.description || "",
+        tier: Number(tl.tier) || 0,
+        bonusOverride: tl.bonusOverride == null ? "" : String(tl.bonusOverride),
+      };
+      render();
+    });
+  });
+
+  const closeTalentModal = () => {
+    state.talentModalOpen = false;
+    state.talentDraft = null;
+  };
+
+  app.querySelector("#talent-cancel")?.addEventListener("click", () => {
+    closeTalentModal();
+    render();
+  });
+
+  app.querySelector("#talent-save")?.addEventListener("click", async () => {
+    if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;
+    const id = String(state.talentDraft.id);
+    const name = String(document.getElementById("talent-name-inp")?.value || "").trim() || t("talentName");
+    const description = String(document.getElementById("talent-desc-inp")?.value || "");
+    const tier = Math.max(0, Math.min(4, Number(document.getElementById("talent-tier-sel")?.value) || 0));
+    const ovRaw = String(document.getElementById("talent-override-inp")?.value || "").trim();
+    const bonusOverride = ovRaw ? Number(ovRaw) : null;
+
+    const next = applyLocalMutation((sheet) => {
+      const tl = (sheet.knowledge || []).find((x) => String(x.id) === id);
+      if (!tl) return;
+      tl.name = name;
+      tl.description = description;
+      tl.tier = tier;
+      tl.bonusOverride = bonusOverride;
+    });
+    const pos = (next?.knowledge || []).findIndex((x) => String(x.id) === id);
+    await storage.upsertTalent(state.roomId, state.activeSheetId, {
+      id,
+      position: Math.max(0, pos),
+      name,
+      description,
+      tier,
+      bonus_override: bonusOverride,
+      is_enabled: false,
+    }).catch(console.error);
+    closeTalentModal();
+    render();
+  });
+
+  app.querySelector("#talent-delete")?.addEventListener("click", async () => {
+    if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;
+    const id = String(state.talentDraft.id);
+    if (!confirm(t("confirmDelete") || "Delete?")) return;
+    const next = applyLocalMutation((sheet) => {
+      sheet.knowledge = (sheet.knowledge || []).filter((x) => String(x.id) !== id);
+    });
+    await storage.deleteTalent(state.roomId, state.activeSheetId, id).catch(console.error);
+    // Re-number positions (update-only)
+    const ids = (next?.knowledge || []).map((x) => x.id);
+    await Promise.all(ids.map((tid, position) => storage.updateTalentFields(state.roomId, state.activeSheetId, tid, { position }).catch(() => {})));
+    closeTalentModal();
+    render();
   });
 
   app.querySelector("#roll-close-btn")?.addEventListener("click", () => {

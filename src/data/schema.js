@@ -83,7 +83,9 @@ export function createEmptySheet(id = crypto.randomUUID()) {
     currentHP: 0,
     currentMP: 0,
     currentFavor: 0,
-    actionFormula: "", // e.g. "agi/10 + level/5"
+    bonusAction: 0,
+    bonusSpeed: 0,
+    // Back-compat (older fields); avoid using in new UI.
     actionModifier: "",
     speedModifier: "",
     spells: [], // { id, name, effect, cost, costType: 'hp'|'mp', element?: string }
@@ -99,17 +101,19 @@ export function createEmptySheet(id = crypto.randomUUID()) {
   };
 }
 
-/** Max HP = Constitution*2 (using total stat) */
+/** Max HP = totalConstitution * (level + 1) */
 export function getMaxHP(sheet) {
   const con = getStatTotal(sheet, "constitution");
-  return Math.max(0, con * 2);
+  const level = Number(sheet.bio?.level) || 1;
+  return Math.max(0, con * (level + 1));
 }
 
-/** Max MP = Round((Intelligence + Focus)*0.75) */
+/** Max MP = ROUND((totalIntelligence + totalFocus)*0.75 + (level^2)/4) */
 export function getMaxMP(sheet) {
   const int = getStatTotal(sheet, "intelligence");
   const foc = getStatTotal(sheet, "focus");
-  return Math.round((int + foc) * 0.75);
+  const level = Number(sheet.bio?.level) || 1;
+  return Math.round((int + foc) * 0.75 + (level * level) / 4);
 }
 
 /** Max Favor = RoundUp((Level+1)/3) */
@@ -127,19 +131,26 @@ function evalModifierSimple(modStr) {
   return match[1] === "-" ? -parseInt(match[2], 10) : parseInt(match[2], 10);
 }
 
-/** Actions per turn: RoundDown(agi/10) + RoundDown(level/5) + modifier */
+/**
+ * Actions per turn:
+ * base = floor(level/5) + floor(agi/10), clamped to minimum 1
+ * total = base + bonusAction
+ */
 export function getActionCount(sheet) {
   const agi = getStatTotal(sheet, "agility");
   const level = Number(sheet.bio?.level) || 1;
-  const base = Math.floor(agi / 10) + Math.floor(level / 5);
-  return base + evalModifierSimple(sheet.actionModifier);
+  const base = Math.floor(level / 5) + Math.floor(agi / 10);
+  const clamped = Math.max(1, base);
+  const bonus = Number(sheet.bonusAction ?? sheet.actionModifier) || 0;
+  return clamped + bonus;
 }
 
-/** Speed: agi/4 + 1d6 + modifier (display formula; actual roll is separate) */
+/** Speed display formula for the speed roll button (actual roll handled elsewhere) */
 export function getSpeedFormula(sheet) {
   const agi = getStatTotal(sheet, "agility");
-  const mod = (sheet.speedModifier || "").trim();
-  return mod ? `(${agi}/4 + 1d6) ${mod}` : `${agi}/4 + 1d6`;
+  const bonspe = Number(sheet.bonusSpeed ?? sheet.speedModifier) || 0;
+  const sign = bonspe >= 0 ? `+${bonspe}` : String(bonspe);
+  return `1d6 + ${agi}%5 ${sign !== "+0" ? sign : ""}`.trim();
 }
 
 export function evalModifier(modStr) {
@@ -150,7 +161,8 @@ export function getStatTotal(sheet, statId) {
   const s = sheet.stats?.[statId];
   if (!s) return 0;
   const base = Number(s.base) || 0;
-  const xp = Number(s.xpBonus) || 0;
+  // XP is no longer part of totals in the new system.
+  const xp = 0;
   const item = Number(s.itemBonus) || 0;
   const passive = Number(s.passiveBonus) || 0;
   return base + xp + item + passive;

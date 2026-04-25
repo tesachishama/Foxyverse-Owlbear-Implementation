@@ -150,6 +150,8 @@ function assembleSheet(sheetId, rows) {
   base.currentHP = rows.sheet.current_health ?? 0;
   base.currentMP = rows.sheet.current_mana ?? 0;
   base.currentFavor = rows.sheet.current_favor ?? 0;
+  base.bonusAction = Number(rows.sheet.bonus_action) || 0;
+  base.bonusSpeed = Number(rows.sheet.bonus_speed) || 0;
   base.actionModifier = parseSignedModifier(rows.sheet.bonus_action);
   base.speedModifier = parseSignedModifier(rows.sheet.bonus_speed);
   base.theme = {
@@ -241,6 +243,8 @@ function patchToSheetUpdate(patch = {}) {
   if ("tempHP" in patch) update.temporary_health = Number(patch.tempHP) || 0;
   if ("currentMP" in patch) update.current_mana = Number(patch.currentMP) || 0;
   if ("currentFavor" in patch) update.current_favor = Number(patch.currentFavor) || 0;
+  if ("bonusAction" in patch) update.bonus_action = Number(patch.bonusAction) || 0;
+  if ("bonusSpeed" in patch) update.bonus_speed = Number(patch.bonusSpeed) || 0;
   if ("actionModifier" in patch) update.bonus_action = modifierToInt(patch.actionModifier);
   if ("speedModifier" in patch) update.bonus_speed = modifierToInt(patch.speedModifier);
   if ("notes" in patch) update.notes = String(patch.notes || "");
@@ -469,8 +473,8 @@ async function persistRows(roomId, sheet) {
     temporary_health: sheet.tempHP ?? 0,
     current_mana: sheet.currentMP ?? 0,
     current_favor: sheet.currentFavor ?? 0,
-    bonus_action: modifierToInt(sheet.actionModifier),
-    bonus_speed: modifierToInt(sheet.speedModifier),
+    bonus_action: Number(sheet.bonusAction ?? modifierToInt(sheet.actionModifier)) || 0,
+    bonus_speed: Number(sheet.bonusSpeed ?? modifierToInt(sheet.speedModifier)) || 0,
     notes: sheet.notes || "",
     color_bg: sheet.theme?.bg || "#4b002c",
     color_ui: sheet.theme?.ui || "#ffdbff",

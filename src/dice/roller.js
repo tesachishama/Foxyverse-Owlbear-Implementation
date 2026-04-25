@@ -223,8 +223,8 @@ function buildFormulaContext(sheet) {
   const curmp = Math.max(0, Number(sheet.currentMP) || 0);
   const curfav = Math.max(0, Number(sheet.currentFavor) || 0);
 
-  const bonact = Number(sheet.actionModifier) || 0;
-  const bonspe = Number(sheet.speedModifier) || 0;
+  const bonact = Number(sheet.bonusAction ?? sheet.actionModifier) || 0;
+  const bonspe = Number(sheet.bonusSpeed ?? sheet.speedModifier) || 0;
 
   // Aliases documented in README (formula variables).
   return {

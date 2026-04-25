@@ -149,6 +149,14 @@ export const translations = {
     confirmUseHP: "Using HP for MP will drain life. Continue?",
     confirmCastBelowZeroHP: "Casting this spell would put you below 0 HP. Are you sure you want to do that?",
 
+    // Stats (template UI)
+    talentName: "Talent name",
+    detailedStatistics: "Detailed Statistics",
+    overwriteBonusesHere: "Overwrite bonuses here",
+    points: "Points",
+    save: "Save",
+    confirmDelete: "Are you sure you want to delete?",
+
     // Inventory
     equipped: "Equipped",
     consumables: "Consumables",
@@ -410,6 +418,14 @@ export const translations = {
     notEnoughMP: "Pas assez de PM — utiliser les PV ?",
     confirmUseHP: "Utiliser les PV à la place des PM va vous blesser. Continuer ?",
     confirmCastBelowZeroHP: "Lancer ce sort vous ferait passer sous 0 PV. Voulez-vous continuer ?",
+
+    // Stats (template UI)
+    talentName: "Nom du talent",
+    detailedStatistics: "Statistiques détaillées",
+    overwriteBonusesHere: "Écrasez les bonus ici",
+    points: "points",
+    save: "Sauvegarder",
+    confirmDelete: "Êtes-vous sûr de vouloir supprimer ?",
 
     // Inventaire
     equipped: "Équipé",
