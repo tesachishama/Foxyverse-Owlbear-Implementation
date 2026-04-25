@@ -1334,9 +1334,9 @@ function renderSpellsTab() {
         : `<div class="spell-name spell-name-display">${viewNameHtml}</div>`;
 
       return `
-        <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}">
+        <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="false">
           <div class="spell-row">
-            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
+            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
             ${nameCell}
             <button type="button" class="spell-use-btn" data-spell-use="${escapeAttr(id)}">${t("use")}</button>
             <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-spell-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${arrow}</button>
@@ -2629,10 +2629,13 @@ function bindEvents() {
       });
       const sp = next?.spells?.find((x) => String(x.id) === String(id));
       if (state.roomId && state.activeSheetId && sp) {
-        storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch((err) => {
-          console.error(err);
-          const msg = err?.message || err?.details || String(err);
-          try { OBR.notification.show(`Spell counter save failed: ${msg}`); } catch (_) {}
+        // Debounce DB writes so the user can spam +/- without lag.
+        scheduleDebouncedSave(`spell_use_counter_${sp.id}`, 450, () => {
+          storage.updateSpellFields(state.roomId, state.activeSheetId, sp.id, { use_counter: sp.useCounter ?? 0 }).catch((err) => {
+            console.error(err);
+            const msg = err?.message || err?.details || String(err);
+            try { OBR.notification.show(`Spell counter save failed: ${msg}`); } catch (_) {}
+          });
         });
       }
       render();
