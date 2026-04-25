@@ -187,7 +187,6 @@ function assembleSheet(sheetId, rows) {
     id: row.id,
     name: row.name || "",
     effect: row.description || "",
-    element: row.element || "",
     cost: row.cost ?? 0,
     costType: row.is_hp ? "hp" : "mp",
     isContinuous: !!row.is_continuous,
@@ -350,7 +349,6 @@ export async function upsertSpell(roomId, sheetId, row) {
     position: Number(row.position) || 0,
     name: row.name || "",
     description: row.description || "",
-    element: row.element || "",
     cost: Number(row.cost) || 0,
     is_hp: !!row.is_hp,
     is_continuous: !!row.is_continuous,
@@ -370,7 +368,6 @@ export async function updateSpellFields(roomId, sheetId, spellId, patch) {
   if ("is_hp" in patch) update.is_hp = !!patch.is_hp;
   if ("is_continuous" in patch) update.is_continuous = !!patch.is_continuous;
   if ("use_counter" in patch) update.use_counter = Number(patch.use_counter) || 0;
-  if ("element" in patch) update.element = String(patch.element || "");
   if (!Object.keys(update).length) return;
   const { error } = await supabase.from("spell").update(update).eq("sheet_id", sheetId).eq("id", spellId);
   if (error) throw error;
@@ -520,7 +517,6 @@ async function persistRows(roomId, sheet) {
     position,
     name: spell.name || "",
     description: spell.effect || "",
-    element: spell.element || "",
     cost: Number(spell.cost) || 0,
     is_hp: (spell.costType || "mp") === "hp",
     is_continuous: !!spell.isContinuous,
