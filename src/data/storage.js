@@ -383,9 +383,15 @@ export async function deleteSpell(roomId, sheetId, spellId) {
 export async function setSpellPositions(roomId, sheetId, orderedIds) {
   await ensureRoom(roomId);
   if (!Array.isArray(orderedIds) || !orderedIds.length) return;
-  const rows = orderedIds.map((id, position) => ({ id, sheet_id: sheetId, position }));
-  const { error } = await supabase.from("spell").upsert(rows, { onConflict: "id" });
-  if (error) throw error;
+  // IMPORTANT: spell.name is NOT NULL. Using upsert here can attempt inserts with
+  // partial rows (only id/sheet_id/position) and violate NOT NULL constraints.
+  // Reordering should only ever update positions of existing spells.
+  const updates = orderedIds.map((id, position) =>
+    supabase.from("spell").update({ position }).eq("sheet_id", sheetId).eq("id", id)
+  );
+  const results = await Promise.all(updates);
+  const firstErr = results.find((r) => r?.error)?.error;
+  if (firstErr) throw firstErr;
 }
 
 export async function upsertItem(roomId, sheetId, row) {

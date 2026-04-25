@@ -2616,7 +2616,8 @@ function bindEvents() {
     if (!state.sheet) return;
     const next = applyLocalMutation((sheet) => {
       if (!sheet.spells) sheet.spells = [];
-      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, useCounter: 0 });
+      // spell.name is NOT NULL in DB; use a safe default.
+      sheet.spells.push({ id: crypto.randomUUID(), name: t("spellName"), effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, useCounter: 0 });
     });
     if (state.roomId && state.activeSheetId && next) {
       const idx = next.spells.length - 1;
