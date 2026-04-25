@@ -634,8 +634,9 @@ button:disabled {
 .spell-edit-actions { display: flex; justify-content: flex-end; }
 .spell-remove-modal-content .spell-remove-picker { width: 100%; margin-top: 0.35rem; }
 .spell-remove-picker .sheet-menu {
-  max-height: min(38vh, 13.5rem);
+  max-height: min(42vh, 15rem);
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 .spell-remove-picker .sheet-menu::-webkit-scrollbar {
