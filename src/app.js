@@ -2676,56 +2676,34 @@ function bindEvents() {
     });
   });
 
-  // Reorder via drag and drop
+  // Reorder spells (pointer-based; HTML5 DnD is unreliable in embedded browsers)
   const spellList = app.querySelector(".spell-list");
-  if (spellList && editable && !spellList.dataset.dragBound) {
-    let draggingId = null;
-    spellList.addEventListener("dragstart", (e) => {
-      const handle = e.target.closest("[data-spell-handle]");
-      if (!handle) {
-        e.preventDefault();
-        return;
+  if (spellList && editable && !spellList.dataset.pointerReorderBound) {
+    let draggingEl = null;
+    let dragGhost = null;
+    let placeholder = null;
+    let offsetY = 0;
+    let pointerId = null;
+
+    function cleanupDrag() {
+      if (dragGhost) dragGhost.remove();
+      dragGhost = null;
+      if (placeholder && draggingEl) {
+        placeholder.replaceWith(draggingEl);
       }
-      const item = handle.closest(".spell-item-wrap");
-      if (!item) return;
-      draggingId = item.dataset.spellId;
-      try {
-        e.dataTransfer.setData("text/plain", draggingId || "");
-      } catch (_) {}
-      // In some environments (incl. embedded browsers), drag will show a "forbidden"
-      // cursor unless a supported effect is set.
-      e.dataTransfer.effectAllowed = "move";
-      try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
-      // Use the full spell block as the drag image (modern reorder feel).
-      try {
-        const r = item.getBoundingClientRect();
-        e.dataTransfer.setDragImage(item, Math.max(1, Math.floor(r.width * 0.5)), Math.max(1, Math.floor(r.height * 0.5)));
-      } catch (_) {}
-      item.classList.add("dragging");
-      spellList.classList.add("dragging-active");
-    });
-    spellList.addEventListener("dragend", (e) => {
-      const item = e.target.closest(".spell-item-wrap");
-      item?.classList.remove("dragging");
-      draggingId = null;
+      placeholder?.remove();
+      placeholder = null;
+      draggingEl?.classList.remove("dragging");
+      draggingEl = null;
       spellList.classList.remove("dragging-active");
-    });
-    spellList.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
-      const over = e.target.closest(".spell-item-wrap");
-      if (!over || !draggingId) return;
-      const draggingEl = spellList.querySelector(`.spell-item-wrap[data-spell-id="${CSS.escape(draggingId)}"]`);
-      if (!draggingEl || over === draggingEl) return;
-      const rect = over.getBoundingClientRect();
-      const before = e.clientY < rect.top + rect.height / 2;
-      spellList.insertBefore(draggingEl, before ? over : over.nextSibling);
-    });
-    spellList.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      if (!draggingId) return;
+      pointerId = null;
+    }
+
+    async function persistSpellOrderFromDom() {
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
-      const orderedIds = Array.from(spellList.querySelectorAll(".spell-item-wrap")).map((el) => el.dataset.spellId).filter(Boolean);
+      const orderedIds = Array.from(spellList.querySelectorAll(".spell-item-wrap"))
+        .map((el) => el.dataset.spellId)
+        .filter(Boolean);
       const next = applyLocalMutation((sheet) => {
         const map = new Map((sheet.spells || []).map((sp) => [String(sp.id), sp]));
         sheet.spells = orderedIds.map((id) => map.get(String(id))).filter(Boolean);
@@ -2734,8 +2712,87 @@ function bindEvents() {
         storage.setSpellPositions(state.roomId, state.activeSheetId, next.spells.map((s) => s.id)).catch(console.error);
       }
       render();
+    }
+
+    spellList.addEventListener("pointerdown", (e) => {
+      const handle = e.target.closest("[data-spell-handle]");
+      if (!handle) return;
+      const item = handle.closest(".spell-item-wrap");
+      if (!item) return;
+      if (!item.dataset.spellId) return;
+      if (!(e instanceof PointerEvent)) return;
+
+      // Prevent text selection / scroll gesture from stealing the interaction.
+      e.preventDefault();
+
+      draggingEl = item;
+      pointerId = e.pointerId;
+      try { handle.setPointerCapture(pointerId); } catch (_) {}
+
+      const rect = item.getBoundingClientRect();
+      offsetY = e.clientY - rect.top;
+
+      // Placeholder to keep layout while dragging.
+      placeholder = document.createElement("div");
+      placeholder.className = "spell-drag-placeholder";
+      placeholder.style.height = rect.height + "px";
+      placeholder.style.marginTop = getComputedStyle(item).marginTop;
+      placeholder.style.marginBottom = getComputedStyle(item).marginBottom;
+      placeholder.style.borderRadius = getComputedStyle(item).borderRadius;
+
+      // Ghost follows pointer (visual dragging).
+      dragGhost = item.cloneNode(true);
+      dragGhost.classList.add("spell-drag-ghost");
+      dragGhost.style.width = rect.width + "px";
+      dragGhost.style.left = rect.left + "px";
+      dragGhost.style.top = rect.top + "px";
+      document.body.appendChild(dragGhost);
+
+      item.classList.add("dragging");
+      spellList.classList.add("dragging-active");
+
+      item.replaceWith(placeholder);
     });
-    spellList.dataset.dragBound = "true";
+
+    spellList.addEventListener("pointermove", (e) => {
+      if (!draggingEl || !dragGhost || !placeholder) return;
+      if (!(e instanceof PointerEvent)) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
+      e.preventDefault();
+
+      dragGhost.style.top = Math.round(e.clientY - offsetY) + "px";
+
+      const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+      const over = elAtPoint?.closest?.(".spell-item-wrap, .spell-drag-placeholder");
+      if (!over) return;
+      if (over === placeholder) return;
+
+      const overItem = over.classList.contains("spell-item-wrap") ? over : null;
+      if (!overItem) return;
+      const r = overItem.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height / 2;
+      spellList.insertBefore(placeholder, before ? overItem : overItem.nextSibling);
+    });
+
+    spellList.addEventListener("pointerup", async (e) => {
+      if (!draggingEl || !placeholder) return;
+      if (!(e instanceof PointerEvent)) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
+      e.preventDefault();
+
+      cleanupDrag();
+      await persistSpellOrderFromDom();
+    });
+
+    spellList.addEventListener("pointercancel", (e) => {
+      if (!draggingEl || !placeholder) return;
+      if (!(e instanceof PointerEvent)) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
+      cleanupDrag();
+      render();
+    });
+
+    spellList.dataset.pointerReorderBound = "true";
   }
 
   // Inventory

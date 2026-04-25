@@ -539,6 +539,18 @@ button:disabled {
 .spell-list.dragging-active .spell-handle-btn {
   cursor: grabbing;
 }
+.spell-drag-placeholder {
+  border: 3px dashed color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+}
+.spell-drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.95;
+  transform: scale(1.02);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.32);
+}
 
 .spell-row { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 0.25rem; }
 .spell-handle-btn { width: 1.9rem; height: 1.9rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: grab; opacity: 0.9; }
