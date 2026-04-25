@@ -2684,6 +2684,9 @@ function bindEvents() {
     let placeholder = null;
     let offsetY = 0;
     let pointerId = null;
+    let onMove = null;
+    let onUp = null;
+    let onCancel = null;
 
     function cleanupDrag() {
       if (dragGhost) dragGhost.remove();
@@ -2697,6 +2700,12 @@ function bindEvents() {
       draggingEl = null;
       spellList.classList.remove("dragging-active");
       pointerId = null;
+      if (onMove) document.removeEventListener("pointermove", onMove, { capture: true });
+      if (onUp) document.removeEventListener("pointerup", onUp, { capture: true });
+      if (onCancel) document.removeEventListener("pointercancel", onCancel, { capture: true });
+      onMove = null;
+      onUp = null;
+      onCancel = null;
     }
 
     async function persistSpellOrderFromDom() {
@@ -2727,7 +2736,7 @@ function bindEvents() {
 
       draggingEl = item;
       pointerId = e.pointerId;
-      try { handle.setPointerCapture(pointerId); } catch (_) {}
+      // Don't rely on pointer capture here; we listen on document for move/up.
 
       const rect = item.getBoundingClientRect();
       offsetY = e.clientY - rect.top;
@@ -2752,44 +2761,47 @@ function bindEvents() {
       spellList.classList.add("dragging-active");
 
       item.replaceWith(placeholder);
-    });
 
-    spellList.addEventListener("pointermove", (e) => {
-      if (!draggingEl || !dragGhost || !placeholder) return;
-      if (!(e instanceof PointerEvent)) return;
-      if (pointerId != null && e.pointerId !== pointerId) return;
-      e.preventDefault();
+      onMove = (ev) => {
+        if (!draggingEl || !dragGhost || !placeholder) return;
+        if (!(ev instanceof PointerEvent)) return;
+        if (pointerId != null && ev.pointerId !== pointerId) return;
+        ev.preventDefault();
 
-      dragGhost.style.top = Math.round(e.clientY - offsetY) + "px";
+        dragGhost.style.top = Math.round(ev.clientY - offsetY) + "px";
 
-      const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
-      const over = elAtPoint?.closest?.(".spell-item-wrap, .spell-drag-placeholder");
-      if (!over) return;
-      if (over === placeholder) return;
+        const elAtPoint = document.elementFromPoint(ev.clientX, ev.clientY);
+        const over = elAtPoint?.closest?.(".spell-item-wrap, .spell-drag-placeholder");
+        if (!over) return;
+        if (over === placeholder) return;
 
-      const overItem = over.classList.contains("spell-item-wrap") ? over : null;
-      if (!overItem) return;
-      const r = overItem.getBoundingClientRect();
-      const before = e.clientY < r.top + r.height / 2;
-      spellList.insertBefore(placeholder, before ? overItem : overItem.nextSibling);
-    });
+        const overItem = over.classList.contains("spell-item-wrap") ? over : null;
+        if (!overItem) return;
+        const r = overItem.getBoundingClientRect();
+        const before = ev.clientY < r.top + r.height / 2;
+        spellList.insertBefore(placeholder, before ? overItem : overItem.nextSibling);
+      };
 
-    spellList.addEventListener("pointerup", async (e) => {
-      if (!draggingEl || !placeholder) return;
-      if (!(e instanceof PointerEvent)) return;
-      if (pointerId != null && e.pointerId !== pointerId) return;
-      e.preventDefault();
+      onUp = async (ev) => {
+        if (!draggingEl || !placeholder) return;
+        if (!(ev instanceof PointerEvent)) return;
+        if (pointerId != null && ev.pointerId !== pointerId) return;
+        ev.preventDefault();
+        cleanupDrag();
+        await persistSpellOrderFromDom();
+      };
 
-      cleanupDrag();
-      await persistSpellOrderFromDom();
-    });
+      onCancel = (ev) => {
+        if (!draggingEl || !placeholder) return;
+        if (!(ev instanceof PointerEvent)) return;
+        if (pointerId != null && ev.pointerId !== pointerId) return;
+        cleanupDrag();
+        render();
+      };
 
-    spellList.addEventListener("pointercancel", (e) => {
-      if (!draggingEl || !placeholder) return;
-      if (!(e instanceof PointerEvent)) return;
-      if (pointerId != null && e.pointerId !== pointerId) return;
-      cleanupDrag();
-      render();
+      document.addEventListener("pointermove", onMove, { capture: true, passive: false });
+      document.addEventListener("pointerup", onUp, { capture: true, passive: false });
+      document.addEventListener("pointercancel", onCancel, { capture: true, passive: true });
     });
 
     spellList.dataset.pointerReorderBound = "true";

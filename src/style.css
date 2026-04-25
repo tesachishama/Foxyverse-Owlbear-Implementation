@@ -553,7 +553,7 @@ button:disabled {
 }
 
 .spell-row { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 0.25rem; }
-.spell-handle-btn { width: 1.9rem; height: 1.9rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: grab; opacity: 0.9; }
+.spell-handle-btn { width: 1.9rem; height: 1.9rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: grab; opacity: 0.9; touch-action: none; }
 .spell-handle-btn:active { cursor: grabbing; }
 .spell-handle-svg { width: 1.1rem; height: 0.9rem; display: block; }
 .spell-name-display { font-weight: 700; font-size: 1.15rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
