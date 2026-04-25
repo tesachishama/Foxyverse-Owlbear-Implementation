@@ -607,10 +607,12 @@ function finalizeSpellEditIfOpen() {
   const id = String(state._editingSpellId);
   const d = state._spellEditDraft;
   if (String(d.id) !== id) return;
+  const fallbackName = t("spellName");
+  const nameOut = String(d.name ?? "").trim() || fallbackName;
   const next = applyLocalMutation((sheet) => {
     const sp = (sheet.spells || []).find((x) => String(x.id) === id);
     if (!sp) return;
-    sp.name = d.name || "";
+    sp.name = nameOut;
     sp.effect = d.effect || "";
     sp.cost = Math.max(0, Number(d.cost) || 0);
     sp.costType = d.costType === "hp" ? "hp" : "mp";
@@ -624,7 +626,7 @@ function finalizeSpellEditIfOpen() {
     storage.upsertSpell(state.roomId, state.activeSheetId, {
       id: sp.id,
       position,
-      name: sp.name || "",
+      name: sp.name || fallbackName,
       description: sp.effect || "",
       cost: sp.cost ?? 0,
       is_hp: (sp.costType || "mp") === "hp",
@@ -2726,6 +2728,18 @@ function bindEvents() {
       if (el.dataset.spellEffect !== undefined) state._spellEditDraft.effect = e.target.value;
     });
   });
+  app.querySelectorAll("[data-spell-name]").forEach((el) => {
+    el.addEventListener("focus", () => {
+      const id = el.dataset.spellName;
+      if (!id) return;
+      if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      const cur = String(el.value ?? "");
+      if (cur.trim() === t("spellName")) {
+        el.value = "";
+        state._spellEditDraft.name = "";
+      }
+    });
+  });
 
   // Cost stepper
   app.querySelectorAll("[data-spell-cost-arrow]").forEach((btn) => {
@@ -2804,11 +2818,21 @@ function bindEvents() {
         } else {
           const needHP = cost - mp;
           if (needHP > 0 && !confirm(t("confirmUseHP"))) return;
+          const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
+          if (needHP > hpAvail) {
+            OBR.notification.show(t("notEnoughHPToCast"));
+            return;
+          }
           state.sheet.currentMP = 0;
           state.sheet.currentHP = Math.max(0, (Number(state.sheet.currentHP) || 0) - needHP);
         }
       } else {
-        state.sheet.currentHP = Math.max(0, (Number(state.sheet.currentHP) || 0) - cost);
+        const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
+        if (cost > hpAvail) {
+          OBR.notification.show(t("notEnoughHPToCast"));
+          return;
+        }
+        state.sheet.currentHP = hpAvail - cost;
       }
       sp.useCounter = Math.max(0, (Number(sp.useCounter) || 0) + 1);
       saveSheet();

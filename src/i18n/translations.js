@@ -147,6 +147,7 @@ export const translations = {
     deductCost: "Deduct cost",
     notEnoughMP: "Not enough MP — use HP?",
     confirmUseHP: "Using HP for MP will drain life. Continue?",
+    notEnoughHPToCast: "Not enough HP to cast this spell.",
 
     // Inventory
     equipped: "Equipped",
@@ -408,6 +409,7 @@ export const translations = {
     deductCost: "Déduire coût",
     notEnoughMP: "Pas assez de PM — utiliser les PV ?",
     confirmUseHP: "Utiliser les PV à la place des PM va vous blesser. Continuer ?",
+    notEnoughHPToCast: "Pas assez de PV pour lancer ce sort.",
 
     // Inventaire
     equipped: "Équipé",
