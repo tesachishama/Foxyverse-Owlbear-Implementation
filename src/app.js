@@ -2818,19 +2818,17 @@ function bindEvents() {
         } else {
           const needHP = cost - mp;
           if (needHP > 0 && !confirm(t("confirmUseHP"))) return;
-          const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
-          if (needHP > hpAvail) {
-            OBR.notification.show(t("notEnoughHPToCast"));
-            return;
+          const hpAvail = Number(state.sheet.currentHP) || 0;
+          if (needHP > 0 && hpAvail - needHP < 0) {
+            if (!confirm(t("confirmCastBelowZeroHP"))) return;
           }
           state.sheet.currentMP = 0;
-          state.sheet.currentHP = Math.max(0, (Number(state.sheet.currentHP) || 0) - needHP);
+          state.sheet.currentHP = hpAvail - needHP;
         }
       } else {
-        const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
-        if (cost > hpAvail) {
-          OBR.notification.show(t("notEnoughHPToCast"));
-          return;
+        const hpAvail = Number(state.sheet.currentHP) || 0;
+        if (hpAvail - cost < 0) {
+          if (!confirm(t("confirmCastBelowZeroHP"))) return;
         }
         state.sheet.currentHP = hpAvail - cost;
       }
