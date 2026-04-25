@@ -633,6 +633,21 @@ button:disabled {
 }
 .spell-edit-actions { display: flex; justify-content: flex-end; }
 .spell-remove-modal-content .spell-remove-picker { width: 100%; margin-top: 0.35rem; }
+.spell-remove-picker .sheet-menu {
+  max-height: min(50vh, 18rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.spell-remove-picker .sheet-menu::-webkit-scrollbar {
+  width: 10px;
+}
+.spell-remove-picker .sheet-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.spell-remove-picker .sheet-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+}
 .spell-remove-menu-item {
   overflow: hidden;
   text-overflow: ellipsis;
