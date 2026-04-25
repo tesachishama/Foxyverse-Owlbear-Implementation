@@ -69,6 +69,9 @@ const TAB_META = {
   settings: { icon: settingsIcon, label: "Settings" },
 };
 
+// Spell reorder drag state (event-delegated; survives re-render).
+let spellReorderDrag = null;
+
 const state = {
   locale: "en",
   roomId: null,
@@ -2128,6 +2131,141 @@ function bindEvents() {
     app.dataset.inlineRollBound = "true";
   }
 
+  // Spells reorder (event delegated; survives re-render; works without HTML5 DnD)
+  if (!app.dataset.spellReorderBound) {
+    const beginDrag = (clientX, clientY, handleEl) => {
+      if (!canEdit(state.activeSheetId)) return;
+      if (state.activeTab !== "spells") return;
+      const item = handleEl.closest(".spell-item-wrap");
+      const list = item?.closest(".spell-list");
+      if (!item || !list) return;
+      const spellId = item.dataset.spellId;
+      if (!spellId) return;
+
+      const rect = item.getBoundingClientRect();
+      const offsetY = clientY - rect.top;
+      const ghost = item.cloneNode(true);
+      ghost.classList.add("spell-drag-ghost");
+      ghost.style.width = rect.width + "px";
+      ghost.style.left = rect.left + "px";
+      ghost.style.top = rect.top + "px";
+      document.body.appendChild(ghost);
+
+      const ph = document.createElement("div");
+      ph.className = "spell-drag-placeholder";
+      ph.style.height = rect.height + "px";
+      ph.style.borderRadius = getComputedStyle(item).borderRadius;
+
+      item.classList.add("dragging");
+      list.classList.add("dragging-active");
+      item.replaceWith(ph);
+
+      spellReorderDrag = {
+        list,
+        item,
+        placeholder: ph,
+        ghost,
+        offsetY,
+      };
+    };
+
+    const moveDrag = (clientX, clientY) => {
+      const d = spellReorderDrag;
+      if (!d) return;
+      d.ghost.style.top = Math.round(clientY - d.offsetY) + "px";
+
+      const elAtPoint = document.elementFromPoint(clientX, clientY);
+      const over = elAtPoint?.closest?.(".spell-item-wrap, .spell-drag-placeholder");
+      if (!over) return;
+      if (over === d.placeholder) return;
+      const overItem = over.classList.contains("spell-item-wrap") ? over : null;
+      if (!overItem) return;
+
+      const r = overItem.getBoundingClientRect();
+      const before = clientY < r.top + r.height / 2;
+      d.list.insertBefore(d.placeholder, before ? overItem : overItem.nextSibling);
+    };
+
+    const endDrag = async (persist = true) => {
+      const d = spellReorderDrag;
+      if (!d) return;
+      d.ghost.remove();
+      d.placeholder.replaceWith(d.item);
+      d.item.classList.remove("dragging");
+      d.list.classList.remove("dragging-active");
+      spellReorderDrag = null;
+
+      if (!persist || !state.sheet || !state.roomId || !state.activeSheetId) {
+        render();
+        return;
+      }
+      const orderedIds = Array.from(d.list.querySelectorAll(".spell-item-wrap"))
+        .map((el) => el.dataset.spellId)
+        .filter(Boolean);
+      const next = applyLocalMutation((sheet) => {
+        const map = new Map((sheet.spells || []).map((sp) => [String(sp.id), sp]));
+        sheet.spells = orderedIds.map((id) => map.get(String(id))).filter(Boolean);
+      });
+      if (next?.spells?.length) {
+        storage.setSpellPositions(state.roomId, state.activeSheetId, next.spells.map((s) => s.id)).catch(console.error);
+      }
+      render();
+    };
+
+    // Mouse
+    app.addEventListener("mousedown", (e) => {
+      const handle = e.target.closest?.("[data-spell-handle]");
+      if (!handle) return;
+      e.preventDefault();
+      beginDrag(e.clientX, e.clientY, handle);
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!spellReorderDrag) return;
+      e.preventDefault();
+      moveDrag(e.clientX, e.clientY);
+    }, { passive: false });
+    document.addEventListener("mouseup", (e) => {
+      if (!spellReorderDrag) return;
+      e.preventDefault();
+      endDrag(true);
+    }, { passive: false });
+
+    // Touch
+    app.addEventListener("touchstart", (e) => {
+      const handle = e.target.closest?.("[data-spell-handle]");
+      if (!handle) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      e.preventDefault();
+      beginDrag(t.clientX, t.clientY, handle);
+    }, { passive: false });
+    document.addEventListener("touchmove", (e) => {
+      if (!spellReorderDrag) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      e.preventDefault();
+      moveDrag(t.clientX, t.clientY);
+    }, { passive: false });
+    document.addEventListener("touchend", (e) => {
+      if (!spellReorderDrag) return;
+      e.preventDefault();
+      endDrag(true);
+    }, { passive: false });
+    document.addEventListener("touchcancel", () => {
+      if (!spellReorderDrag) return;
+      endDrag(false);
+    }, { passive: true });
+
+    // Escape to cancel
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!spellReorderDrag) return;
+      endDrag(false);
+    });
+
+    app.dataset.spellReorderBound = "true";
+  }
+
   if (!app.dataset.chatRollApplyBound) {
     app.addEventListener("click", async (e) => {
       const btn = e.target.closest(".chat-roll-apply-btn");
@@ -2676,136 +2814,7 @@ function bindEvents() {
     });
   });
 
-  // Reorder spells (pointer-based; HTML5 DnD is unreliable in embedded browsers)
-  const spellList = app.querySelector(".spell-list");
-  if (spellList && editable && !spellList.dataset.pointerReorderBound) {
-    let draggingEl = null;
-    let dragGhost = null;
-    let placeholder = null;
-    let offsetY = 0;
-    let pointerId = null;
-    let onMove = null;
-    let onUp = null;
-    let onCancel = null;
-
-    function cleanupDrag() {
-      if (dragGhost) dragGhost.remove();
-      dragGhost = null;
-      if (placeholder && draggingEl) {
-        placeholder.replaceWith(draggingEl);
-      }
-      placeholder?.remove();
-      placeholder = null;
-      draggingEl?.classList.remove("dragging");
-      draggingEl = null;
-      spellList.classList.remove("dragging-active");
-      pointerId = null;
-      if (onMove) document.removeEventListener("pointermove", onMove, { capture: true });
-      if (onUp) document.removeEventListener("pointerup", onUp, { capture: true });
-      if (onCancel) document.removeEventListener("pointercancel", onCancel, { capture: true });
-      onMove = null;
-      onUp = null;
-      onCancel = null;
-    }
-
-    async function persistSpellOrderFromDom() {
-      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
-      const orderedIds = Array.from(spellList.querySelectorAll(".spell-item-wrap"))
-        .map((el) => el.dataset.spellId)
-        .filter(Boolean);
-      const next = applyLocalMutation((sheet) => {
-        const map = new Map((sheet.spells || []).map((sp) => [String(sp.id), sp]));
-        sheet.spells = orderedIds.map((id) => map.get(String(id))).filter(Boolean);
-      });
-      if (next?.spells?.length) {
-        storage.setSpellPositions(state.roomId, state.activeSheetId, next.spells.map((s) => s.id)).catch(console.error);
-      }
-      render();
-    }
-
-    spellList.addEventListener("pointerdown", (e) => {
-      const handle = e.target.closest("[data-spell-handle]");
-      if (!handle) return;
-      const item = handle.closest(".spell-item-wrap");
-      if (!item) return;
-      if (!item.dataset.spellId) return;
-      if (!(e instanceof PointerEvent)) return;
-
-      // Prevent text selection / scroll gesture from stealing the interaction.
-      e.preventDefault();
-
-      draggingEl = item;
-      pointerId = e.pointerId;
-      // Don't rely on pointer capture here; we listen on document for move/up.
-
-      const rect = item.getBoundingClientRect();
-      offsetY = e.clientY - rect.top;
-
-      // Placeholder to keep layout while dragging.
-      placeholder = document.createElement("div");
-      placeholder.className = "spell-drag-placeholder";
-      placeholder.style.height = rect.height + "px";
-      placeholder.style.marginTop = getComputedStyle(item).marginTop;
-      placeholder.style.marginBottom = getComputedStyle(item).marginBottom;
-      placeholder.style.borderRadius = getComputedStyle(item).borderRadius;
-
-      // Ghost follows pointer (visual dragging).
-      dragGhost = item.cloneNode(true);
-      dragGhost.classList.add("spell-drag-ghost");
-      dragGhost.style.width = rect.width + "px";
-      dragGhost.style.left = rect.left + "px";
-      dragGhost.style.top = rect.top + "px";
-      document.body.appendChild(dragGhost);
-
-      item.classList.add("dragging");
-      spellList.classList.add("dragging-active");
-
-      item.replaceWith(placeholder);
-
-      onMove = (ev) => {
-        if (!draggingEl || !dragGhost || !placeholder) return;
-        if (!(ev instanceof PointerEvent)) return;
-        if (pointerId != null && ev.pointerId !== pointerId) return;
-        ev.preventDefault();
-
-        dragGhost.style.top = Math.round(ev.clientY - offsetY) + "px";
-
-        const elAtPoint = document.elementFromPoint(ev.clientX, ev.clientY);
-        const over = elAtPoint?.closest?.(".spell-item-wrap, .spell-drag-placeholder");
-        if (!over) return;
-        if (over === placeholder) return;
-
-        const overItem = over.classList.contains("spell-item-wrap") ? over : null;
-        if (!overItem) return;
-        const r = overItem.getBoundingClientRect();
-        const before = ev.clientY < r.top + r.height / 2;
-        spellList.insertBefore(placeholder, before ? overItem : overItem.nextSibling);
-      };
-
-      onUp = async (ev) => {
-        if (!draggingEl || !placeholder) return;
-        if (!(ev instanceof PointerEvent)) return;
-        if (pointerId != null && ev.pointerId !== pointerId) return;
-        ev.preventDefault();
-        cleanupDrag();
-        await persistSpellOrderFromDom();
-      };
-
-      onCancel = (ev) => {
-        if (!draggingEl || !placeholder) return;
-        if (!(ev instanceof PointerEvent)) return;
-        if (pointerId != null && ev.pointerId !== pointerId) return;
-        cleanupDrag();
-        render();
-      };
-
-      document.addEventListener("pointermove", onMove, { capture: true, passive: false });
-      document.addEventListener("pointerup", onUp, { capture: true, passive: false });
-      document.addEventListener("pointercancel", onCancel, { capture: true, passive: true });
-    });
-
-    spellList.dataset.pointerReorderBound = "true";
-  }
+  // Spells reorder is handled via event delegation (bound once below).
 
   // Inventory
   app.querySelectorAll(".equip-select").forEach((el) => {
