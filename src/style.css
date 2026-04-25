@@ -587,7 +587,7 @@ button:disabled {
 .spell-edit-fields { display: flex; flex-direction: column; gap: 0.35rem; }
 .spell-effect-inp { width: 100%; padding: 0; background: transparent; border: none; color: var(--text); border-radius: 0; resize: vertical; }
 .spell-effect-inp:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 6px; }
-.spell-edit-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: nowrap; }
+.spell-edit-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: nowrap; font-size: 0.9em !important;}
 .spell-cost-pill-control { display: inline-flex; align-items: center; gap: 0.25rem; }
 .spell-cost-pill { display: inline-flex; align-items: center; gap: 0.18rem; }
 .spell-cost-arrows { display: inline-flex; flex-direction: column; gap: 0; margin-left: 0.05rem; }
