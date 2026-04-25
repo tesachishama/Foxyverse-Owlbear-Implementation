@@ -1235,16 +1235,23 @@ function renderRollModals() {
 }
 
 function renderSpellRemoveModal(spells) {
+  const stripInlineButtons = (text) => {
+    // Hide inline roll button tokens like "[r 1d20]" in the picker UI.
+    return String(text || "")
+      .replace(/\[[^\]]+\]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
   const list = spells || [];
   const firstId = list[0]?.id != null ? String(list[0].id) : "";
   const selRaw = String(state.spellRemoveSelectedId || "");
   const selId = selRaw && list.some((sp) => String(sp.id) === selRaw) ? selRaw : firstId;
   const selSpell = list.find((sp) => String(sp.id) === selId);
-  const title = (selSpell?.name || "").trim() || t("spellName");
+  const title = stripInlineButtons(selSpell?.name || "").trim() || t("spellName");
   const menuItems = list
     .map((sp) => {
       const id = String(sp.id || "");
-      const name = (sp.name || "").trim() || t("spellName");
+      const name = stripInlineButtons(sp.name || "").trim() || t("spellName");
       return `<button type="button" class="sheet-menu-item spell-remove-menu-item ${id === selId ? "active" : ""}" data-spell-remove-pick="${escapeAttr(id)}">${escapeAttr(name)}</button>`;
     })
     .join("");
