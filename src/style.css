@@ -489,6 +489,10 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Match stepper pill visual height without affecting layout elsewhere. */
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
 }
 
 .stats-pill-stepper {
