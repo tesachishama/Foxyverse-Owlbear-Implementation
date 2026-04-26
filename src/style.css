@@ -485,7 +485,7 @@ button:disabled {
   max-width: 3.4rem;
   margin: 0 auto;
   box-sizing: border-box;
-  min-height: 2.35rem;
+  min-height: 2.6rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -741,6 +741,12 @@ button:disabled {
   padding: 0.26rem 0.24rem;
   vertical-align: middle;
   line-height: 1.1;
+}
+.stats-detail-table .stats-detail-val,
+.stats-detail-table .stats-detail-col-h,
+.stats-detail-table .stats-detail-pts-cell {
+  padding-left: 0.12rem;
+  padding-right: 0.12rem;
 }
 .stats-detail-table th:last-child,
 .stats-detail-table td:last-child {
