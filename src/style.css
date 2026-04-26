@@ -445,6 +445,7 @@ button:disabled {
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble--strip { padding-left: 0.05rem; padding-right: 0.05rem; }
+#app .stats-bubble--3sub { padding-left: 0.28rem; }
 .stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.22rem; font-size: 1.12rem !important; }
 .stats-bubble-title-row { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.35rem; }
 .stats-bubble-title-row .stats-bubble-title { margin: 0; }

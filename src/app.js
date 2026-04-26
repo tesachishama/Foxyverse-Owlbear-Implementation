@@ -1501,7 +1501,7 @@ function renderStatsTab() {
         </div>
       </div>
 
-      <div class="stats-bubble">
+      <div class="stats-bubble stats-bubble--3sub">
         <div class="stats-3sub">
           <div class="stats-sub">
             <div class="stats-sub-title">${t("action")}</div>
@@ -2064,6 +2064,8 @@ function formatRollChatLine(result, options = {}) {
     dice,
     value: result?.value ?? 0,
   };
+  const optLabel = String(options?.typeLabel || "").trim();
+  if (optLabel) payload.typeLabel = optLabel;
   if (result?.count && Number(result.count) > 1) payload.count = Number(result.count) || 1;
   if (Array.isArray(result?.multi) && result.multi.length) {
     payload.values = result.multi.map((r) => r?.value ?? 0);
@@ -3188,7 +3190,7 @@ function bindEvents() {
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: formatRollChatLine(result),
+        body: formatRollChatLine(result, { typeLabel: t("speed") }),
       });
       appendChatMessageIfNew(row);
     } catch (err) {
@@ -3361,10 +3363,11 @@ function bindEvents() {
     state.lastRoll = result;
     state.rollModalOpen = true;
     try {
+      const typeLabel = String(state.lastRollPayload?.typeLabel || "").trim();
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: formatRollChatLine(result, { favorReroll: true }),
+        body: formatRollChatLine(result, { favorReroll: true, typeLabel }),
       });
       appendChatMessageIfNew(row);
     } catch (err) {
