@@ -446,7 +446,16 @@ button:disabled {
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble--strip { padding-left: 0.05rem; padding-right: 0.05rem; }
 #app .stats-bubble--3sub { padding-left: 0.28rem; }
-.stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.22rem; font-size: 1.12rem !important; }
+.stats-bubble-title {
+  text-align: center;
+  font-weight: 900;
+  margin-bottom: 0.22rem;
+  font-size: 1.12rem !important;
+  /* Keep layout stable across languages (FR strings are longer). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .stats-bubble-title-row { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.35rem; }
 .stats-bubble-title-row .stats-bubble-title { margin: 0; }
 
@@ -496,7 +505,16 @@ button:disabled {
 
 .stats-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
 #app .stats-col { min-width: 0; }
-.stats-col-label { text-align: center; font-size: 1.12rem !important; font-weight: 700; opacity: 0.95; margin-bottom: 0.2rem; }
+.stats-col-label {
+  text-align: center;
+  font-size: 1.12rem !important;
+  font-weight: 700;
+  opacity: 0.95;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .stats-pill {
   border: 3px solid var(--border);
@@ -625,7 +643,14 @@ button:disabled {
 }
 
 .stats-3sub { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.55rem; }
-.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; }
+.stats-sub-title {
+  text-align: center;
+  font-weight: 900;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .stats-sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
 .stats-sub-row--compact {
   align-items: end;
@@ -670,7 +695,16 @@ button:disabled {
   width: 0.9rem;
   height: 0.6rem;
 }
-#app .stats-mini-label { text-align: center; font-size: 1rem !important; line-height: 1.05 !important; opacity: 0.9; margin-bottom: 0.15rem; }
+#app .stats-mini-label {
+  text-align: center;
+  font-size: 1rem !important;
+  line-height: 1.05 !important;
+  opacity: 0.9;
+  margin-bottom: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .stats-speed-btn {
   border: 3px solid var(--border);
   background: var(--accent);
