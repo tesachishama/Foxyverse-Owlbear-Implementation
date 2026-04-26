@@ -127,6 +127,7 @@ const state = {
   talentTierMenuOpen: false,
   _tabScrollTop: {}, // tabId -> number
   _pageScrollTop: 0,
+  _scrollToTalents: false,
 };
 
 function canView(sheetId) {
@@ -1559,7 +1560,7 @@ function renderStatsTab() {
         </div>
       </div>
 
-      <div class="stats-bubble">
+      <div class="stats-bubble" id="stats-talents-block">
         <div class="stats-bubble-title-row">
           <div class="stats-bubble-title">${t("talentsBlock")}</div>
           ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--text)")}</button>` : ""}
@@ -2460,6 +2461,13 @@ function render() {
   app.classList.toggle("modal-open", !!app.querySelector(".modal:not(.hidden)"));
   applyColors();
   bindEvents();
+  if (state.activeTab === "stats" && state._scrollToTalents) {
+    state._scrollToTalents = false;
+    requestAnimationFrame(() => {
+      const el = document.getElementById("stats-talents-block");
+      if (el) el.scrollIntoView({ block: "start" });
+    });
+  }
   if (state.activeTab !== "chat") {
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
@@ -3201,6 +3209,7 @@ function bindEvents() {
     state.talentModalOpen = false;
     state.talentDraft = null;
     state.talentTierMenuOpen = false;
+    state._scrollToTalents = true;
   };
 
   app.querySelector("#talent-cancel")?.addEventListener("click", () => {
