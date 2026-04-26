@@ -485,7 +485,7 @@ button:disabled {
   max-width: 3.4rem;
   margin: 0 auto;
   box-sizing: border-box;
-  height: 2.35rem;
+  min-height: 2.35rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -784,7 +784,7 @@ button:disabled {
   min-width: 4.5rem;
   max-width: 4.5rem;
   margin: 0 auto;
-  height: 2.35rem;
+  min-height: 2.35rem;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 1fr 1.2rem;
@@ -835,8 +835,9 @@ button:disabled {
   min-width: 4.85rem;
   max-width: 4.85rem;
 }
-/* Avoid overriding the detailed input min-width above. */
-.stats-pill-stepper--detail .stats-pill-input { }
+.stats-pill-stepper--detail .stats-pill-input {
+  min-width: 2.25rem;
+}
 
 .stats-graph-block {
   margin-top: 0.55rem;
