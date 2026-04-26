@@ -1223,8 +1223,13 @@ function renderStatsTab() {
       let cost = 0;
       for (let i = 1; i <= extra; i++) {
         const statVal = 5 + i;
-        const tier = Math.floor((Math.max(0, statVal - 1) - 20) / 10) + 1; // 1 for <=20
-        cost += tier <= 1 ? 1 : tier;
+        // Cost per point:
+        // - 6..20 => 1
+        // - 21..30 => 2
+        // - 31..40 => 3
+        // - ...
+        const perPoint = statVal <= 20 ? 1 : Math.floor((statVal - 21) / 10) + 2;
+        cost += perPoint;
       }
       return cost;
     };
@@ -1245,13 +1250,13 @@ function renderStatsTab() {
           min: minBase,
           max: maxBase,
           allowNegative: false,
-          variant: "stats-pill-stepper--detail",
+          variant: "stats-pill-stepper--detail stats-pill-stepper--detail-base",
         })}</td>
         <td class="stats-detail-val">${pill(item, { signedValue: true, extraClass: "stats-pill--detail-readonly" })}</td>
         <td class="stats-detail-val">${stepper(`stat:${statId}:passive`, passive, {
           allowNegative: true,
           signedValue: true,
-          variant: "stats-pill-stepper--detail",
+          variant: "stats-pill-stepper--detail stats-pill-stepper--detail-passive",
         })}</td>
       </tr>
     `;
