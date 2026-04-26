@@ -2461,14 +2461,52 @@ function render() {
   app.classList.toggle("modal-open", !!app.querySelector(".modal:not(.hidden)"));
   applyColors();
   bindEvents();
-  if (state.activeTab === "stats" && state._scrollToTalents) {
+  const scrollToTalentsNow = () => {
+    const targetEl = document.getElementById("stats-talents-block");
+    if (!targetEl) return false;
+    const containers = [
+      app.querySelector("main.tab-content"),
+      app,
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter(Boolean);
+    let did = false;
+    for (const c of containers) {
+      try {
+        const cRect = c.getBoundingClientRect ? c.getBoundingClientRect() : null;
+        const tRect = targetEl.getBoundingClientRect ? targetEl.getBoundingClientRect() : null;
+        if (!cRect || !tRect) continue;
+        const delta = tRect.top - cRect.top;
+        if (!Number.isFinite(delta)) continue;
+        if (typeof c.scrollTop === "number") {
+          c.scrollTop = Math.max(0, c.scrollTop + delta - 8);
+          did = true;
+        }
+      } catch (_) {}
+    }
+    try {
+      const tRect = targetEl.getBoundingClientRect();
+      if (tRect && Number.isFinite(tRect.top)) {
+        window.scrollTo(0, (window.scrollY || 0) + tRect.top - 60);
+        did = true;
+      }
+    } catch (_) {}
+    return did;
+  };
+
+  const shouldScrollToTalents = state.activeTab === "stats" && state._scrollToTalents;
+  if (shouldScrollToTalents) {
     state._scrollToTalents = false;
     requestAnimationFrame(() => {
-      const el = document.getElementById("stats-talents-block");
-      if (el) el.scrollIntoView({ block: "start" });
+      scrollToTalentsNow();
+      requestAnimationFrame(scrollToTalentsNow);
+      setTimeout(scrollToTalentsNow, 0);
+      setTimeout(scrollToTalentsNow, 30);
     });
   }
   if (state.activeTab !== "chat") {
+    if (shouldScrollToTalents) return;
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
