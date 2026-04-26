@@ -1566,7 +1566,7 @@ function renderStatsTab() {
       <div class="stats-bubble" id="stats-talents-block">
         <div class="stats-bubble-title-row">
           <div class="stats-bubble-title">${t("talentsBlock")}</div>
-          ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--text)")}</button>` : ""}
+          ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--accent)")}</button>` : ""}
         </div>
         <div class="talents-grid">${talentsGrid}</div>
       </div>

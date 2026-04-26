@@ -763,6 +763,11 @@ button:disabled {
   width: 1.2rem;
   height: 1.2rem;
 }
+
+/* Talents: nudge add button slightly right */
+#app #stats-talents-block .stats-bubble-title-row .stats-add-icon {
+  right: 0.22rem;
+}
 .talent-pill {
   border: 3px solid var(--border);
   border-radius: 999px;
