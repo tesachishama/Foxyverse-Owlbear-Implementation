@@ -750,6 +750,7 @@ button:disabled {
   text-align: right;
   font-weight: 800;
   padding-right: 0.45rem;
+  white-space: nowrap;
 }
 .stats-detail-val {
   text-align: center;
@@ -775,17 +776,28 @@ button:disabled {
   margin: 0 auto;
   min-height: 2.35rem;
   box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1.25rem;
+  align-items: center;
+  justify-items: stretch;
+}
+.stats-pill-stepper--detail .stats-pill-arrows {
+  width: 1.25rem;
+  justify-self: end;
+}
+.stats-pill-stepper--detail .stats-pill-input {
+  width: 100%;
+  min-width: 2.65rem; /* ensures values like +30 remain visible */
+  padding-left: 0.1rem;
+  padding-right: 0.1rem;
 }
 .stats-pill-stepper--detail-base {
-  width: 4.15rem;
-  min-width: 4.15rem;
-  max-width: 4.15rem;
+  width: 4.0rem;
+  min-width: 4.0rem;
+  max-width: 4.0rem;
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
-  padding-right: 0.25rem;
-}
-.stats-pill-stepper--detail-passive .stats-pill-arrows {
-  margin-left: 0.05rem;
+  min-width: 2.85rem; /* passive can be signed and slightly wider */
 }
 .stats-pill-stepper--detail .stats-pill-input {
   min-width: 2.25rem;
