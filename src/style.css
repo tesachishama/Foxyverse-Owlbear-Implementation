@@ -734,7 +734,7 @@ button:disabled {
 }
 .stats-detail-table th,
 .stats-detail-table td {
-  padding: 0.28rem 0.32rem;
+  padding: 0.28rem 0.28rem;
   vertical-align: middle;
   line-height: 1.1;
 }
@@ -783,14 +783,19 @@ button:disabled {
   min-height: 2.35rem;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 1fr 1.05rem;
+  grid-template-columns: 1fr 1.2rem;
   align-items: center;
   justify-items: stretch;
-  padding-right: 0.28rem; /* pull arrows inward (left), avoid clipping */
+  padding-right: 0.22rem; /* pull arrows inward (left), avoid clipping */
 }
 .stats-pill-stepper--detail .stats-pill-arrows {
+  width: 1.2rem;
+  justify-self: center;
+  transform: translateX(-0.06rem); /* optical centering inside pill */
+}
+.stats-pill-stepper--detail .stats-pill-arrow {
   width: 1.05rem;
-  justify-self: end;
+  height: 1.02rem;
 }
 .stats-pill-stepper--detail .stats-pill-input {
   width: 100%;
