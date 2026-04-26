@@ -1,6 +1,6 @@
 {
   "name": "Foxyverse Owlbear Implementation",
-  "version": "1.0.0",
+  "version": "1.0.0+402d392",
   "manifest_version": 1,
   "description": "A Foxyverse integration for Owlbear.Rodeo",
   "author": "Foxyverse",
