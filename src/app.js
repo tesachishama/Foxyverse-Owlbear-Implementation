@@ -129,6 +129,27 @@ const state = {
   _pageScrollTop: 0,
 };
 
+function detectScrollContainer(app) {
+  const candidates = [
+    app?.querySelector?.("main.tab-content"),
+    app,
+    document.scrollingElement,
+    document.documentElement,
+    document.body,
+  ].filter(Boolean);
+  for (const el of candidates) {
+    try {
+      const max = Math.max(0, (el.scrollHeight || 0) - (el.clientHeight || 0));
+      if (max <= 0) continue;
+      const cs = window.getComputedStyle(el);
+      const oy = cs?.overflowY || "";
+      if (oy === "hidden") continue;
+      return el;
+    } catch (_) {}
+  }
+  return app?.querySelector?.("main.tab-content") || app || document.scrollingElement || document.documentElement;
+}
+
 function canView(sheetId) {
   if (state.isGM) return true;
   const per = state.permissions[state.playerId];
@@ -1124,7 +1145,7 @@ function renderStatsTab() {
 
   const talents = s.knowledge || [];
 
-  const insertSoftHyphens = (text) => {
+  const insertBreakHints = (text) => {
     const raw = String(text || "").trim();
     if (!raw) return "";
     const tokens = raw.split(/\s+/).filter(Boolean);
@@ -1134,29 +1155,28 @@ function renderStatsTab() {
     // Only hyphenate when needed:
     // - first word is very long (tends to overflow line 1), OR
     // - overall label likely won't fit in 2 lines.
-    const shouldHyphenate =
-      (tokens.length > 1 && first.length >= 6) ||
-      first.length >= 12 ||
-      totalLen >= 28;
-    if (!shouldHyphenate) return raw;
+    const shouldHintBreaks = (tokens.length > 1 && first.length >= 6) || first.length >= 12 || totalLen >= 28;
+    if (!shouldHintBreaks) return raw;
 
-    const hyphenateWord = (w) => {
+    // Use zero-width space so wrapping does NOT show a visible hyphen.
+    // The 2-line clamp will show "..." when overflowing instead.
+    const breakWord = (w) => {
       if (w.length < 6) return w;
       const step = w.length < 10 ? 3 : 4;
       let out = "";
       for (let i = 0; i < w.length; i += step) {
         out += w.slice(i, i + step);
-        if (i + step < w.length) out += "\u00AD";
+        if (i + step < w.length) out += "\u200B";
       }
       return out;
     };
 
     // Hyphenate only the first word if it's the problem; otherwise hyphenate the longest word.
-    const idxToHyphenate =
+    const idxToHint =
       first.length >= 12
         ? 0
         : tokens.reduce((bestIdx, w, i) => (w.length > tokens[bestIdx].length ? i : bestIdx), 0);
-    const out = tokens.map((w, i) => (i === idxToHyphenate ? hyphenateWord(w) : w)).join(" ");
+    const out = tokens.map((w, i) => (i === idxToHint ? breakWord(w) : w)).join(" ");
     return out;
   };
 
@@ -1253,7 +1273,7 @@ function renderStatsTab() {
   const talentsGrid = talents
     .map((tl, idx) => {
       const name = String(tl.name || "").trim() || t("talentDefault");
-      const nameDisplay = insertSoftHyphens(name);
+      const nameDisplay = insertBreakHints(name);
       const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
       const tierLbl = `T${tier}`;
       const bonusLbl = talentBonusText(tl);
@@ -2429,16 +2449,10 @@ function render() {
     return;
   }
 
-  // Preserve scroll position per tab (e.g., closing modals should not jump).
-  // In Owlbear the scroll container can be the document scrollingElement (most common),
-  // not `main.tab-content`, so we track both.
-  const scrollingEl = document.scrollingElement || document.documentElement;
-  const prevPageTop = scrollingEl ? scrollingEl.scrollTop : 0;
-  const prevAppTop = app.scrollTop || 0;
-  const prevMain = app.querySelector("main.tab-content");
-  const prevMainTop = prevMain ? prevMain.scrollTop : 0;
-  state._tabScrollTop[state.activeTab] = prevMainTop;
-  state._pageScrollTop = prevPageTop;
+  // Preserve scroll position (closing modals should not jump).
+  const prevScrollContainer = detectScrollContainer(app);
+  const prevScrollTop = prevScrollContainer?.scrollTop || 0;
+  state._tabScrollTop[state.activeTab] = prevScrollTop;
 
   let prevChatFromBottom = null;
   if (state.activeTab === "chat" && state._chatStickToBottom === false) {
@@ -2461,13 +2475,9 @@ function render() {
   bindEvents();
   if (state.activeTab !== "chat") {
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
-    const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
-      const nextMain = app.querySelector("main.tab-content");
-      if (nextMain) nextMain.scrollTop = target;
-      const se = document.scrollingElement || document.documentElement;
-      if (se) se.scrollTop = pageTarget;
-      app.scrollTop = prevAppTop;
+      const nextScrollContainer = detectScrollContainer(app);
+      if (nextScrollContainer) nextScrollContainer.scrollTop = target;
     };
     requestAnimationFrame(() => {
       restore();
