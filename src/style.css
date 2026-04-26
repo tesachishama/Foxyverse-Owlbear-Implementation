@@ -734,13 +734,11 @@ button:disabled {
 }
 .stats-detail-table th,
 .stats-detail-table td {
-  padding: 0.28rem 0.2rem;
+  padding: 0.28rem 0.32rem;
   vertical-align: middle;
   line-height: 1.1;
 }
-.stats-detail-table tbody tr {
-  height: 2.65rem;
-}
+.stats-detail-table tbody tr { height: 2.65rem; }
 .stats-detail-corner {
   width: 32%;
 }
@@ -755,6 +753,10 @@ button:disabled {
   font-weight: 800;
   padding-right: 0.45rem;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 2.35rem;
 }
 .stats-detail-val {
   text-align: center;
@@ -781,18 +783,18 @@ button:disabled {
   min-height: 2.35rem;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 1fr 1.35rem;
+  grid-template-columns: 1fr 1.05rem;
   align-items: center;
   justify-items: stretch;
-  padding-right: 0.18rem;
+  padding-right: 0.28rem; /* pull arrows inward (left), avoid clipping */
 }
 .stats-pill-stepper--detail .stats-pill-arrows {
-  width: 1.35rem;
+  width: 1.05rem;
   justify-self: end;
 }
 .stats-pill-stepper--detail .stats-pill-input {
   width: 100%;
-  min-width: 2.85rem; /* ensures values like +30 remain visible */
+  min-width: 3.05rem; /* ensures values like +30 remain visible */
   padding-left: 0.1rem;
   padding-right: 0.1rem;
 }
@@ -802,7 +804,12 @@ button:disabled {
   max-width: 3.8rem;
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
-  min-width: 3.0rem; /* passive can be signed and slightly wider */
+  min-width: 3.15rem; /* passive can be signed and slightly wider */
+}
+.stats-pill-stepper--detail-passive {
+  width: 4.7rem;
+  min-width: 4.7rem;
+  max-width: 4.7rem;
 }
 .stats-pill-stepper--detail .stats-pill-input {
   min-width: 2.25rem;
