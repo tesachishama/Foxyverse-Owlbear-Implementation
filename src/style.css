@@ -636,23 +636,27 @@ button:disabled {
   box-sizing: border-box;
   margin: 0;
   /* Wider, not taller */
-  padding: 0.18rem 0.44rem 0.16rem 0.16rem;
+  padding: 0.18rem 0.44rem 0.18rem 0.1rem;
   border-radius: 999px;
   border: 3px solid var(--border);
   background: var(--accent);
   color: var(--bg);
   justify-content: flex-start;
   gap: 0.05rem;
+  align-items: center;
 }
 .stats-strip-roll-row .inline-roll-caption {
   color: var(--bg);
   font-weight: 900;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
+  line-height: 1;
 }
 .stats-strip-roll-row .inline-roll-dice {
   color: var(--bg);
   width: 0.64rem;
   height: 0.64rem;
+  margin-left: -0.05rem;
+  margin-right: 0.02rem;
 }
 
 .talents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
