@@ -117,9 +117,9 @@ Total : ${v}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
       `}).join(""),$=Number((H=t.bio)==null?void 0:H.level)||1,C=(()=>{const B=F=>{const J=Math.max(0,Number(F)||0),Y=Math.max(0,J-5);let I=0;for(let K=1;K<=Y;K++){const Q=5+K,m=Q<=20?1:Math.floor((Q-21)/10)+2;I+=m}return I};return kt.reduce((F,J)=>{var Y,I;return F+B((I=(Y=t.stats)==null?void 0:Y[J])==null?void 0:I.base)},0)})(),x=kt.map(B=>{var m;const F=((m=t.stats)==null?void 0:m[B])||{},J=Number(F.base)||0,Y=Number(F.passiveBonus)||0,I=d(B),K=$===1?5:null,Q=$===1?15:null;return`
       <tr>
         <th scope="row" class="stats-detail-stat-name">${E(g(B))}</th>
-        <td class="stats-detail-val">${u(`stat:${B}:base`,J,{min:K,max:Q,allowNegative:!1,variant:"stats-pill-stepper--detail stats-pill-stepper--detail-base"})}</td>
-        <td class="stats-detail-val">${c(I,{signedValue:!0,extraClass:"stats-pill--detail-readonly"})}</td>
-        <td class="stats-detail-val">${u(`stat:${B}:passive`,Y,{allowNegative:!0,signedValue:!0,variant:"stats-pill-stepper--detail stats-pill-stepper--detail-passive"})}</td>
+        <td class="stats-detail-val"><div class="stats-detail-cell">${u(`stat:${B}:base`,J,{min:K,max:Q,allowNegative:!1,variant:"stats-pill-stepper--detail stats-pill-stepper--detail-base"})}</div></td>
+        <td class="stats-detail-val"><div class="stats-detail-cell">${c(I,{signedValue:!0,extraClass:"stats-pill--detail-readonly"})}</div></td>
+        <td class="stats-detail-val"><div class="stats-detail-cell">${u(`stat:${B}:passive`,Y,{allowNegative:!0,signedValue:!0,variant:"stats-pill-stepper--detail stats-pill-stepper--detail-passive"})}</div></td>
       </tr>
     `}).join(""),D=zs(t),z=Js(t),W=`
     <button type="button" id="btn-roll-speed" class="stats-speed-btn stats-speed-btn--circle" aria-label="${E(g("speed"))}">
