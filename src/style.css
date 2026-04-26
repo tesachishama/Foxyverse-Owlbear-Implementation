@@ -592,7 +592,7 @@ button:disabled {
   width: 0.9rem;
   height: 0.6rem;
 }
-#app .stats-mini-label { text-align: center; font-size: 0.78rem !important; line-height: 1.05 !important; opacity: 0.9; margin-bottom: 0.15rem; }
+#app .stats-mini-label { text-align: center; font-size: 1rem !important; line-height: 1.05 !important; opacity: 0.9; margin-bottom: 0.15rem; }
 .stats-speed-btn {
   border: 3px solid var(--border);
   background: var(--accent);
