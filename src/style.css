@@ -641,7 +641,7 @@ button:disabled {
   height: 2.18rem;
   min-width: 2.18rem;
 }
-#app .stats-3sub .stats-speed-d6 { width: 1.25rem; height: 1.25rem; }
+#app .stats-3sub .stats-speed-d6 { width: 1.5rem; height: 1.5rem; }
 
 #app .stats-3sub .stats-pill-stepper--compact {
   /* Give the input a bit more room for 2 chars (+4) */
