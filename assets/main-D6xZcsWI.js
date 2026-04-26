@@ -166,7 +166,7 @@ Total : ${g}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
       </svg>
     `};return`
     <div class="card stats-tab-card stats-template">
-      <div class="stats-bubble">
+      <div class="stats-bubble stats-bubble--health">
         <div class="stats-bubble-title">${v("health")}</div>
         <div class="stats-3col">
           <div class="stats-col">
