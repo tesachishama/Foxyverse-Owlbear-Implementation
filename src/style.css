@@ -462,6 +462,11 @@ button:disabled {
   width: 100%;
 }
 .stats-2col-line > .stats-bubble { min-width: 0; width: 100%; }
+/* In 2-col rows, rely on grid gap (no vertical stacking margin). */
+#app .stats-2col-line .stats-bubble + .stats-bubble { margin-top: 0; }
+
+/* Mana/Favor: slightly tighter title vertical spacing. */
+#app .stats-2col-line .stats-bubble-title { margin-bottom: 0.16rem !important; }
 
 .stats-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
 #app .stats-col { min-width: 0; }
