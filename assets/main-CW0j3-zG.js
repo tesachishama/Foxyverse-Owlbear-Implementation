@@ -103,8 +103,8 @@ Total : ${g}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
       <div class="stats-pill-stepper${b?` ${b}`:""}" data-stepper="${T(B)}"${w}${S}${E}${O} aria-label="${T(p||B)}">
         <input type="text" class="stats-pill-input" inputmode="numeric" data-stepper-input="${T(B)}" value="${T(k)}"${P} spellcheck="false" aria-label="${T(p||B)}" />
         <div class="stats-pill-arrows">
-          <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-stepper-step="${T(B)}" data-delta="1" ${r?"":"disabled"} aria-label="${T(v("add"))}">${Q(Ee,"inline-svg bio-level-arrow-icon","var(--accent)")}</button>
-          <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-stepper-step="${T(B)}" data-delta="-1" ${r?"":"disabled"} aria-label="${T(v("remove"))}">${Q(Ee,"inline-svg bio-level-arrow-icon","var(--accent)")}</button>
+          <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-stepper-step="${T(B)}" data-delta="1" ${r?"":"disabled"} aria-label="${T(v("add"))}">${Q(Ee,"inline-svg bio-level-arrow-icon","var(--text)")}</button>
+          <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-stepper-step="${T(B)}" data-delta="-1" ${r?"":"disabled"} aria-label="${T(v("remove"))}">${Q(Ee,"inline-svg bio-level-arrow-icon","var(--text)")}</button>
         </div>
       </div>
     `},h=B=>{const U=t.equipped||{},I=new Set;let V=0;return Object.values(U).forEach(z=>{if(!z||I.has(z))return;I.add(z);const Y=zs(t,z);Y&&(V+=Number(Y[B])||0)}),V},f=B=>{var Y;const U=((Y=t.stats)==null?void 0:Y[B])||{},I=Number(U.base)||0,V=Number(U.passiveBonus)||0,z=h(B);return I+V+z},g=$t.map(B=>{const U=f(B);return`[${B} | ${U}]`}).join(""),y=qs(g),A=$t.map(B=>{const U=T(v(`statAbbr_${B}`));return`<div class="stats-strip-abbr-cell" title="${T(v(B))}">${U}</div>`}).join(""),R=B=>{const U=String(B||""),I=U.lastIndexOf("[[override]]");return I<0?"":U.slice(I+12).trim()},$=B=>{const U=Math.max(0,Math.min(4,Number(B.tier)||0)),I={0:"+0",1:"+1",2:"+3",3:"+5",4:"+10"},V=B.bonusOverride!=null&&String(B.bonusOverride).trim()?String(B.bonusOverride):R(B.description||"");if(!V)return I[U]||"+0";const z=String(V).trim(),Y=z.length>3?"±X":z;return T(Y)},C=o.map((B,U)=>{const I=String(B.name||"").trim()||v("talentDefault"),V=a(I),Y=`T${Math.max(0,Math.min(4,Number(B.tier)||0))}`,m=$(B),p=B.bonusOverride!=null&&String(B.bonusOverride).trim()?String(B.bonusOverride).trim():R(B.description||""),b=p&&p.length>3?` title="${T(p)}"`:"",_=p&&p.length>3?"talent-bonus talent-bonus--custom":"talent-bonus";return`
@@ -397,8 +397,8 @@ Total : ${g}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
               <div class="spell-cost-pill">
                 <span class="spell-cost-value" data-spell-cost-value="${T(a)}">${T(String(u?u.cost:g))}</span>
                 <div class="spell-cost-arrows">
-                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${T(a)}" data-cost-delta="1" aria-label="${T(v("add"))}">${Q(Ee,"inline-svg spell-cost-arrow-svg","var(--accent)")}</button>
-                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${T(a)}" data-cost-delta="-1" aria-label="${T(v("remove"))}">${Q(Ee,"inline-svg spell-cost-arrow-svg spell-cost-arrow-down","var(--accent)")}</button>
+                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${T(a)}" data-cost-delta="1" aria-label="${T(v("add"))}">${Q(Ee,"inline-svg spell-cost-arrow-svg","var(--text)")}</button>
+                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${T(a)}" data-cost-delta="-1" aria-label="${T(v("remove"))}">${Q(Ee,"inline-svg spell-cost-arrow-svg spell-cost-arrow-down","var(--text)")}</button>
                 </div>
               </div>
             </div>
