@@ -1196,7 +1196,10 @@ function renderStatsTab() {
     const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
     const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
     const override = tl.bonusOverride != null ? String(tl.bonusOverride) : "";
-    return override ? escapeAttr(String(override)) : tierMap[tier] || "+0";
+    if (!override) return tierMap[tier] || "+0";
+    const raw = String(override).trim();
+    const condensed = raw.length > 3 ? "custom" : raw;
+    return escapeAttr(condensed);
   };
 
   const talentsGrid = talents
@@ -1205,11 +1208,14 @@ function renderStatsTab() {
       const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
       const tierLbl = `T${tier}`;
       const bonusLbl = talentBonusText(tl);
+      const rawOverride = tl.bonusOverride != null ? String(tl.bonusOverride).trim() : "";
+      const bonusTitle = rawOverride && rawOverride.length > 3 ? ` title="${escapeAttr(rawOverride)}"` : "";
+      const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
       return `
         <div class="talent-pill" data-talent-id="${escapeAttr(String(tl.id || idx))}">
           <div class="talent-name">${escapeAttr(name)}</div>
           <div class="talent-tier">${escapeAttr(tierLbl)}</div>
-          <div class="talent-bonus">${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
+          <div class="${bonusClass}"${bonusTitle}>${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
           ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(String(tl.id || idx))}" aria-label="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
         </div>
       `;

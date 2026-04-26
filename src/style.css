@@ -674,6 +674,7 @@ button:disabled {
   line-height: 1.15;
   justify-self: center;
   text-align: center;
+  padding-right: 0.2rem; /* keep clear of tier/bonus */
 }
 .talent-tier,
 .talent-bonus {
@@ -712,9 +713,19 @@ button:disabled {
 }
 .talent-tier-picker .sheet-menu {
   z-index: 20;
-  max-height: 11.4rem; /* ~4-4.5 options visible (≈ +75%) */
+  max-height: 10.2rem; /* slightly less tall */
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.talent-tier-picker .sheet-menu-item {
+  padding: 0.28rem 0.65rem;
+  font-size: 0.9rem;
+}
+
+.talent-bonus--custom {
+  font-size: 0.72rem !important;
+  opacity: 0.95;
 }
 
 /* Force section titles to win over generic rules */
