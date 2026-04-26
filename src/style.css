@@ -775,6 +775,9 @@ button:disabled {
 }
 .stats-detail-val {
   text-align: center;
+}
+
+.stats-detail-cell {
   display: flex;
   justify-content: center;
 }

@@ -1246,18 +1246,18 @@ function renderStatsTab() {
     return `
       <tr>
         <th scope="row" class="stats-detail-stat-name">${escapeAttr(t(statId))}</th>
-        <td class="stats-detail-val">${stepper(`stat:${statId}:base`, base, {
+        <td class="stats-detail-val"><div class="stats-detail-cell">${stepper(`stat:${statId}:base`, base, {
           min: minBase,
           max: maxBase,
           allowNegative: false,
           variant: "stats-pill-stepper--detail stats-pill-stepper--detail-base",
-        })}</td>
-        <td class="stats-detail-val">${pill(item, { signedValue: true, extraClass: "stats-pill--detail-readonly" })}</td>
-        <td class="stats-detail-val">${stepper(`stat:${statId}:passive`, passive, {
+        })}</div></td>
+        <td class="stats-detail-val"><div class="stats-detail-cell">${pill(item, { signedValue: true, extraClass: "stats-pill--detail-readonly" })}</div></td>
+        <td class="stats-detail-val"><div class="stats-detail-cell">${stepper(`stat:${statId}:passive`, passive, {
           allowNegative: true,
           signedValue: true,
           variant: "stats-pill-stepper--detail stats-pill-stepper--detail-passive",
-        })}</td>
+        })}</div></td>
       </tr>
     `;
   }).join("");
