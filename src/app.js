@@ -126,6 +126,7 @@ const state = {
   talentDraft: null, // { id, name, description, tier, bonusOverride }
   talentTierMenuOpen: false,
   _tabScrollTop: {}, // tabId -> number
+  _pageScrollTop: 0,
 };
 
 function canView(sheetId) {
@@ -1124,21 +1125,36 @@ function renderStatsTab() {
   const talents = s.knowledge || [];
 
   const insertSoftHyphens = (text) => {
-    const s = String(text || "");
-    // Split by whitespace but keep separators so we preserve spacing.
-    return s.split(/(\s+)/).map((tok) => {
-      if (!tok || /^\s+$/.test(tok)) return tok;
-      // For long tokens, insert soft hyphens periodically so CSS can show '-' on wrap.
-      if (tok.length < 4) return tok;
-      const step = tok.length < 10 ? 2 : 4;
+    const raw = String(text || "").trim();
+    if (!raw) return "";
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    const first = tokens[0] || "";
+    const totalLen = raw.replace(/\s+/g, " ").length;
+
+    // Only hyphenate when needed:
+    // - first word is very long (tends to overflow line 1), OR
+    // - overall label likely won't fit in 2 lines.
+    const shouldHyphenate = first.length >= 12 || totalLen >= 28;
+    if (!shouldHyphenate) return raw;
+
+    const hyphenateWord = (w) => {
+      if (w.length < 6) return w;
+      const step = 4;
       let out = "";
-      for (let i = 0; i < tok.length; i += step) {
-        const chunk = tok.slice(i, i + step);
-        out += chunk;
-        if (i + step < tok.length) out += "\u00AD";
+      for (let i = 0; i < w.length; i += step) {
+        out += w.slice(i, i + step);
+        if (i + step < w.length) out += "\u00AD";
       }
       return out;
-    }).join("");
+    };
+
+    // Hyphenate only the first word if it's the problem; otherwise hyphenate the longest word.
+    const idxToHyphenate =
+      first.length >= 12
+        ? 0
+        : tokens.reduce((bestIdx, w, i) => (w.length > tokens[bestIdx].length ? i : bestIdx), 0);
+    const out = tokens.map((w, i) => (i === idxToHyphenate ? hyphenateWord(w) : w)).join(" ");
+    return out;
   };
 
   const signed = (n) => {
@@ -2411,9 +2427,14 @@ function render() {
   }
 
   // Preserve scroll position per tab (e.g., closing modals should not jump).
+  // In Owlbear the scroll container can be the document scrollingElement (most common),
+  // not `main.tab-content`, so we track both.
+  const scrollingEl = document.scrollingElement || document.documentElement;
+  const prevPageTop = scrollingEl ? scrollingEl.scrollTop : 0;
   const prevMain = app.querySelector("main.tab-content");
-  const prevMainScrollTop = prevMain ? prevMain.scrollTop : 0;
-  state._tabScrollTop[state.activeTab] = prevMainScrollTop;
+  const prevMainTop = prevMain ? prevMain.scrollTop : 0;
+  state._tabScrollTop[state.activeTab] = prevMainTop;
+  state._pageScrollTop = prevPageTop;
 
   let prevChatFromBottom = null;
   if (state.activeTab === "chat" && state._chatStickToBottom === false) {
@@ -2436,9 +2457,12 @@ function render() {
   bindEvents();
   if (state.activeTab !== "chat") {
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
+    const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
       const nextMain = app.querySelector("main.tab-content");
       if (nextMain) nextMain.scrollTop = target;
+      const se = document.scrollingElement || document.documentElement;
+      if (se) se.scrollTop = pageTarget;
     };
     requestAnimationFrame(() => {
       restore();
