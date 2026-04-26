@@ -768,10 +768,6 @@ button:disabled {
   font-weight: 800;
   padding-right: 0.45rem;
   white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  height: 2.35rem;
 }
 .stats-detail-val {
   text-align: center;
@@ -784,7 +780,7 @@ button:disabled {
 
 /* Slight left shift for the narrower item column so it sits centered between Base and Passive. */
 .stats-detail-col-item .stats-detail-cell {
-  transform: translateX(-0.28rem);
+  transform: translateX(-0.32rem);
 }
 
 .stats-detail-col-item {
@@ -796,7 +792,7 @@ button:disabled {
   transform: translateX(-0.5ch);
 }
 .stats-detail-col-h:last-child {
-  transform: translateX(-0.5ch);
+  transform: translateX(-0.35ch);
 }
 
 /* In the detailed stats table, don't center pills inside each cell:
