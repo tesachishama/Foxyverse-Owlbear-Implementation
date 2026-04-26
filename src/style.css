@@ -432,7 +432,13 @@ button:disabled {
 }
 
 /* Stats template (new UI) */
-.stats-tab-card.stats-template { padding: 0.65rem 0.65rem 0.9rem; border-radius: 18px; }
+.stats-tab-card.stats-template {
+  padding: 0.65rem 0.65rem 0.9rem;
+  border-radius: 18px;
+  border: none; /* no outer border around the Stats tab body */
+  background: transparent;
+  margin-bottom: 0;
+}
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.35rem; }
