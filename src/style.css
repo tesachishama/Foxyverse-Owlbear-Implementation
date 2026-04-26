@@ -648,13 +648,13 @@ button:disabled {
 .stats-strip-roll-row .inline-roll-caption {
   color: var(--bg);
   font-weight: 900;
-  font-size: 0.62rem;
+  font-size: 1.1rem !important;
   line-height: 1;
 }
 .stats-strip-roll-row .inline-roll-dice {
   color: var(--bg);
-  width: 0.6rem;
-  height: 0.6rem;
+  width: 1em !important;
+  height: 1em !important;
   margin-left: -0.05rem;
   margin-right: 0.02rem;
 }
