@@ -468,6 +468,20 @@ button:disabled {
 /* Mana/Favor: slightly tighter title vertical spacing. */
 #app .stats-2col-line .stats-bubble-title { margin-bottom: 0.16rem !important; }
 
+/* Mana/Favor: tighter bottom inset + slightly larger pill text + equal pill heights */
+#app .stats-2col-line > .stats-bubble {
+  padding-bottom: 0.35rem;
+}
+#app .stats-2col-line .stats-pill,
+#app .stats-2col-line .stats-pill-stepper,
+#app .stats-2col-line .stats-pill-input {
+  font-size: 1.08rem !important;
+}
+#app .stats-2col-line .stats-pill--counter,
+#app .stats-2col-line .stats-pill-stepper {
+  min-height: 2.6rem;
+}
+
 .stats-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
 #app .stats-col { min-width: 0; }
 .stats-col-label { text-align: center; font-size: 1.12rem !important; font-weight: 700; opacity: 0.95; margin-bottom: 0.2rem; }
