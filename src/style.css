@@ -712,7 +712,7 @@ button:disabled {
 }
 .talent-tier-picker .sheet-menu {
   z-index: 20;
-  max-height: 6.5rem; /* ~2.5 options visible */
+  max-height: 11.4rem; /* ~4-4.5 options visible (≈ +75%) */
   overflow-y: auto;
   overflow-x: hidden;
 }
