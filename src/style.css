@@ -433,7 +433,10 @@ button:disabled {
 
 /* Stats template (new UI) */
 .stats-tab-card.stats-template {
-  padding: 0.65rem 0.65rem 0.9rem;
+  /* Match the tabs row horizontal inset (see .tabs margin). */
+  margin-left: 0.24rem;
+  margin-right: 0.24rem;
+  padding: 0 0 0.9rem;
   border-radius: 18px;
   border: none; /* no outer border around the Stats tab body */
   background: transparent;
