@@ -650,12 +650,13 @@ button:disabled {
   font-weight: 900;
   font-size: 1.1rem !important;
   line-height: 1;
+  transform: translateY(0.04em);
 }
 .stats-strip-roll-row .inline-roll-dice {
   color: var(--bg);
   width: 1em !important;
   height: 1em !important;
-  margin-left: -0.05rem;
+  margin-left: -0.09rem;
   margin-right: 0.02rem;
 }
 
