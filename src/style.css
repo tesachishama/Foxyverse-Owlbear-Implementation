@@ -784,11 +784,19 @@ button:disabled {
 
 /* Slight left shift for the narrower item column so it sits centered between Base and Passive. */
 .stats-detail-col-item .stats-detail-cell {
-  transform: translateX(-0.18rem);
+  transform: translateX(-0.28rem);
 }
 
 .stats-detail-col-item {
   text-align: center;
+}
+
+/* Nudge headers slightly left to visually align with their pill centers. */
+.stats-detail-col-item.stats-detail-col-h {
+  transform: translateX(-0.5ch);
+}
+.stats-detail-col-h:last-child {
+  transform: translateX(-0.5ch);
 }
 
 /* In the detailed stats table, don't center pills inside each cell:
