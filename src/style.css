@@ -485,7 +485,7 @@ button:disabled {
   max-width: 3.4rem;
   margin: 0 auto;
   box-sizing: border-box;
-  height: 2.35rem;
+  min-height: 2.35rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -784,7 +784,7 @@ button:disabled {
   min-width: 4.5rem;
   max-width: 4.5rem;
   margin: 0 auto;
-  height: 2.35rem;
+  min-height: 2.35rem;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 1fr 1.2rem;
@@ -796,6 +796,7 @@ button:disabled {
   width: 1.2rem;
   justify-self: center;
   transform: translateX(0); /* baseline */
+  align-self: center;
 }
 .stats-pill-stepper--detail-base .stats-pill-arrows {
   /* Base: move arrows ~75% of their width to the left (towards center). */
@@ -814,6 +815,9 @@ button:disabled {
   min-width: 3.05rem; /* ensures values like +30 remain visible */
   padding-left: 0.1rem;
   padding-right: 0.1rem;
+  line-height: 1;
+  height: 100%;
+  display: block;
 }
 .stats-pill-stepper--detail-base {
   width: 3.8rem;
