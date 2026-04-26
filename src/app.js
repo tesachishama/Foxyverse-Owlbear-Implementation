@@ -124,6 +124,7 @@ const state = {
   // Talents (stats tab) modal state
   talentModalOpen: false,
   talentDraft: null, // { id, name, description, tier, bonusOverride }
+  talentTierMenuOpen: false,
 };
 
 function canView(sheetId) {
@@ -1618,6 +1619,10 @@ function renderTalentModal() {
   const bonusText = d.bonusOverride == null || d.bonusOverride === "" ? "" : String(d.bonusOverride);
   const desc = String(d.description || "");
   const descTitle = desc.trim() ? escapeAttr(t("talentDescTooltip")) : "";
+  const tierLabel = `T${tier}`;
+  const tierMenuItems = [0, 1, 2, 3, 4]
+    .map((n) => `<button type="button" class="sheet-menu-item ${tier === n ? "active" : ""}" data-talent-tier-pick="${n}">T${n}</button>`)
+    .join("");
   return `
     <div id="talent-modal" class="modal">
       <div class="modal-content talent-modal-content">
@@ -1626,9 +1631,13 @@ function renderTalentModal() {
           <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${escapeAttr(t("talentDescPlaceholder"))}" title="${descTitle}">${escapeAttr(desc)}</textarea>
         </div>
         <div class="talent-modal-row">
-          <select id="talent-tier-sel" class="equip-select talent-tier-select">
-            ${[0, 1, 2, 3, 4].map((n) => `<option value="${n}" ${tier === n ? "selected" : ""}>T${n}</option>`).join("")}
-          </select>
+          <div class="sheet-picker talent-tier-picker">
+            <div class="sheet-title">${escapeAttr(tierLabel)}</div>
+            <button type="button" id="btn-talent-tier-menu" class="header-icon-btn sheet-arrow-btn ${state.talentTierMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("tier"))}">
+              ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+            </button>
+            ${state.talentTierMenuOpen ? `<div class="sheet-menu">${tierMenuItems}</div>` : ""}
+          </div>
           <input type="text" id="talent-override-inp" value="${escapeAttr(bonusText)}" placeholder="${escapeAttr(t("overwriteBonusesHere") || "Overwrite bonuses here")}" />
         </div>
         <div class="talent-modal-footer">
@@ -3087,6 +3096,7 @@ function bindEvents() {
         tier: Number(tl.tier) || 0,
         bonusOverride: tl.bonusOverride == null ? "" : String(tl.bonusOverride),
       };
+      state.talentTierMenuOpen = false;
       render();
     });
   });
@@ -3094,6 +3104,7 @@ function bindEvents() {
   const closeTalentModal = () => {
     state.talentModalOpen = false;
     state.talentDraft = null;
+    state.talentTierMenuOpen = false;
   };
 
   app.querySelector("#talent-cancel")?.addEventListener("click", () => {
@@ -3106,9 +3117,10 @@ function bindEvents() {
     const id = String(state.talentDraft.id);
     const name = String(document.getElementById("talent-name-inp")?.value || "").trim() || t("talentDefault");
     const description = String(document.getElementById("talent-desc-inp")?.value || "");
-    const tier = Math.max(0, Math.min(4, Number(document.getElementById("talent-tier-sel")?.value) || 0));
     const ovRaw = String(document.getElementById("talent-override-inp")?.value || "").trim();
-    const bonusOverride = ovRaw ? Number(ovRaw) : null;
+    const tier = Math.max(0, Math.min(4, Number(state.talentDraft?.tier) || 0));
+    // Allow formulas (roll syntax) to be stored as-is.
+    const bonusOverride = ovRaw ? ovRaw : null;
 
     const next = applyLocalMutation((sheet) => {
       const tl = (sheet.knowledge || []).find((x) => String(x.id) === id);
@@ -3131,6 +3143,31 @@ function bindEvents() {
     closeTalentModal();
     render();
   });
+
+  // Talent tier menu (header-style dropdown)
+  app.querySelector("#btn-talent-tier-menu")?.addEventListener("click", () => {
+    state.talentTierMenuOpen = !state.talentTierMenuOpen;
+    render();
+  });
+  app.querySelectorAll("[data-talent-tier-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const n = Math.max(0, Math.min(4, Number(btn.dataset.talentTierPick) || 0));
+      if (!state.talentDraft) return;
+      state.talentDraft.tier = n;
+      state.talentTierMenuOpen = false;
+      render();
+    });
+  });
+
+  if (!app.dataset.talentModalEscapeBound) {
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!state.talentModalOpen) return;
+      closeTalentModal();
+      render();
+    });
+    app.dataset.talentModalEscapeBound = "true";
+  }
 
   app.querySelector("#talent-delete")?.addEventListener("click", async () => {
     if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;

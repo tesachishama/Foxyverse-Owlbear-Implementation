@@ -444,7 +444,7 @@ button:disabled {
 }
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
-.stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.35rem; }
+.stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.35rem; font-size: 1.12rem; }
 .stats-bubble-title-row { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.35rem; }
 .stats-bubble-title-row .stats-bubble-title { margin: 0; }
 .stats-add-icon { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 2.1rem; height: 2.1rem; border: none; background: transparent; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -572,7 +572,7 @@ button:disabled {
 }
 
 .stats-3sub { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.55rem; }
-.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; }
+.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; font-size: 1.05rem; }
 .stats-sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
 .stats-sub-row--compact {
   align-items: end;
@@ -661,6 +661,8 @@ button:disabled {
   align-items: center;
   gap: 0.28rem;
   overflow: hidden;
+  min-height: 3.05rem; /* fixed height allowing 2 lines */
+  box-sizing: border-box;
 }
 .talent-name {
   min-width: 0;
@@ -668,13 +670,13 @@ button:disabled {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   line-height: 1.15;
 }
 .talent-tier,
 .talent-bonus {
   font-weight: 900;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   opacity: 0.92;
   white-space: nowrap;
 }
