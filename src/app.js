@@ -1134,12 +1134,15 @@ function renderStatsTab() {
     // Only hyphenate when needed:
     // - first word is very long (tends to overflow line 1), OR
     // - overall label likely won't fit in 2 lines.
-    const shouldHyphenate = first.length >= 12 || totalLen >= 28;
+    const shouldHyphenate =
+      (tokens.length > 1 && first.length >= 6) ||
+      first.length >= 12 ||
+      totalLen >= 28;
     if (!shouldHyphenate) return raw;
 
     const hyphenateWord = (w) => {
       if (w.length < 6) return w;
-      const step = 4;
+      const step = w.length < 10 ? 3 : 4;
       let out = "";
       for (let i = 0; i < w.length; i += step) {
         out += w.slice(i, i + step);
@@ -2431,6 +2434,7 @@ function render() {
   // not `main.tab-content`, so we track both.
   const scrollingEl = document.scrollingElement || document.documentElement;
   const prevPageTop = scrollingEl ? scrollingEl.scrollTop : 0;
+  const prevAppTop = app.scrollTop || 0;
   const prevMain = app.querySelector("main.tab-content");
   const prevMainTop = prevMain ? prevMain.scrollTop : 0;
   state._tabScrollTop[state.activeTab] = prevMainTop;
@@ -2463,12 +2467,14 @@ function render() {
       if (nextMain) nextMain.scrollTop = target;
       const se = document.scrollingElement || document.documentElement;
       if (se) se.scrollTop = pageTarget;
+      app.scrollTop = prevAppTop;
     };
     requestAnimationFrame(() => {
       restore();
       requestAnimationFrame(restore);
       requestAnimationFrame(restore);
     });
+    setTimeout(restore, 0);
   }
   if (state.activeTab === "chat") {
     const el = document.getElementById("chat-messages");
