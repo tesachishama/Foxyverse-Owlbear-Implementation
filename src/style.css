@@ -825,7 +825,7 @@ button:disabled {
   padding-left: 0.16rem;
   padding-right: 0.06rem;
   /* Shift rendered text only (does not affect layout). */
-  text-indent: -0.5ch;
+  text-indent: -0.75ch;
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
   min-width: 3.15rem; /* passive can be signed and slightly wider */
