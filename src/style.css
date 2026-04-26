@@ -775,6 +775,8 @@ button:disabled {
 }
 .stats-detail-val {
   text-align: center;
+  display: flex;
+  justify-content: center;
 }
 
 /* In the detailed stats table, don't center pills inside each cell:
