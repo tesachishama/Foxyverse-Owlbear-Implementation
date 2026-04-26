@@ -1363,9 +1363,11 @@ function renderStatsTab() {
           <polygon points="${escapeAttr(basePoly)}" fill="none" stroke="var(--text)" stroke-width="2.2" />
         </g>
 
-        <!-- Grid + axes: ui-color by default -->
-        ${ringPolys}
-        ${axes}
+        <!-- Grid + axes: draw on top of fills, clipped to outer ring -->
+        <g clip-path="url(#${clipOuterId})">
+          ${ringPolys}
+          ${axes}
+        </g>
         <!-- Grid + axes where they are over the total polygon: text-color -->
         <g clip-path="url(#${clipTotalId})">
           ${ringPolys.replaceAll("stroke=\"var(--accent)\"", "stroke=\"var(--text)\"")}
