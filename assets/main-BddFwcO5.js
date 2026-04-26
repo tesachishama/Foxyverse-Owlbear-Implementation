@@ -257,7 +257,7 @@ Total : ${g}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
         </div>
       </div>
 
-      <div class="stats-bubble">
+      <div class="stats-bubble stats-bubble--strip">
         <div class="stats-bubble-title">${v("tabStats")}</div>
         <div class="stats-strip-wrap">
           <div class="stats-strip-abbr-row">${A}</div>
