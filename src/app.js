@@ -1289,7 +1289,8 @@ function renderStatsTab() {
     const clipOuterId = `radar-clip-outer-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
     const clipTotalId = `radar-clip-total-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
-    const rFor = (val) => (Math.min(SCALE_MAX, Math.max(0, Number(val) || 0)) / SCALE_MAX) * radius;
+    // Do not cap at SCALE_MAX: values may exceed 30, but are visually clipped to the outer ring.
+    const rFor = (val) => (Math.max(0, Number(val) || 0) / SCALE_MAX) * radius;
 
     const pt = (score, i) => {
       const r = rFor(score);
@@ -1314,7 +1315,7 @@ function renderStatsTab() {
             return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr].map((n) => n.toFixed(1)).join(",");
           })
           .join(" ");
-        return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.25" />`;
+        return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" />`;
       })
       .join("");
 
@@ -1323,18 +1324,18 @@ function renderStatsTab() {
         const a = rot + i * angleStep;
         const x = cx + Math.cos(a) * radius;
         const y = cy + Math.sin(a) * radius;
-        return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="1.1" />`;
+        return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="2.2" />`;
       })
       .join("");
 
     const textLabels = stats
       .map((_, i) => {
         const a = rot + i * angleStep;
-        const x = cx + Math.cos(a) * (radius + 22);
-        const y = cy + Math.sin(a) * (radius + 22);
+        const x = cx + Math.cos(a) * (radius + 14);
+        const y = cy + Math.sin(a) * (radius + 14);
         const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
         const dy = Math.sin(a) > 0.7 ? "0.9em" : Math.sin(a) < -0.7 ? "-0.2em" : "0.35em";
-        return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dy="${dy}" font-weight="900" font-size="14" fill="var(--text)">${escapeAttr(labels[i])}</text>`;
+        return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dy="${dy}" font-weight="900" font-size="18" fill="var(--text)">${escapeAttr(labels[i])}</text>`;
       })
       .join("");
 
