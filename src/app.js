@@ -1454,7 +1454,7 @@ function renderStatsTab() {
 
   return `
     <div class="card stats-tab-card stats-template">
-      <div class="stats-bubble">
+      <div class="stats-bubble stats-bubble--health">
         <div class="stats-bubble-title">${t("health")}</div>
         <div class="stats-3col">
           <div class="stats-col">

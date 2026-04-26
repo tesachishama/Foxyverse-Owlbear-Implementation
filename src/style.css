@@ -449,6 +449,13 @@ button:disabled {
 .stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.22rem; font-size: 1.12rem !important; }
 .stats-bubble-title-row { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.35rem; }
 .stats-bubble-title-row .stats-bubble-title { margin: 0; }
+
+/* Health: bigger numbers in pills */
+#app .stats-bubble--health .stats-pill,
+#app .stats-bubble--health .stats-pill-stepper,
+#app .stats-bubble--health .stats-pill-input {
+  font-size: 1.25rem !important;
+}
 .stats-add-icon { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 2.1rem; height: 2.1rem; border: none; background: transparent; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .stats-add-svg { width: 1.6rem; height: 1.6rem; display: block; }
 
