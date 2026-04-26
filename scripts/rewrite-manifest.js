@@ -16,6 +16,19 @@ const baseUrl =
   "https://tesachishama.github.io/Foxyverse-Owlbear-Implementation";
 
 const manifest = JSON.parse(readFileSync(distManifest, "utf8"));
+
+// Cache busting: Owlbear can keep serving a cached bundle even when URLs are the same.
+// We stamp the built manifest version with the commit SHA (or timestamp) so the plugin
+// update is reliably detected.
+const shaRaw = (process.env.GITHUB_SHA || process.env.VITE_BUILD_SHA || "").trim();
+const sha = shaRaw ? shaRaw.slice(0, 7) : "";
+const stamp = sha || new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+if (typeof manifest.version === "string" && manifest.version.trim()) {
+  // Keep the base version, append a build metadata stamp.
+  const baseVersion = manifest.version.split("+")[0].trim();
+  manifest.version = `${baseVersion}+${stamp}`;
+}
+
 if (manifest.action) {
   manifest.action.icon = manifest.action.icon.startsWith("http")
     ? manifest.action.icon
