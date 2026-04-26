@@ -736,6 +736,10 @@ button:disabled {
 .stats-detail-table td {
   padding: 0.28rem 0.2rem;
   vertical-align: middle;
+  line-height: 1.1;
+}
+.stats-detail-table tbody tr {
+  height: 2.65rem;
 }
 .stats-detail-corner {
   width: 32%;
@@ -777,27 +781,28 @@ button:disabled {
   min-height: 2.35rem;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 1fr 1.25rem;
+  grid-template-columns: 1fr 1.35rem;
   align-items: center;
   justify-items: stretch;
+  padding-right: 0.18rem;
 }
 .stats-pill-stepper--detail .stats-pill-arrows {
-  width: 1.25rem;
+  width: 1.35rem;
   justify-self: end;
 }
 .stats-pill-stepper--detail .stats-pill-input {
   width: 100%;
-  min-width: 2.65rem; /* ensures values like +30 remain visible */
+  min-width: 2.85rem; /* ensures values like +30 remain visible */
   padding-left: 0.1rem;
   padding-right: 0.1rem;
 }
 .stats-pill-stepper--detail-base {
-  width: 4.0rem;
-  min-width: 4.0rem;
-  max-width: 4.0rem;
+  width: 3.8rem;
+  min-width: 3.8rem;
+  max-width: 3.8rem;
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
-  min-width: 2.85rem; /* passive can be signed and slightly wider */
+  min-width: 3.0rem; /* passive can be signed and slightly wider */
 }
 .stats-pill-stepper--detail .stats-pill-input {
   min-width: 2.25rem;
