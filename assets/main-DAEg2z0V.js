@@ -146,9 +146,11 @@ Total : ${v}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
           <polygon points="${E(X)}" fill="none" stroke="var(--text)" stroke-width="2.2" />
         </g>
 
-        <!-- Grid + axes: ui-color by default -->
-        ${N}
-        ${V}
+        <!-- Grid + axes: draw on top of fills, clipped to outer ring -->
+        <g clip-path="url(#${w})">
+          ${N}
+          ${V}
+        </g>
         <!-- Grid + axes where they are over the total polygon: text-color -->
         <g clip-path="url(#${S})">
           ${N.replaceAll('stroke="var(--accent)"','stroke="var(--text)"')}
