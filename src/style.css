@@ -704,9 +704,24 @@ button:disabled {
   padding-right: 0.2rem;
 }
 
+.talent-tier-picker {
+  position: relative;
+  z-index: 5;
+}
 .talent-tier-picker .sheet-menu {
   z-index: 20;
 }
+
+/* Force section titles to win over generic rules */
+#app .stats-bubble-title { font-size: 1.12rem !important; }
+#app .stats-sub-title { font-size: 1.05rem !important; }
+#app .talent-name { font-size: 0.74rem !important; }
+#app .talent-tier,
+#app .talent-bonus { font-size: 0.72rem !important; }
+
+/* Disable background scroll when modal is open */
+#app.modal-open { overflow: hidden; }
+#app.modal-open main.tab-content { overflow: hidden; }
 .talent-modal-fields {
   display: flex;
   flex-direction: column;

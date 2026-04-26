@@ -1631,16 +1631,16 @@ function renderTalentModal() {
             <input type="text" id="talent-name-inp" class="talent-modal-full" value="${escapeAttr(d.name || "")}" placeholder="${escapeAttr(t("talentDefault"))}" />
             <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${escapeAttr(t("talentDescPlaceholder"))}" title="${descTitle}">${escapeAttr(desc)}</textarea>
           </div>
-          <div class="talent-modal-row">
-            <div class="sheet-picker talent-tier-picker">
-              <div class="sheet-title">${escapeAttr(tierLabel)}</div>
-              <button type="button" id="btn-talent-tier-menu" class="header-icon-btn sheet-arrow-btn ${state.talentTierMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("tier"))}">
-                ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
-              </button>
-              ${state.talentTierMenuOpen ? `<div class="sheet-menu">${tierMenuItems}</div>` : ""}
-            </div>
-            <input type="text" id="talent-override-inp" value="${escapeAttr(bonusText)}" placeholder="${escapeAttr(t("overwriteBonusesHere") || "Overwrite bonuses here")}" />
+        </div>
+        <div class="talent-modal-row">
+          <div class="sheet-picker talent-tier-picker">
+            <div class="sheet-title">${escapeAttr(tierLabel)}</div>
+            <button type="button" id="btn-talent-tier-menu" class="header-icon-btn sheet-arrow-btn ${state.talentTierMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("tier"))}">
+              ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+            </button>
+            ${state.talentTierMenuOpen ? `<div class="sheet-menu">${tierMenuItems}</div>` : ""}
           </div>
+          <input type="text" id="talent-override-inp" value="${escapeAttr(bonusText)}" placeholder="${escapeAttr(t("overwriteBonusesHere") || "Overwrite bonuses here")}" />
         </div>
         <div class="talent-modal-footer">
           <button type="button" id="talent-delete" class="btn-sm">${t("remove")}</button>
@@ -2387,6 +2387,8 @@ function render() {
     <main class="tab-content">${renderTabContent()}</main>
     ${renderRollModals()}
   `;
+  // Prevent background scrolling when a modal is open.
+  app.classList.toggle("modal-open", !!app.querySelector(".modal:not(.hidden)"));
   applyColors();
   bindEvents();
   if (state.activeTab === "chat") {
