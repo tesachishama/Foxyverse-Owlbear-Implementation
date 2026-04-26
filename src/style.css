@@ -408,8 +408,8 @@ button:disabled {
 }
 
 .bio-level-arrow-icon {
-  width: 1.12rem;
-  height: 0.74rem;
+  width: 0.9rem;
+  height: 0.6rem;
 }
 
 .bio-level-arrow-up .bio-level-arrow-icon {
@@ -464,6 +464,11 @@ button:disabled {
   font-weight: 900;
   background: transparent;
 }
+#app .stats-pill,
+#app .stats-pill-stepper,
+#app .stats-pill-input {
+  font-size: 1rem !important;
+}
 .stats-pill--counter {
   min-width: 4.25rem;
   width: 100%;
@@ -488,6 +493,11 @@ button:disabled {
   margin: 0 auto;
   padding-left: 0.35rem;
   padding-right: 0.35rem;
+  min-height: 2.45rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .stats-pill--detail-readonly {
   min-width: 3.4rem;
@@ -581,7 +591,7 @@ button:disabled {
 #app .stats-mini-label { text-align: center; font-size: 0.78rem !important; line-height: 1.05 !important; opacity: 0.9; margin-bottom: 0.15rem; }
 .stats-speed-btn {
   border: 3px solid var(--border);
-  background: transparent;
+  background: var(--accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;

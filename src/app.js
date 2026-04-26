@@ -908,7 +908,10 @@ function rollTypeLabelFromPayload(payload) {
   if (kind === "heal") return t("heal");
   if (kind === "theal") return t("overHeal");
   if (kind === "mana") return t("mana");
-  if (kind === "roll") return t("roll");
+  if (kind === "roll") {
+    const lbl = String(payload?.typeLabel || "").trim();
+    return lbl || t("roll");
+  }
   return String(payload?.typeLabel || "").trim();
 }
 
