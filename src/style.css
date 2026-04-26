@@ -782,6 +782,15 @@ button:disabled {
   justify-content: center;
 }
 
+/* Slight left shift for the narrower item column so it sits centered between Base and Passive. */
+.stats-detail-col-item .stats-detail-cell {
+  transform: translateX(-0.18rem);
+}
+
+.stats-detail-col-item {
+  text-align: center;
+}
+
 /* In the detailed stats table, don't center pills inside each cell:
    it creates extra whitespace between columns even when padding is 0. */
 .stats-detail-table .stats-pill-stepper--detail,

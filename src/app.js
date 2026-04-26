@@ -1252,7 +1252,7 @@ function renderStatsTab() {
           allowNegative: false,
           variant: "stats-pill-stepper--detail stats-pill-stepper--detail-base",
         })}</div></td>
-        <td class="stats-detail-val"><div class="stats-detail-cell">${pill(item, { signedValue: true, extraClass: "stats-pill--detail-readonly" })}</div></td>
+        <td class="stats-detail-val stats-detail-col-item"><div class="stats-detail-cell">${pill(item, { signedValue: true, extraClass: "stats-pill--detail-readonly" })}</div></td>
         <td class="stats-detail-val"><div class="stats-detail-cell">${stepper(`stat:${statId}:passive`, passive, {
           allowNegative: true,
           signedValue: true,
@@ -1516,7 +1516,7 @@ function renderStatsTab() {
             <tr>
               <th class="stats-detail-corner"></th>
               <th class="stats-detail-col-h">${t("baseStat")}</th>
-              <th class="stats-detail-col-h">${t("itemBonus")}</th>
+              <th class="stats-detail-col-h stats-detail-col-item">${t("itemBonus")}</th>
               <th class="stats-detail-col-h">${t("passiveBonus")}</th>
             </tr>
           </thead>
