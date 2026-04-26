@@ -118,7 +118,7 @@ Total : ${v}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
       <tr>
         <th scope="row" class="stats-detail-stat-name">${E(g(B))}</th>
         <td class="stats-detail-val"><div class="stats-detail-cell">${u(`stat:${B}:base`,J,{min:K,max:Q,allowNegative:!1,variant:"stats-pill-stepper--detail stats-pill-stepper--detail-base"})}</div></td>
-        <td class="stats-detail-val"><div class="stats-detail-cell">${c(I,{signedValue:!0,extraClass:"stats-pill--detail-readonly"})}</div></td>
+        <td class="stats-detail-val stats-detail-col-item"><div class="stats-detail-cell">${c(I,{signedValue:!0,extraClass:"stats-pill--detail-readonly"})}</div></td>
         <td class="stats-detail-val"><div class="stats-detail-cell">${u(`stat:${B}:passive`,Y,{allowNegative:!0,signedValue:!0,variant:"stats-pill-stepper--detail stats-pill-stepper--detail-passive"})}</div></td>
       </tr>
     `}).join(""),D=zs(t),z=Js(t),W=`
@@ -280,7 +280,7 @@ Total : ${v}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
             <tr>
               <th class="stats-detail-corner"></th>
               <th class="stats-detail-col-h">${g("baseStat")}</th>
-              <th class="stats-detail-col-h">${g("itemBonus")}</th>
+              <th class="stats-detail-col-h stats-detail-col-item">${g("itemBonus")}</th>
               <th class="stats-detail-col-h">${g("passiveBonus")}</th>
             </tr>
           </thead>
