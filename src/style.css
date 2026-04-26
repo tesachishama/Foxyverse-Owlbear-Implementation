@@ -408,8 +408,8 @@ button:disabled {
 }
 
 .bio-level-arrow-icon {
-  width: 0.9rem;
-  height: 0.6rem;
+  width: 1.12rem;
+  height: 0.74rem;
 }
 
 .bio-level-arrow-up .bio-level-arrow-icon {
@@ -587,6 +587,10 @@ button:disabled {
 .stats-sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
 .stats-sub-row--compact {
   align-items: end;
+}
+#app .stats-3sub .bio-level-arrow-icon {
+  width: 0.9rem;
+  height: 0.6rem;
 }
 #app .stats-mini-label { text-align: center; font-size: 0.78rem !important; line-height: 1.05 !important; opacity: 0.9; margin-bottom: 0.15rem; }
 .stats-speed-btn {
