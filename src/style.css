@@ -622,13 +622,18 @@ button:disabled {
   align-items: start;
   justify-items: stretch;
 }
+.stats-strip-wrap {
+  padding-left: 0.12rem;
+  padding-right: 0.12rem;
+}
 .stats-strip-roll-row .inline-roll-btn {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
-  padding: 0.26rem 0.22rem 0.22rem;
+  /* Wider, not taller */
+  padding: 0.18rem 0.34rem 0.16rem;
   border-radius: 999px;
   border: 3px solid var(--border);
   background: var(--accent);
@@ -638,12 +643,12 @@ button:disabled {
 .stats-strip-roll-row .inline-roll-caption {
   color: var(--bg);
   font-weight: 900;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 .stats-strip-roll-row .inline-roll-dice {
   color: var(--bg);
-  width: 0.95rem;
-  height: 0.95rem;
+  width: 0.82rem;
+  height: 0.82rem;
 }
 
 .talents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
