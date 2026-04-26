@@ -444,7 +444,7 @@ button:disabled {
 }
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
-.stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.35rem; font-size: 1.12rem; }
+.stats-bubble-title { text-align: center; font-weight: 900; margin-bottom: 0.35rem; font-size: 1.12rem !important; }
 .stats-bubble-title-row { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 0.35rem; }
 .stats-bubble-title-row .stats-bubble-title { margin: 0; }
 .stats-add-icon { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 2.1rem; height: 2.1rem; border: none; background: transparent; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -572,7 +572,7 @@ button:disabled {
 }
 
 .stats-3sub { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.55rem; }
-.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; font-size: 1.05rem; }
+.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; font-size: 1.05rem !important; }
 .stats-sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
 .stats-sub-row--compact {
   align-items: end;
@@ -695,8 +695,17 @@ button:disabled {
 .talent-modal-content {
   width: min(520px, 94vw);
   max-height: min(88vh, 640px);
-  overflow: auto;
+  overflow: visible; /* allow dropdown menus to overflow the popup */
   box-sizing: border-box;
+}
+.talent-modal-scroll {
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.talent-tier-picker .sheet-menu {
+  z-index: 20;
 }
 .talent-modal-fields {
   display: flex;
