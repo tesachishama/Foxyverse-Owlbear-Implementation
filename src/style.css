@@ -573,7 +573,7 @@ button:disabled {
 }
 
 .stats-3sub { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.55rem; }
-.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; font-size: 1.05rem !important; }
+.stats-sub-title { text-align: center; font-weight: 900; margin-bottom: 0.25rem; }
 .stats-sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
 .stats-sub-row--compact {
   align-items: end;
@@ -752,7 +752,6 @@ button:disabled {
 
 /* Force section titles to win over generic rules */
 #app .stats-bubble-title { font-size: 1.22rem !important; }
-#app .stats-sub-title { font-size: 1.12rem !important; }
 #app .talent-name { font-size: 1rem !important; text-align: center !important; }
 #app .talent-tier,
 #app .talent-bonus { font-size: 1rem !important; }
