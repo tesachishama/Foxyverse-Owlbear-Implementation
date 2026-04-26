@@ -754,10 +754,11 @@ button:disabled {
 }
 .stats-detail-table tbody tr { height: 2.65rem; }
 .stats-detail-corner {
-  width: 32%;
+  /* Make value columns tighter by giving more room to the label column. */
+  width: 38%;
 }
 .stats-detail-col-h {
-  width: 22.67%;
+  width: 20.67%;
   text-align: center;
   font-weight: 900;
   font-size: 0.88rem;
@@ -774,6 +775,14 @@ button:disabled {
 }
 .stats-detail-val {
   text-align: center;
+}
+
+/* In the detailed stats table, don't center pills inside each cell:
+   it creates extra whitespace between columns even when padding is 0. */
+.stats-detail-table .stats-pill-stepper--detail,
+.stats-detail-table .stats-pill--detail-readonly {
+  margin-left: 0;
+  margin-right: 0;
 }
 .stats-detail-total-row .stats-detail-total-label {
   font-weight: 900;
