@@ -791,7 +791,13 @@ button:disabled {
 .stats-pill-stepper--detail .stats-pill-arrows {
   width: 1.2rem;
   justify-self: center;
-  transform: translateX(-0.06rem); /* optical centering inside pill */
+  transform: translateX(-0.02rem); /* baseline optical centering */
+}
+.stats-pill-stepper--detail-base .stats-pill-arrows {
+  transform: translateX(-0.12rem); /* base: pull arrows further inside */
+}
+.stats-pill-stepper--detail-passive .stats-pill-arrows {
+  transform: translateX(-0.03rem); /* passive: revert about half the nudge */
 }
 .stats-pill-stepper--detail .stats-pill-arrow {
   width: 1.05rem;
@@ -807,6 +813,10 @@ button:disabled {
   width: 3.8rem;
   min-width: 3.8rem;
   max-width: 3.8rem;
+}
+.stats-pill-stepper--detail-base .stats-pill-input {
+  padding-left: 0.22rem; /* push value slightly right to make room */
+  padding-right: 0.06rem;
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
   min-width: 3.15rem; /* passive can be signed and slightly wider */
