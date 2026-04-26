@@ -268,7 +268,7 @@ Total : ${g}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
       <div class="stats-bubble" id="stats-talents-block">
         <div class="stats-bubble-title-row">
           <div class="stats-bubble-title">${v("talentsBlock")}</div>
-          ${r?`<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${T(v("add"))}">${Q(Is,"inline-svg stats-add-svg","var(--text)")}</button>`:""}
+          ${r?`<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${T(v("add"))}">${Q(Is,"inline-svg stats-add-svg","var(--accent)")}</button>`:""}
         </div>
         <div class="talents-grid">${C}</div>
       </div>
