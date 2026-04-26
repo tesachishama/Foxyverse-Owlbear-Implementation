@@ -604,9 +604,9 @@ button:disabled {
 .stats-strip-abbr-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.2rem;
+  gap: 0.14rem;
   font-weight: 900;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text);
   text-transform: capitalize;
   text-align: center;
@@ -618,7 +618,7 @@ button:disabled {
 .stats-strip-roll-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.2rem;
+  gap: 0.14rem;
   align-items: start;
   justify-items: stretch;
 }
@@ -628,18 +628,22 @@ button:disabled {
   min-width: 0;
   box-sizing: border-box;
   margin: 0;
-  padding: 0.2rem 0.28rem 0.16rem;
+  padding: 0.26rem 0.22rem 0.22rem;
   border-radius: 999px;
   border: 3px solid var(--border);
   background: var(--accent);
   color: var(--bg);
+  gap: 0.18rem;
 }
 .stats-strip-roll-row .inline-roll-caption {
   color: var(--bg);
   font-weight: 900;
+  font-size: 0.78rem;
 }
 .stats-strip-roll-row .inline-roll-dice {
   color: var(--bg);
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .talents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }

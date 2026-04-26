@@ -21,7 +21,7 @@ export const translations = {
 
     // Tabs
     tabBio: "Bio",
-    tabStats: "Stats",
+    tabStats: "Statistics",
     tabSpells: "Spells",
     tabInventory: "Inventory",
     tabChat: "Chat",
@@ -310,7 +310,7 @@ export const translations = {
 
     // Onglets
     tabBio: "Bio",
-    tabStats: "Stats",
+    tabStats: "Statistiques",
     tabSpells: "Sorts",
     tabInventory: "Inventaire",
     tabChat: "Chat",
