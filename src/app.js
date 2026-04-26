@@ -2434,6 +2434,7 @@ function render() {
   // not `main.tab-content`, so we track both.
   const scrollingEl = document.scrollingElement || document.documentElement;
   const prevPageTop = scrollingEl ? scrollingEl.scrollTop : 0;
+  const prevWinY = typeof window !== "undefined" ? (window.scrollY || 0) : 0;
   const prevAppTop = app.scrollTop || 0;
   const prevMain = app.querySelector("main.tab-content");
   const prevMainTop = prevMain ? prevMain.scrollTop : 0;
@@ -2468,6 +2469,8 @@ function render() {
       const se = document.scrollingElement || document.documentElement;
       if (se) se.scrollTop = pageTarget;
       app.scrollTop = prevAppTop;
+      // Some embeds only honor window scrolling.
+      try { window.scrollTo(0, prevWinY); } catch (_) {}
     };
     requestAnimationFrame(() => {
       restore();
