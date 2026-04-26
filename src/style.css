@@ -672,6 +672,8 @@ button:disabled {
   -webkit-box-orient: vertical;
   font-size: 0.74rem;
   line-height: 1.15;
+  justify-self: center;
+  text-align: center;
 }
 .talent-tier,
 .talent-bonus {
@@ -718,9 +720,9 @@ button:disabled {
 /* Force section titles to win over generic rules */
 #app .stats-bubble-title { font-size: 1.22rem !important; }
 #app .stats-sub-title { font-size: 1.12rem !important; }
-#app .talent-name { font-size: 0.8rem !important; }
+#app .talent-name { font-size: 1rem !important; text-align: center !important; }
 #app .talent-tier,
-#app .talent-bonus { font-size: 0.76rem !important; }
+#app .talent-bonus { font-size: 1rem !important; }
 
 /* Disable background scroll when modal is open */
 #app.modal-open { overflow: hidden; }
