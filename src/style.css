@@ -822,7 +822,7 @@ button:disabled {
 }
 .stats-pill-stepper--detail-base .stats-pill-input {
   /* Base: nudge value text to the left (closer to pill border). */
-  padding-left: 0.04rem;
+  padding-left: 0.16rem;
   padding-right: 0.06rem;
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
