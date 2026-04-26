@@ -592,30 +592,37 @@ button:disabled {
 /* Compact Action/Speed/Defenses block: slightly shorter pills + tighter arrows */
 #app .stats-3sub .stats-pill--compact,
 #app .stats-3sub .stats-pill-stepper--compact {
-  min-height: 2.05rem;
+  min-height: 2.22rem;
 }
 #app .stats-3sub .stats-speed-btn--circle {
-  width: 2.05rem;
-  height: 2.05rem;
-  min-width: 2.05rem;
+  width: 2.18rem;
+  height: 2.18rem;
+  min-width: 2.18rem;
 }
 #app .stats-3sub .stats-speed-d6 { width: 1.25rem; height: 1.25rem; }
 
 #app .stats-3sub .stats-pill-stepper--compact {
   /* Give the input a bit more room for 2 chars (+4) */
-  padding-left: 0.28rem;
-  padding-right: 0.28rem;
-  gap: 0.12rem;
+  max-width: 3.6rem;
+  padding-left: 0.24rem;
+  padding-right: 0.2rem;
+  gap: 0.08rem;
 }
 #app .stats-3sub .stats-pill-stepper--compact .stats-pill-input {
   padding-left: 0.06rem;
   padding-right: 0.06rem;
   letter-spacing: 0;
+  line-height: 1;
+  min-width: 1.7rem;
 }
 
 #app .stats-3sub .stats-pill-arrows {
-  gap: 0.02rem;
-  transform: translateX(0.12rem);
+  gap: 0;
+  transform: translateX(0.18rem);
+}
+#app .stats-3sub .stats-pill-arrow {
+  width: 1.05rem;
+  height: 0.82rem;
 }
 #app .stats-3sub .bio-level-arrow-icon {
   width: 0.9rem;
