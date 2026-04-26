@@ -1192,8 +1192,8 @@ function renderStatsTab() {
       <div class="stats-pill-stepper${varCls}" data-stepper="${escapeAttr(key)}"${minAttr}${maxAttr}${negAttr}${signedAttr} aria-label="${escapeAttr(aria || key)}">
         <input type="text" class="stats-pill-input" inputmode="numeric" data-stepper-input="${escapeAttr(key)}" value="${escapeAttr(display)}"${readOnlyAttr} spellcheck="false" aria-label="${escapeAttr(aria || key)}" />
         <div class="stats-pill-arrows">
-          <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-stepper-step="${escapeAttr(key)}" data-delta="1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--accent)")}</button>
-          <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-stepper-step="${escapeAttr(key)}" data-delta="-1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--accent)")}</button>
+          <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-stepper-step="${escapeAttr(key)}" data-delta="1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)")}</button>
+          <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-stepper-step="${escapeAttr(key)}" data-delta="-1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)")}</button>
         </div>
       </div>
     `;
@@ -1763,8 +1763,8 @@ function renderSpellsTab() {
               <div class="spell-cost-pill">
                 <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(draft ? draft.cost : cost))}</span>
                 <div class="spell-cost-arrows">
-                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="1" aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--accent)")}</button>
-                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="-1" aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--accent)")}</button>
+                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="1" aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--text)")}</button>
+                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="-1" aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--text)")}</button>
                 </div>
               </div>
             </div>
