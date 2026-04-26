@@ -1288,6 +1288,7 @@ function renderStatsTab() {
     const rot = -Math.PI / 2;
     const clipOuterId = `radar-clip-outer-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
     const clipTotalId = `radar-clip-total-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+    const clipBaseId = `radar-clip-base-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
     // Do not cap at SCALE_MAX: values may exceed 30, but are visually clipped to the outer ring.
     const rFor = (val) => (Math.max(0, Number(val) || 0) / SCALE_MAX) * radius;
@@ -1315,7 +1316,7 @@ function renderStatsTab() {
             return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr].map((n) => n.toFixed(1)).join(",");
           })
           .join(" ");
-        return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" />`;
+        return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3.2" />`;
       })
       .join("");
 
@@ -1324,15 +1325,15 @@ function renderStatsTab() {
         const a = rot + i * angleStep;
         const x = cx + Math.cos(a) * radius;
         const y = cy + Math.sin(a) * radius;
-        return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="2.2" />`;
+        return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="2.8" />`;
       })
       .join("");
 
     const textLabels = stats
       .map((_, i) => {
         const a = rot + i * angleStep;
-        const x = cx + Math.cos(a) * (radius + 14);
-        const y = cy + Math.sin(a) * (radius + 14);
+        const x = cx + Math.cos(a) * (radius + 10);
+        const y = cy + Math.sin(a) * (radius + 10);
         const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
         const dy = Math.sin(a) > 0.7 ? "0.9em" : Math.sin(a) < -0.7 ? "-0.2em" : "0.35em";
         return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dy="${dy}" font-weight="900" font-size="18" fill="var(--text)">${escapeAttr(labels[i])}</text>`;
@@ -1347,6 +1348,7 @@ function renderStatsTab() {
         <defs>
           <clipPath id="${clipOuterId}"><polygon points="${outerRingPts}" /></clipPath>
           <clipPath id="${clipTotalId}"><polygon points="${escapeAttr(totalPoly)}" /></clipPath>
+          <clipPath id="${clipBaseId}"><polygon points="${escapeAttr(basePoly)}" /></clipPath>
         </defs>
         <!-- Filled shapes (overflow clipped to outer ring) -->
         <g clip-path="url(#${clipOuterId})">
@@ -1372,6 +1374,11 @@ function renderStatsTab() {
         <g clip-path="url(#${clipTotalId})">
           ${ringPolys.replaceAll("stroke=\"var(--accent)\"", "stroke=\"var(--text)\"")}
           ${axes.replaceAll("stroke=\"var(--accent)\"", "stroke=\"var(--text)\"")}
+        </g>
+        <!-- Ensure grid/spokes remain visible over base polygon (ui-color) -->
+        <g clip-path="url(#${clipBaseId})">
+          ${ringPolys}
+          ${axes}
         </g>
         ${textLabels}
       </svg>
