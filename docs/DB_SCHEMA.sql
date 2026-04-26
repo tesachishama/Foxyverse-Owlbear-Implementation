@@ -128,7 +128,7 @@ CREATE TABLE public.talent (
   name text NOT NULL,
   description text,
   tier integer NOT NULL DEFAULT 1,
-  bonus_override integer,
+  bonus_override text,
   is_enabled boolean NOT NULL DEFAULT false,
   CONSTRAINT talent_pkey PRIMARY KEY (id),
   CONSTRAINT talent_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheet(id)

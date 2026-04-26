@@ -1192,20 +1192,20 @@ function renderStatsTab() {
     return `<div class="stats-strip-abbr-cell" title="${escapeAttr(t(statId))}">${abbr}</div>`;
   }).join("");
 
-  const OVERRIDE_MARK = "[[override]]";
-  const splitTalentDescription = (raw) => {
+  // Backward-compatible: older builds stored formula overrides in description with a [[override]] marker.
+  const legacyOverrideFromDescription = (raw) => {
     const s = String(raw || "");
-    const idx = s.lastIndexOf(OVERRIDE_MARK);
-    if (idx < 0) return { description: s, override: "" };
-    const desc = s.slice(0, idx).replace(/\s+$/, "");
-    const ov = s.slice(idx + OVERRIDE_MARK.length).trim();
-    return { description: desc, override: ov };
+    const idx = s.lastIndexOf("[[override]]");
+    if (idx < 0) return "";
+    return s.slice(idx + "[[override]]".length).trim();
   };
 
   const talentBonusText = (tl) => {
     const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
     const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
-    const override = splitTalentDescription(tl.description || "").override || (tl.bonusOverride != null ? String(tl.bonusOverride) : "");
+    const override = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
+      ? String(tl.bonusOverride)
+      : legacyOverrideFromDescription(tl.description || "");
     if (!override) return tierMap[tier] || "+0";
     const raw = String(override).trim();
     const condensed = raw.length > 3 ? "±X" : raw;
@@ -1218,7 +1218,9 @@ function renderStatsTab() {
       const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
       const tierLbl = `T${tier}`;
       const bonusLbl = talentBonusText(tl);
-      const rawOverride = splitTalentDescription(tl.description || "").override || (tl.bonusOverride != null ? String(tl.bonusOverride).trim() : "");
+      const rawOverride = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
+        ? String(tl.bonusOverride).trim()
+        : legacyOverrideFromDescription(tl.description || "");
       const bonusTitle = rawOverride && rawOverride.length > 3 ? ` title="${escapeAttr(rawOverride)}"` : "";
       const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
       return `
@@ -3108,18 +3110,17 @@ function bindEvents() {
       if (!id || !state.sheet) return;
       const tl = (state.sheet.knowledge || []).find((x) => String(x.id) === String(id));
       if (!tl) return;
-      const OVERRIDE_MARK = "[[override]]";
       const descFull = String(tl.description || "");
-      const idx = descFull.lastIndexOf(OVERRIDE_MARK);
+      const idx = descFull.lastIndexOf("[[override]]");
       const desc = idx < 0 ? descFull : descFull.slice(0, idx).replace(/\s+$/, "");
-      const overrideFromDesc = idx < 0 ? "" : descFull.slice(idx + OVERRIDE_MARK.length).trim();
+      const overrideFromDesc = idx < 0 ? "" : descFull.slice(idx + "[[override]]".length).trim();
       state.talentModalOpen = true;
       state.talentDraft = {
         id: String(tl.id),
         name: tl.name || "",
         description: desc,
         tier: Number(tl.tier) || 0,
-        bonusOverride: overrideFromDesc || (tl.bonusOverride == null ? "" : String(tl.bonusOverride)),
+        bonusOverride: (tl.bonusOverride == null ? "" : String(tl.bonusOverride)) || overrideFromDesc,
       };
       state.talentTierMenuOpen = false;
       render();
@@ -3144,11 +3145,9 @@ function bindEvents() {
     const descriptionRaw = String(document.getElementById("talent-desc-inp")?.value || "");
     const ovRaw = String(document.getElementById("talent-override-inp")?.value || "").trim();
     const tier = Math.max(0, Math.min(4, Number(state.talentDraft?.tier) || 0));
-    const OVERRIDE_MARK = "[[override]]";
-    const isPlainInt = (s) => /^-?\d+$/.test(String(s || "").trim());
-    const bonusOverride = ovRaw && isPlainInt(ovRaw) ? Number(ovRaw) : null;
-    const overrideFormula = ovRaw && !isPlainInt(ovRaw) ? ovRaw : "";
-    const description = overrideFormula ? `${descriptionRaw.replace(/\s+$/, "")}\n${OVERRIDE_MARK}${overrideFormula}` : descriptionRaw;
+    // bonus_override is now text: store any formula string as-is.
+    const bonusOverride = ovRaw || null;
+    const description = descriptionRaw;
 
     const next = applyLocalMutation((sheet) => {
       const tl = (sheet.knowledge || []).find((x) => String(x.id) === id);

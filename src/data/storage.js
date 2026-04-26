@@ -334,7 +334,7 @@ export async function upsertTalent(roomId, sheetId, row) {
     name: row.name || "",
     description: row.description || "",
     tier: row.tier ?? 1,
-    bonus_override: row.bonus_override ?? null,
+    bonus_override: row.bonus_override == null ? null : String(row.bonus_override),
     is_enabled: !!row.is_enabled,
   };
   const { error } = await supabase.from("talent").upsert(payload);
@@ -348,7 +348,7 @@ export async function updateTalentFields(roomId, sheetId, talentId, patch) {
   if ("name" in patch) update.name = String(patch.name || "");
   if ("description" in patch) update.description = String(patch.description || "");
   if ("tier" in patch) update.tier = patch.tier ?? 1;
-  if ("bonus_override" in patch) update.bonus_override = patch.bonus_override ?? null;
+  if ("bonus_override" in patch) update.bonus_override = patch.bonus_override == null ? null : String(patch.bonus_override);
   if ("is_enabled" in patch) update.is_enabled = !!patch.is_enabled;
   if (!Object.keys(update).length) return;
   const { error } = await supabase.from("talent").update(update).eq("sheet_id", sheetId).eq("id", talentId);
