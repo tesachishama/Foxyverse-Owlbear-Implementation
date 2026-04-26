@@ -619,7 +619,7 @@ button:disabled {
 
 #app .stats-3sub .stats-pill-arrows {
   gap: 0;
-  transform: translateX(0.18rem);
+  transform: translateX(0.1rem);
 }
 #app .stats-3sub .stats-pill-arrow {
   width: 1.05rem;
