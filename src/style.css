@@ -786,20 +786,17 @@ button:disabled {
   margin: 0 auto;
   min-height: 2.35rem;
   box-sizing: border-box;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1.2rem;
   align-items: center;
-  justify-content: space-between;
-  padding-left: 0.35rem;
-  padding-right: 0.22rem; /* keep a little breathing room */
-  gap: 0.1rem;
+  justify-items: stretch;
+  padding-right: 0.22rem; /* pull arrows inward (left), avoid clipping */
 }
 .stats-pill-stepper--detail .stats-pill-arrows {
   width: 1.2rem;
+  justify-self: center;
   transform: translateX(0); /* baseline */
-  flex-shrink: 0;
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
+  align-self: center;
 }
 .stats-pill-stepper--detail-base .stats-pill-arrows {
   /* Base: move arrows ~75% of their width to the left (towards center). */
@@ -814,12 +811,13 @@ button:disabled {
   height: 1.02rem;
 }
 .stats-pill-stepper--detail .stats-pill-input {
-  flex: 1;
-  width: auto;
+  width: 100%;
   min-width: 3.05rem; /* ensures values like +30 remain visible */
   padding-left: 0.1rem;
   padding-right: 0.1rem;
   line-height: 1;
+  height: 100%;
+  display: block;
 }
 .stats-pill-stepper--detail-base {
   width: 3.8rem;
