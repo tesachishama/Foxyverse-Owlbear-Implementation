@@ -677,6 +677,7 @@ button:disabled {
   padding-right: 0.2rem; /* keep clear of tier/bonus */
   overflow-wrap: anywhere;
   word-break: break-word;
+  hyphens: manual;
 }
 .talent-tier,
 .talent-bonus {

@@ -1122,6 +1122,24 @@ function renderStatsTab() {
 
   const talents = s.knowledge || [];
 
+  const insertSoftHyphens = (text) => {
+    const s = String(text || "");
+    // Split by whitespace but keep separators so we preserve spacing.
+    return s.split(/(\s+)/).map((tok) => {
+      if (!tok || /^\s+$/.test(tok)) return tok;
+      // For long tokens, insert soft hyphens periodically so CSS can show '-' on wrap.
+      if (tok.length <= 12) return tok;
+      const step = 6;
+      let out = "";
+      for (let i = 0; i < tok.length; i += step) {
+        const chunk = tok.slice(i, i + step);
+        out += chunk;
+        if (i + step < tok.length) out += "\u00AD";
+      }
+      return out;
+    }).join("");
+  };
+
   const signed = (n) => {
     const v = Number(n) || 0;
     return v >= 0 ? `+${v}` : String(v);
@@ -1215,6 +1233,7 @@ function renderStatsTab() {
   const talentsGrid = talents
     .map((tl, idx) => {
       const name = String(tl.name || "").trim() || t("talentDefault");
+      const nameDisplay = insertSoftHyphens(name);
       const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
       const tierLbl = `T${tier}`;
       const bonusLbl = talentBonusText(tl);
@@ -1225,7 +1244,7 @@ function renderStatsTab() {
       const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
       return `
         <div class="talent-pill" data-talent-id="${escapeAttr(String(tl.id || idx))}">
-          <div class="talent-name">${escapeAttr(name)}</div>
+          <div class="talent-name">${escapeAttr(nameDisplay)}</div>
           <div class="talent-tier">${escapeAttr(tierLbl)}</div>
           <div class="${bonusClass}"${bonusTitle}>${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
           ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(String(tl.id || idx))}" aria-label="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
@@ -2416,9 +2435,16 @@ function render() {
   applyColors();
   bindEvents();
   if (state.activeTab !== "chat") {
-    const nextMain = app.querySelector("main.tab-content");
-    if (nextMain) nextMain.scrollTop = prevMainScrollTop;
-    if (scrollEl) scrollEl.scrollTop = prevPageScrollTop;
+    const restore = () => {
+      const nextMain = app.querySelector("main.tab-content");
+      if (nextMain) nextMain.scrollTop = prevMainScrollTop;
+      if (scrollEl) scrollEl.scrollTop = prevPageScrollTop;
+    };
+    // Some browsers will reset scroll after focus/paint; restore across two frames.
+    requestAnimationFrame(() => {
+      restore();
+      requestAnimationFrame(restore);
+    });
   }
   if (state.activeTab === "chat") {
     const el = document.getElementById("chat-messages");
