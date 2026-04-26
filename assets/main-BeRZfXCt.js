@@ -346,19 +346,21 @@ Total : ${v}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
   `}function bh(){if(!l.talentModalOpen||!l.talentDraft)return"";const t=l.talentDraft,e=Math.max(0,Math.min(4,Number(t.tier)||0)),s=t.bonusOverride==null||t.bonusOverride===""?"":String(t.bonusOverride),n=String(t.description||""),i=n.trim()?S(g("talentDescTooltip")):"",r=`T${e}`,o=[0,1,2,3,4].map(a=>`<button type="button" class="sheet-menu-item ${e===a?"active":""}" data-talent-tier-pick="${a}">T${a}</button>`).join("");return`
     <div id="talent-modal" class="modal">
       <div class="modal-content talent-modal-content">
-        <div class="talent-modal-fields">
-          <input type="text" id="talent-name-inp" class="talent-modal-full" value="${S(t.name||"")}" placeholder="${S(g("talentDefault"))}" />
-          <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${S(g("talentDescPlaceholder"))}" title="${i}">${S(n)}</textarea>
-        </div>
-        <div class="talent-modal-row">
-          <div class="sheet-picker talent-tier-picker">
-            <div class="sheet-title">${S(r)}</div>
-            <button type="button" id="btn-talent-tier-menu" class="header-icon-btn sheet-arrow-btn ${l.talentTierMenuOpen?"open":""}" aria-label="${S(g("tier"))}">
-              ${Q(Ee,"inline-svg header-icon-svg","var(--text)")}
-            </button>
-            ${l.talentTierMenuOpen?`<div class="sheet-menu">${o}</div>`:""}
+        <div class="talent-modal-scroll">
+          <div class="talent-modal-fields">
+            <input type="text" id="talent-name-inp" class="talent-modal-full" value="${S(t.name||"")}" placeholder="${S(g("talentDefault"))}" />
+            <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${S(g("talentDescPlaceholder"))}" title="${i}">${S(n)}</textarea>
           </div>
-          <input type="text" id="talent-override-inp" value="${S(s)}" placeholder="${S(g("overwriteBonusesHere")||"Overwrite bonuses here")}" />
+          <div class="talent-modal-row">
+            <div class="sheet-picker talent-tier-picker">
+              <div class="sheet-title">${S(r)}</div>
+              <button type="button" id="btn-talent-tier-menu" class="header-icon-btn sheet-arrow-btn ${l.talentTierMenuOpen?"open":""}" aria-label="${S(g("tier"))}">
+                ${Q(Ee,"inline-svg header-icon-svg","var(--text)")}
+              </button>
+              ${l.talentTierMenuOpen?`<div class="sheet-menu">${o}</div>`:""}
+            </div>
+            <input type="text" id="talent-override-inp" value="${S(s)}" placeholder="${S(g("overwriteBonusesHere")||"Overwrite bonuses here")}" />
+          </div>
         </div>
         <div class="talent-modal-footer">
           <button type="button" id="talent-delete" class="btn-sm">${g("remove")}</button>
