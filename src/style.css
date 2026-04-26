@@ -453,8 +453,18 @@ button:disabled {
 .stats-add-svg { width: 1.6rem; height: 1.6rem; display: block; }
 
 .stats-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
-.stats-2col-line { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 0.55rem; }
-.stats-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.stats-2col-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+  margin-bottom: 0.55rem;
+  width: 100%;
+}
+.stats-2col-line > .stats-bubble { min-width: 0; width: 100%; }
+
+.stats-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
+#app .stats-col { min-width: 0; }
 .stats-col-label { text-align: center; font-weight: 700; opacity: 0.95; margin-bottom: 0.2rem; }
 
 .stats-pill {
