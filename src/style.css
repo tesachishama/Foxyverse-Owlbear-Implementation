@@ -822,9 +822,8 @@ button:disabled {
 }
 .stats-pill-stepper--detail-base .stats-pill-input {
   /* Base: nudge value text to the left (closer to pill border). */
-  padding-left: 0.02rem;
+  padding-left: 0.16rem;
   padding-right: 0.06rem;
-  transform: translateX(-0.25ch);
 }
 .stats-pill-stepper--detail-passive .stats-pill-input {
   min-width: 3.15rem; /* passive can be signed and slightly wider */
@@ -836,8 +835,9 @@ button:disabled {
   min-width: 4.85rem;
   max-width: 4.85rem;
 }
-/* Avoid overriding the detailed input min-width above. */
-.stats-pill-stepper--detail .stats-pill-input { }
+.stats-pill-stepper--detail .stats-pill-input {
+  min-width: 2.25rem;
+}
 
 .stats-graph-block {
   margin-top: 0.55rem;
