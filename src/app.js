@@ -1117,7 +1117,6 @@ function renderStatsTab() {
   const maxMP = getMaxMP(s);
   const maxFavor = getMaxFavor(s);
   const actions = getActionCount(s);
-  const speedFormula = "1d6+agi%5+bonspe";
   const editable = canEdit(s.id);
 
   const talents = s.knowledge || [];
@@ -1127,7 +1126,10 @@ function renderStatsTab() {
     return v >= 0 ? `+${v}` : String(v);
   };
 
-  const pill = (value, { signedValue = false } = {}) => `<div class="stats-pill">${escapeAttr(signedValue ? signed(value) : String(value))}</div>`;
+  const pill = (value, { signedValue = false, extraClass = "" } = {}) => {
+    const cls = `stats-pill stats-pill--counter${extraClass ? ` ${extraClass}` : ""}`;
+    return `<div class="${cls}">${escapeAttr(signedValue ? signed(value) : String(value))}</div>`;
+  };
 
   const stepper = (key, value, opts = {}) => {
     const {
@@ -1136,15 +1138,19 @@ function renderStatsTab() {
       allowNegative = false,
       signedValue = false,
       aria = "",
+      variant = "",
     } = opts;
     const v = Number(value) || 0;
     const minAttr = min == null ? "" : ` data-min="${escapeAttr(String(min))}"`;
     const maxAttr = max == null ? "" : ` data-max="${escapeAttr(String(max))}"`;
     const negAttr = allowNegative ? ` data-allow-negative="1"` : "";
     const signedAttr = signedValue ? ` data-signed="1"` : "";
+    const display = signedValue ? signed(v) : String(v);
+    const readOnlyAttr = editable ? "" : " readonly";
+    const varCls = variant ? ` ${variant}` : "";
     return `
-      <div class="stats-pill-stepper" data-stepper="${escapeAttr(key)}"${minAttr}${maxAttr}${negAttr}${signedAttr} aria-label="${escapeAttr(aria || key)}">
-        <div class="stats-pill-value">${escapeAttr(signedValue ? signed(v) : String(v))}</div>
+      <div class="stats-pill-stepper${varCls}" data-stepper="${escapeAttr(key)}"${minAttr}${maxAttr}${negAttr}${signedAttr} aria-label="${escapeAttr(aria || key)}">
+        <input type="text" class="stats-pill-input" inputmode="numeric" data-stepper-input="${escapeAttr(key)}" value="${escapeAttr(display)}"${readOnlyAttr} spellcheck="false" aria-label="${escapeAttr(aria || key)}" />
         <div class="stats-pill-arrows">
           <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-stepper-step="${escapeAttr(key)}" data-delta="1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--accent)")}</button>
           <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-stepper-step="${escapeAttr(key)}" data-delta="-1" ${editable ? "" : "disabled"} aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--accent)")}</button>
@@ -1175,16 +1181,14 @@ function renderStatsTab() {
     return base + passive + item;
   };
 
-  const statStrip = STAT_IDS.map((statId) => {
-    const abbr = escapeAttr(t(`statAbbr_${statId}`));
+  const statRollBracketLine = STAT_IDS.map((statId) => {
     const total = totalStatValueFor(statId);
-    const iconHtml = inlineDiceMarkupForButton({ formula: "1d20", kind: "stat" });
-    return `
-      <button type="button" class="stats-strip-btn inline-roll-btn" data-kind="stat" data-stat="${escapeAttr(statId)}" data-formula="" aria-label="${escapeAttr(t(statId))}">
-        <div class="stats-strip-abbr">${abbr}</div>
-        <div class="stats-strip-pill"><span class="stats-strip-dice">${iconHtml}</span><span class="stats-strip-val">${escapeAttr(String(total))}</span></div>
-      </button>
-    `;
+    return `[${statId} | ${total}]`;
+  }).join("");
+  const statRollButtonsRow = renderChatBody(statRollBracketLine);
+  const statAbbrCells = STAT_IDS.map((statId) => {
+    const abbr = escapeAttr(t(`statAbbr_${statId}`));
+    return `<div class="stats-strip-abbr-cell" title="${escapeAttr(t(statId))}">${abbr}</div>`;
   }).join("");
 
   const talentBonusText = (tl) => {
@@ -1196,7 +1200,7 @@ function renderStatsTab() {
 
   const talentsGrid = talents
     .map((tl, idx) => {
-      const name = String(tl.name || "").trim() || t("talentName");
+      const name = String(tl.name || "").trim() || t("talentDefault");
       const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
       const tierLbl = `T${tier}`;
       const bonusLbl = talentBonusText(tl);
@@ -1227,7 +1231,7 @@ function renderStatsTab() {
     return STAT_IDS.reduce((sum, id) => sum + costFor(s.stats?.[id]?.base), 0);
   })();
 
-  const detailedRows = STAT_IDS.map((statId) => {
+  const detailedStatRows = STAT_IDS.map((statId) => {
     const st = s.stats?.[statId] || {};
     const base = Number(st.base) || 0;
     const passive = Number(st.passiveBonus) || 0;
@@ -1235,12 +1239,21 @@ function renderStatsTab() {
     const minBase = level === 1 ? 5 : null;
     const maxBase = level === 1 ? 15 : null;
     return `
-      <div class="detail-row">
-        <div class="detail-name">${escapeAttr(t(statId))}</div>
-        <div class="detail-cell">${stepper(`stat:${statId}:base`, base, { min: minBase, max: maxBase, allowNegative: false })}</div>
-        <div class="detail-cell">${pill(item, { signedValue: true })}</div>
-        <div class="detail-cell">${stepper(`stat:${statId}:passive`, passive, { allowNegative: true, signedValue: true })}</div>
-      </div>
+      <tr>
+        <th scope="row" class="stats-detail-stat-name">${escapeAttr(t(statId))}</th>
+        <td class="stats-detail-val">${stepper(`stat:${statId}:base`, base, {
+          min: minBase,
+          max: maxBase,
+          allowNegative: false,
+          variant: "stats-pill-stepper--detail",
+        })}</td>
+        <td class="stats-detail-val">${pill(item, { signedValue: true, extraClass: "stats-pill--detail-readonly" })}</td>
+        <td class="stats-detail-val">${stepper(`stat:${statId}:passive`, passive, {
+          allowNegative: true,
+          signedValue: true,
+          variant: "stats-pill-stepper--detail",
+        })}</td>
+      </tr>
     `;
   }).join("");
 
@@ -1248,7 +1261,7 @@ function renderStatsTab() {
   const defensesMagical = getSheetMagicalDefense(s);
 
   const speedRollBtn = `
-    <button type="button" id="btn-roll-speed" class="stats-speed-btn" aria-label="${escapeAttr(t("speed"))}">
+    <button type="button" id="btn-roll-speed" class="stats-speed-btn stats-speed-btn--circle" aria-label="${escapeAttr(t("speed"))}">
       ${inlineSvg(d6Icon, "inline-svg stats-speed-d6", "var(--bg)")}
     </button>
   `;
@@ -1266,56 +1279,97 @@ function renderStatsTab() {
     const stats = ["constitution", "strength", "intelligence", "perception", "social", "agility", "focus"];
     const baseVals = stats.map((id) => Number(s.stats?.[id]?.base) || 0);
     const totalVals = stats.map((id) => totalStatValueFor(id));
-    const maxVal = Math.max(10, ...baseVals, ...totalVals, 20);
-    const size = 240;
+    const SCALE_MAX = 30;
+    const size = 260;
     const cx = size / 2;
     const cy = size / 2;
-    const radius = 92;
-    const rings = 5;
+    const radius = 95;
     const angleStep = (Math.PI * 2) / stats.length;
     const rot = -Math.PI / 2;
+    const clipOuterId = `radar-clip-outer-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+    const clipTotalId = `radar-clip-total-${String(s.id || "sheet").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
-    const pt = (val, i) => {
-      const r = (Math.max(0, val) / maxVal) * radius;
+    const rFor = (val) => (Math.min(SCALE_MAX, Math.max(0, Number(val) || 0)) / SCALE_MAX) * radius;
+
+    const pt = (score, i) => {
+      const r = rFor(score);
       const a = rot + i * angleStep;
       return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
     };
-    const poly = (vals) => vals.map((v, i) => pt(v, i).map((n) => n.toFixed(1)).join(",")).join(" ");
+    const polyPts = (vals) => vals.map((v, i) => pt(v, i).map((n) => n.toFixed(1)).join(",")).join(" ");
 
-    const gridPolys = Array.from({ length: rings }, (_, k) => {
-      const r = ((k + 1) / rings) * radius;
-      const pts = stats.map((_, i) => {
+    const outerRingPts = stats
+      .map((_, i) => {
         const a = rot + i * angleStep;
-        return [cx + Math.cos(a) * r, cy + Math.sin(a) * r].map((n) => n.toFixed(1)).join(",");
-      }).join(" ");
-      return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.7" />`;
-    }).join("");
+        return [cx + Math.cos(a) * radius, cy + Math.sin(a) * radius].map((n) => n.toFixed(1)).join(",");
+      })
+      .join(" ");
 
-    const axes = stats.map((_, i) => {
-      const a = rot + i * angleStep;
-      const x = cx + Math.cos(a) * radius;
-      const y = cy + Math.sin(a) * radius;
-      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="1" opacity="0.7" />`;
-    }).join("");
+    const ringPolys = [10, 20, 30]
+      .map((tick) => {
+        const rr = (tick / SCALE_MAX) * radius;
+        const pts = stats
+          .map((_, i) => {
+            const a = rot + i * angleStep;
+            return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr].map((n) => n.toFixed(1)).join(",");
+          })
+          .join(" ");
+        return `<polygon points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.25" />`;
+      })
+      .join("");
 
-    const textLabels = stats.map((_, i) => {
-      const a = rot + i * angleStep;
-      const x = cx + Math.cos(a) * (radius + 18);
-      const y = cy + Math.sin(a) * (radius + 18);
-      const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
-      const dy = Math.sin(a) > 0.7 ? "0.9em" : Math.sin(a) < -0.7 ? "-0.2em" : "0.35em";
-      return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dy="${dy}" font-weight="900" font-size="12" fill="var(--text)">${escapeAttr(labels[i])}</text>`;
-    }).join("");
+    const axes = stats
+      .map((_, i) => {
+        const a = rot + i * angleStep;
+        const x = cx + Math.cos(a) * radius;
+        const y = cy + Math.sin(a) * radius;
+        return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--accent)" stroke-width="1.1" />`;
+      })
+      .join("");
 
-    const basePoly = poly(baseVals);
-    const totalPoly = poly(totalVals);
+    const textLabels = stats
+      .map((_, i) => {
+        const a = rot + i * angleStep;
+        const x = cx + Math.cos(a) * (radius + 22);
+        const y = cy + Math.sin(a) * (radius + 22);
+        const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
+        const dy = Math.sin(a) > 0.7 ? "0.9em" : Math.sin(a) < -0.7 ? "-0.2em" : "0.35em";
+        return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dy="${dy}" font-weight="900" font-size="14" fill="var(--text)">${escapeAttr(labels[i])}</text>`;
+      })
+      .join("");
+
+    const basePoly = polyPts(baseVals);
+    const totalPoly = polyPts(totalVals);
 
     return `
-      <svg class="stats-radar" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Stats graph">
-        ${gridPolys}
+      <svg class="stats-radar" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${escapeAttr(t("graphTitle"))}">
+        <defs>
+          <clipPath id="${clipOuterId}"><polygon points="${outerRingPts}" /></clipPath>
+          <clipPath id="${clipTotalId}"><polygon points="${escapeAttr(totalPoly)}" /></clipPath>
+        </defs>
+        <!-- Filled shapes (overflow clipped to outer ring) -->
+        <g clip-path="url(#${clipOuterId})">
+          <!-- Total polygon under base (ui-color, full opacity) -->
+          <polygon points="${escapeAttr(totalPoly)}" fill="var(--accent)" fill-opacity="1" stroke="none" />
+
+          <!-- Base polygon: 50% opacity everywhere... -->
+          <polygon points="${escapeAttr(basePoly)}" fill="var(--text)" fill-opacity="0.5" stroke="none" />
+          <!-- ...then full opacity where base overlaps the total polygon -->
+          <g clip-path="url(#${clipTotalId})">
+            <polygon points="${escapeAttr(basePoly)}" fill="var(--text)" fill-opacity="1" stroke="none" />
+          </g>
+          <!-- Base outline always visible -->
+          <polygon points="${escapeAttr(basePoly)}" fill="none" stroke="var(--text)" stroke-width="2.2" />
+        </g>
+
+        <!-- Grid + axes: ui-color by default -->
+        ${ringPolys}
         ${axes}
-        <polygon points="${escapeAttr(totalPoly)}" fill="var(--accent)" opacity="0.35" stroke="var(--accent)" stroke-width="2" />
-        <polygon points="${escapeAttr(basePoly)}" fill="var(--text)" opacity="0.25" stroke="var(--text)" stroke-width="2" />
+        <!-- Grid + axes where they are over the total polygon: text-color -->
+        <g clip-path="url(#${clipTotalId})">
+          ${ringPolys.replaceAll("stroke=\"var(--accent)\"", "stroke=\"var(--text)\"")}
+          ${axes.replaceAll("stroke=\"var(--accent)\"", "stroke=\"var(--text)\"")}
+        </g>
         ${textLabels}
       </svg>
     `;
@@ -1324,18 +1378,18 @@ function renderStatsTab() {
   return `
     <div class="card stats-tab-card stats-template">
       <div class="stats-bubble">
-        <div class="stats-bubble-title">${t("currentHP")}</div>
+        <div class="stats-bubble-title">${t("health")}</div>
         <div class="stats-3col">
           <div class="stats-col">
-            <div class="stats-col-label">${t("maxHP")}</div>
-            ${pill(maxHP)}
+            <div class="stats-col-label">${t("labelMaximum")}</div>
+            ${pill(maxHP, { extraClass: "stats-pill--readonly" })}
           </div>
           <div class="stats-col">
-            <div class="stats-col-label">${t("currentHP")}</div>
+            <div class="stats-col-label">${t("labelCurrent")}</div>
             ${stepper("currentHP", s.currentHP ?? 0, { max: maxHP, allowNegative: true, aria: t("currentHP") })}
           </div>
           <div class="stats-col">
-            <div class="stats-col-label">${t("tempHP")}</div>
+            <div class="stats-col-label">${t("labelTemporary")}</div>
             ${stepper("tempHP", s.tempHP ?? 0, { min: 0, allowNegative: false, aria: t("tempHP") })}
           </div>
         </div>
@@ -1343,28 +1397,28 @@ function renderStatsTab() {
 
       <div class="stats-2col-line">
         <div class="stats-bubble">
-          <div class="stats-bubble-title">${t("currentMP")}</div>
-          <div class="stats-2col">
+          <div class="stats-bubble-title">${t("mana")}</div>
+          <div class="stats-2col stats-2col--even-pills">
             <div class="stats-col">
-              <div class="stats-col-label">${t("maxMP")}</div>
-              ${pill(maxMP)}
+              <div class="stats-col-label">${t("labelMaximum")}</div>
+              ${pill(maxMP, { extraClass: "stats-pill--readonly stats-pill--pair" })}
             </div>
             <div class="stats-col">
-              <div class="stats-col-label">${t("currentMP")}</div>
-              ${stepper("currentMP", s.currentMP ?? 0, { min: 0, max: maxMP, aria: t("currentMP") })}
+              <div class="stats-col-label">${t("labelCurrent")}</div>
+              ${stepper("currentMP", s.currentMP ?? 0, { min: 0, max: maxMP, aria: t("currentMP"), variant: "stats-pill-stepper--pair" })}
             </div>
           </div>
         </div>
         <div class="stats-bubble">
-          <div class="stats-bubble-title">${t("currentFavor")}</div>
-          <div class="stats-2col">
+          <div class="stats-bubble-title">${t("favor")}</div>
+          <div class="stats-2col stats-2col--even-pills">
             <div class="stats-col">
-              <div class="stats-col-label">${t("maxFavor")}</div>
-              ${pill(maxFavor)}
+              <div class="stats-col-label">${t("labelMaximum")}</div>
+              ${pill(maxFavor, { extraClass: "stats-pill--readonly stats-pill--pair" })}
             </div>
             <div class="stats-col">
-              <div class="stats-col-label">${t("currentFavor")}</div>
-              ${stepper("currentFavor", s.currentFavor ?? 0, { min: 0, max: maxFavor, aria: t("currentFavor") })}
+              <div class="stats-col-label">${t("labelCurrent")}</div>
+              ${stepper("currentFavor", s.currentFavor ?? 0, { min: 0, max: maxFavor, aria: t("currentFavor"), variant: "stats-pill-stepper--pair" })}
             </div>
           </div>
         </div>
@@ -1374,40 +1428,50 @@ function renderStatsTab() {
         <div class="stats-3sub">
           <div class="stats-sub">
             <div class="stats-sub-title">${t("action")}</div>
-            <div class="stats-sub-row">
+            <div class="stats-sub-row stats-sub-row--compact">
               <div class="stats-mini-col">
                 <div class="stats-mini-label">${t("total")}</div>
-                ${pill(actions)}
+                ${pill(actions, { extraClass: "stats-pill--compact stats-pill--readonly" })}
               </div>
               <div class="stats-mini-col">
-                <div class="stats-mini-label">${t("xpBonus")}</div>
-                ${stepper("bonusAction", s.bonusAction ?? 0, { allowNegative: true, signedValue: true, aria: t("actionModifier") })}
+                <div class="stats-mini-label">${t("statBonusShort")}</div>
+                ${stepper("bonusAction", s.bonusAction ?? 0, {
+                  allowNegative: true,
+                  signedValue: true,
+                  aria: t("actionModifier"),
+                  variant: "stats-pill-stepper--compact",
+                })}
               </div>
             </div>
           </div>
           <div class="stats-sub">
             <div class="stats-sub-title">${t("speed")}</div>
-            <div class="stats-sub-row">
+            <div class="stats-sub-row stats-sub-row--compact">
               <div class="stats-mini-col">
                 <div class="stats-mini-label">${t("roll")}</div>
                 ${speedRollBtn}
               </div>
               <div class="stats-mini-col">
-                <div class="stats-mini-label">${t("xpBonus")}</div>
-                ${stepper("bonusSpeed", s.bonusSpeed ?? 0, { allowNegative: true, signedValue: true, aria: t("speedModifier") })}
+                <div class="stats-mini-label">${t("statBonusShort")}</div>
+                ${stepper("bonusSpeed", s.bonusSpeed ?? 0, {
+                  allowNegative: true,
+                  signedValue: true,
+                  aria: t("speedModifier"),
+                  variant: "stats-pill-stepper--compact",
+                })}
               </div>
             </div>
           </div>
           <div class="stats-sub">
-            <div class="stats-sub-title">${t("defense")}</div>
-            <div class="stats-sub-row">
+            <div class="stats-sub-title">${t("defensesBlock")}</div>
+            <div class="stats-sub-row stats-sub-row--compact">
               <div class="stats-mini-col">
-                <div class="stats-mini-label">${t("physicalDamage")}</div>
-                ${pill(defensesPhysical)}
+                <div class="stats-mini-label">${t("labelPhysicalShort")}</div>
+                ${pill(defensesPhysical, { extraClass: "stats-pill--compact stats-pill--readonly" })}
               </div>
               <div class="stats-mini-col">
-                <div class="stats-mini-label">${t("magicDamage")}</div>
-                ${pill(defensesMagical)}
+                <div class="stats-mini-label">${t("labelMagicalShort")}</div>
+                ${pill(defensesMagical, { extraClass: "stats-pill--compact stats-pill--readonly" })}
               </div>
             </div>
           </div>
@@ -1416,12 +1480,15 @@ function renderStatsTab() {
 
       <div class="stats-bubble">
         <div class="stats-bubble-title">${t("tabStats")}</div>
-        <div class="stats-strip">${statStrip}</div>
+        <div class="stats-strip-wrap">
+          <div class="stats-strip-abbr-row">${statAbbrCells}</div>
+          <div class="stats-strip-roll-row">${statRollButtonsRow}</div>
+        </div>
       </div>
 
       <div class="stats-bubble">
         <div class="stats-bubble-title-row">
-          <div class="stats-bubble-title">${t("knowledge")}</div>
+          <div class="stats-bubble-title">${t("talentsBlock")}</div>
           ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--text)")}</button>` : ""}
         </div>
         <div class="talents-grid">${talentsGrid}</div>
@@ -1429,15 +1496,33 @@ function renderStatsTab() {
 
       <div class="stats-bubble">
         <div class="stats-bubble-title">${t("detailedStatistics") || "Detailled Statistics"}</div>
-        <div class="detail-head">
-          <div></div>
-          <div class="detail-col">${t("baseStat")}</div>
-          <div class="detail-col">${t("itemBonus")}</div>
-          <div class="detail-col">${t("passiveBonus")}</div>
+        <table class="stats-detail-table">
+          <thead>
+            <tr>
+              <th class="stats-detail-corner"></th>
+              <th class="stats-detail-col-h">${t("baseStat")}</th>
+              <th class="stats-detail-col-h">${t("itemBonus")}</th>
+              <th class="stats-detail-col-h">${t("passiveBonus")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${detailedStatRows}
+          </tbody>
+          <tfoot>
+            <tr class="stats-detail-total-row">
+              <th scope="row" class="stats-detail-stat-name stats-detail-total-label">${t("totalPointsLabel")}</th>
+              <td class="stats-detail-val stats-detail-pts-cell">
+                <span class="stats-detail-pts-num">${escapeAttr(String(totalPoints))}</span><span class="stats-detail-pts-suffix">${escapeAttr(t("ptsSuffix"))}</span>
+              </td>
+              <td class="stats-detail-val stats-detail-empty"></td>
+              <td class="stats-detail-val stats-detail-empty"></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="stats-graph-block">
+          <div class="stats-bubble-title stats-graph-title">${t("graphTitle")}</div>
+          <div class="stats-graph-wrap">${renderRadarSvg()}</div>
         </div>
-        <div class="detail-body">${detailedRows}</div>
-        <div class="detail-points">${t("total")} ${t("points") || "Points"}: ${escapeAttr(String(totalPoints))}</div>
-        <div class="stats-graph-wrap">${renderRadarSvg()}</div>
       </div>
     </div>
     ${editable ? renderTalentModal() : ""}
@@ -1516,18 +1601,17 @@ function renderTalentModal() {
   const d = state.talentDraft;
   const tier = Math.max(0, Math.min(4, Number(d.tier) || 0));
   const bonusText = d.bonusOverride == null || d.bonusOverride === "" ? "" : String(d.bonusOverride);
+  const desc = String(d.description || "");
+  const descTitle = desc.trim() ? escapeAttr(t("talentDescTooltip")) : "";
   return `
     <div id="talent-modal" class="modal">
       <div class="modal-content talent-modal-content">
-        <h3>${t("edit")}</h3>
-        <div class="talent-modal-grid">
-          <label class="label">${t("name")}</label>
-          <input type="text" id="talent-name-inp" value="${escapeAttr(d.name || "")}" />
-          <label class="label">${t("itemDescription")}</label>
-          <textarea id="talent-desc-inp" rows="4">${escapeAttr(d.description || "")}</textarea>
+        <div class="talent-modal-fields">
+          <input type="text" id="talent-name-inp" class="talent-modal-full" value="${escapeAttr(d.name || "")}" placeholder="${escapeAttr(t("talentDefault"))}" />
+          <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${escapeAttr(t("talentDescPlaceholder"))}" title="${descTitle}">${escapeAttr(desc)}</textarea>
         </div>
         <div class="talent-modal-row">
-          <select id="talent-tier-sel">
+          <select id="talent-tier-sel" class="equip-select talent-tier-select">
             ${[0, 1, 2, 3, 4].map((n) => `<option value="${n}" ${tier === n ? "selected" : ""}>T${n}</option>`).join("")}
           </select>
           <input type="text" id="talent-override-inp" value="${escapeAttr(bonusText)}" placeholder="${escapeAttr(t("overwriteBonusesHere") || "Overwrite bonuses here")}" />
@@ -2310,6 +2394,30 @@ function render() {
   }
 }
 
+/** Parse integer from stats stepper pill input (+/- allowed when data-signed=1). */
+function parseStatsStepperRawInput(raw, wrap) {
+  const s = String(raw ?? "").trim();
+  if (s === "") return 0;
+  const n = parseInt(s, 10);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function clampIntForStepperWrap(n, wrap) {
+  let out = Number(n);
+  if (!Number.isFinite(out)) out = 0;
+  out = Math.trunc(out);
+  const minRaw = wrap?.getAttribute("data-min");
+  const maxRaw = wrap?.getAttribute("data-max");
+  const allowNeg = wrap?.getAttribute("data-allow-negative") === "1";
+  if (!allowNeg) out = Math.max(0, out);
+  const min = minRaw == null ? null : Number(minRaw);
+  const max = maxRaw == null ? null : Number(maxRaw);
+  if (Number.isFinite(min)) out = Math.max(min, out);
+  if (Number.isFinite(max)) out = Math.min(max, out);
+  return out;
+}
+
 function bindEvents() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
@@ -2806,19 +2914,8 @@ function bindEvents() {
       const delta = Number(btn.getAttribute("data-delta"));
       if (!key || !Number.isFinite(delta) || delta === 0) return;
       const wrap = app.querySelector(`[data-stepper="${CSS.escape(key)}"]`);
-      const minRaw = wrap?.getAttribute("data-min");
-      const maxRaw = wrap?.getAttribute("data-max");
-      const allowNeg = wrap?.getAttribute("data-allow-negative") === "1";
-      const min = minRaw == null ? null : Number(minRaw);
-      const max = maxRaw == null ? null : Number(maxRaw);
-
-      const applyClamp = (v) => {
-        let out = Number(v) || 0;
-        if (!allowNeg) out = Math.max(0, out);
-        if (Number.isFinite(min)) out = Math.max(min, out);
-        if (Number.isFinite(max)) out = Math.min(max, out);
-        return out;
-      };
+      if (!wrap) return;
+      const applyClamp = (v) => clampIntForStepperWrap(v, wrap);
 
       // Stat fields: stat:<id>:base|passive
       if (key.startsWith("stat:")) {
@@ -2858,6 +2955,62 @@ function bindEvents() {
     });
   });
 
+  if (!app.dataset.statsStepperBlurBound) {
+    app.addEventListener("focusout", (e) => {
+      const inp = e.target;
+      if (!inp || inp.tagName !== "INPUT" || !inp.getAttribute("data-stepper-input")) return;
+      if (!app.contains(inp)) return;
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      if (inp.readOnly || inp.disabled) return;
+      const key = inp.getAttribute("data-stepper-input") || "";
+      const wrap = inp.closest("[data-stepper]");
+      if (!key || !wrap) return;
+      const parsed = parseStatsStepperRawInput(inp.value, wrap);
+      if (parsed === null) {
+        render();
+        return;
+      }
+      const nxt = clampIntForStepperWrap(parsed, wrap);
+      if (key.startsWith("stat:")) {
+        const parts = key.split(":");
+        const statId = parts[1];
+        const field = parts[2];
+        if (!statId || !field) return;
+        const cur = Number(state.sheet.stats?.[statId]?.[field === "base" ? "base" : "passiveBonus"]) || 0;
+        if (nxt !== cur) {
+          const next = applyLocalMutation((sheet) => {
+            if (!sheet.stats) sheet.stats = {};
+            if (!sheet.stats[statId]) sheet.stats[statId] = { base: 5, xpBonus: 0, itemBonus: 0, passiveBonus: 0 };
+            if (field === "base") sheet.stats[statId].base = nxt;
+            else sheet.stats[statId].passiveBonus = nxt;
+          });
+          scheduleDebouncedSave(`stat_${statId}_${field}`, 450, () => {
+            const st = next?.stats?.[statId];
+            if (!st) return;
+            storage.updateStat(state.roomId, state.activeSheetId, statId, {
+              base: st.base,
+              passiveBonus: st.passiveBonus,
+            }).catch(console.error);
+          });
+        }
+        render();
+        return;
+      }
+      const curCore = Number(state.sheet[key]) || 0;
+      if (nxt !== curCore) {
+        const next = applyLocalMutation((sheet) => {
+          sheet[key] = nxt;
+        });
+        scheduleDebouncedSave(`sheet_${key}`, 450, () => {
+          storage.updateSheetCore(state.roomId, state.activeSheetId, { [key]: next?.[key] }).catch(console.error);
+        });
+      }
+      render();
+    });
+    app.dataset.statsStepperBlurBound = "1";
+  }
+
   // Speed roll button (standard roll behavior + chat message labeled as Speed)
   app.querySelector("#btn-roll-speed")?.addEventListener("click", async () => {
     if (!state.sheet || !state.roomId) return;
@@ -2885,24 +3038,23 @@ function bindEvents() {
     if (!state.sheet || !state.roomId || !state.activeSheetId) return;
     if (!canEdit(state.activeSheetId)) return;
     const id = crypto.randomUUID();
+    const defaultName = t("talentDefault");
     const next = applyLocalMutation((sheet) => {
       if (!sheet.knowledge) sheet.knowledge = [];
-      sheet.knowledge.push({ id, name: t("talentName"), description: "", tier: 0, bonusOverride: null, enabled: false });
+      sheet.knowledge.push({ id, name: defaultName, description: "", tier: 0, bonusOverride: null, enabled: false });
     });
     const idx = (next?.knowledge || []).findIndex((x) => String(x.id) === String(id));
     if (idx >= 0) {
       storage.upsertTalent(state.roomId, state.activeSheetId, {
         id,
         position: idx,
-        name: t("talentName"),
+        name: defaultName,
         description: "",
         tier: 0,
         bonus_override: null,
         is_enabled: false,
       }).catch(console.error);
     }
-    state.talentModalOpen = true;
-    state.talentDraft = { id, name: t("talentName"), description: "", tier: 0, bonusOverride: "" };
     render();
   });
 
@@ -2937,7 +3089,7 @@ function bindEvents() {
   app.querySelector("#talent-save")?.addEventListener("click", async () => {
     if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;
     const id = String(state.talentDraft.id);
-    const name = String(document.getElementById("talent-name-inp")?.value || "").trim() || t("talentName");
+    const name = String(document.getElementById("talent-name-inp")?.value || "").trim() || t("talentDefault");
     const description = String(document.getElementById("talent-desc-inp")?.value || "");
     const tier = Math.max(0, Math.min(4, Number(document.getElementById("talent-tier-sel")?.value) || 0));
     const ovRaw = String(document.getElementById("talent-override-inp")?.value || "").trim();

@@ -236,15 +236,38 @@ function assembleSheet(sheetId, rows) {
   return base;
 }
 
+function finiteNumOrUndefined(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function patchToSheetUpdate(patch = {}) {
   const update = {};
   if ("isElemental" in patch) update.is_elemental = !!patch.isElemental;
-  if ("currentHP" in patch) update.current_health = Number(patch.currentHP) || 0;
-  if ("tempHP" in patch) update.temporary_health = Number(patch.tempHP) || 0;
-  if ("currentMP" in patch) update.current_mana = Number(patch.currentMP) || 0;
-  if ("currentFavor" in patch) update.current_favor = Number(patch.currentFavor) || 0;
-  if ("bonusAction" in patch) update.bonus_action = Number(patch.bonusAction) || 0;
-  if ("bonusSpeed" in patch) update.bonus_speed = Number(patch.bonusSpeed) || 0;
+  if ("currentHP" in patch) {
+    const n = finiteNumOrUndefined(patch.currentHP);
+    if (n !== undefined) update.current_health = n;
+  }
+  if ("tempHP" in patch) {
+    const n = finiteNumOrUndefined(patch.tempHP);
+    if (n !== undefined) update.temporary_health = n;
+  }
+  if ("currentMP" in patch) {
+    const n = finiteNumOrUndefined(patch.currentMP);
+    if (n !== undefined) update.current_mana = n;
+  }
+  if ("currentFavor" in patch) {
+    const n = finiteNumOrUndefined(patch.currentFavor);
+    if (n !== undefined) update.current_favor = n;
+  }
+  if ("bonusAction" in patch) {
+    const n = finiteNumOrUndefined(patch.bonusAction);
+    if (n !== undefined) update.bonus_action = Math.trunc(n);
+  }
+  if ("bonusSpeed" in patch) {
+    const n = finiteNumOrUndefined(patch.bonusSpeed);
+    if (n !== undefined) update.bonus_speed = Math.trunc(n);
+  }
   if ("actionModifier" in patch) update.bonus_action = modifierToInt(patch.actionModifier);
   if ("speedModifier" in patch) update.bonus_speed = modifierToInt(patch.speedModifier);
   if ("notes" in patch) update.notes = String(patch.notes || "");
