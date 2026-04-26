@@ -750,15 +750,15 @@ button:disabled {
 }
 .stats-detail-table th:last-child,
 .stats-detail-table td:last-child {
-  padding-right: 0.38rem; /* keep passive column off the bubble border */
+  padding-right: 0.62rem; /* keep passive column off the bubble border */
 }
 .stats-detail-table tbody tr { height: 2.65rem; }
 .stats-detail-corner {
   /* Make value columns tighter by giving more room to the label column. */
-  width: 38%;
+  width: 34%;
 }
 .stats-detail-col-h {
-  width: 20.67%;
+  width: 22%;
   text-align: center;
   font-weight: 900;
   font-size: 0.88rem;
