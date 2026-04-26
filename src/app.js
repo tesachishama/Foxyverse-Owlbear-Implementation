@@ -2390,6 +2390,12 @@ function render() {
     return;
   }
 
+  // Preserve scroll position when re-rendering (e.g., closing modals).
+  const prevMain = app.querySelector("main.tab-content");
+  const prevMainScrollTop = prevMain ? prevMain.scrollTop : 0;
+  const scrollEl = document.scrollingElement || document.documentElement;
+  const prevPageScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+
   let prevChatFromBottom = null;
   if (state.activeTab === "chat" && state._chatStickToBottom === false) {
     const prev = document.getElementById("chat-messages");
@@ -2409,6 +2415,11 @@ function render() {
   app.classList.toggle("modal-open", !!app.querySelector(".modal:not(.hidden)"));
   applyColors();
   bindEvents();
+  if (state.activeTab !== "chat") {
+    const nextMain = app.querySelector("main.tab-content");
+    if (nextMain) nextMain.scrollTop = prevMainScrollTop;
+    if (scrollEl) scrollEl.scrollTop = prevPageScrollTop;
+  }
   if (state.activeTab === "chat") {
     const el = document.getElementById("chat-messages");
     if (el) {

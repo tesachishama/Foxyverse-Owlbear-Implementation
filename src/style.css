@@ -655,7 +655,7 @@ button:disabled {
 .talent-pill {
   border: 3px solid var(--border);
   border-radius: 999px;
-  padding: 0.18rem 0.28rem 0.18rem 0.6rem;
+  padding: 0.18rem 0.28rem 0.18rem 0.7rem;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   align-items: center;
@@ -672,9 +672,11 @@ button:disabled {
   -webkit-box-orient: vertical;
   font-size: 0.74rem;
   line-height: 1.15;
-  justify-self: center;
+  justify-self: stretch;
   text-align: center;
   padding-right: 0.2rem; /* keep clear of tier/bonus */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .talent-tier,
 .talent-bonus {
