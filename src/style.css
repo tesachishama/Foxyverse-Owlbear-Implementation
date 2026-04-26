@@ -465,7 +465,7 @@ button:disabled {
 
 .stats-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
 #app .stats-col { min-width: 0; }
-.stats-col-label { text-align: center; font-weight: 700; opacity: 0.95; margin-bottom: 0.2rem; }
+.stats-col-label { text-align: center; font-size: 1.12rem !important; font-weight: 700; opacity: 0.95; margin-bottom: 0.2rem; }
 
 .stats-pill {
   border: 3px solid var(--border);
