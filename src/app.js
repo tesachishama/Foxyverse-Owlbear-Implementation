@@ -125,6 +125,7 @@ const state = {
   talentModalOpen: false,
   talentDraft: null, // { id, name, description, tier, bonusOverride }
   talentTierMenuOpen: false,
+  _tabScrollTop: {}, // tabId -> number
 };
 
 function canView(sheetId) {
@@ -1128,8 +1129,8 @@ function renderStatsTab() {
     return s.split(/(\s+)/).map((tok) => {
       if (!tok || /^\s+$/.test(tok)) return tok;
       // For long tokens, insert soft hyphens periodically so CSS can show '-' on wrap.
-      if (tok.length <= 12) return tok;
-      const step = 6;
+      if (tok.length < 4) return tok;
+      const step = tok.length < 10 ? 2 : 4;
       let out = "";
       for (let i = 0; i < tok.length; i += step) {
         const chunk = tok.slice(i, i + step);
@@ -2409,11 +2410,10 @@ function render() {
     return;
   }
 
-  // Preserve scroll position when re-rendering (e.g., closing modals).
+  // Preserve scroll position per tab (e.g., closing modals should not jump).
   const prevMain = app.querySelector("main.tab-content");
   const prevMainScrollTop = prevMain ? prevMain.scrollTop : 0;
-  const scrollEl = document.scrollingElement || document.documentElement;
-  const prevPageScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+  state._tabScrollTop[state.activeTab] = prevMainScrollTop;
 
   let prevChatFromBottom = null;
   if (state.activeTab === "chat" && state._chatStickToBottom === false) {
@@ -2435,14 +2435,14 @@ function render() {
   applyColors();
   bindEvents();
   if (state.activeTab !== "chat") {
+    const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const restore = () => {
       const nextMain = app.querySelector("main.tab-content");
-      if (nextMain) nextMain.scrollTop = prevMainScrollTop;
-      if (scrollEl) scrollEl.scrollTop = prevPageScrollTop;
+      if (nextMain) nextMain.scrollTop = target;
     };
-    // Some browsers will reset scroll after focus/paint; restore across two frames.
     requestAnimationFrame(() => {
       restore();
+      requestAnimationFrame(restore);
       requestAnimationFrame(restore);
     });
   }
