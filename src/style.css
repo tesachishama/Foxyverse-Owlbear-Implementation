@@ -662,7 +662,7 @@ button:disabled {
 }
 
 #app[data-locale="fr"] .stats-3sub .stats-sub:last-child .stats-mini-label {
-  transform: translateX(-0.08rem);
+  transform: translateX(-0.12rem);
 }
 
 /* Compact Action/Speed/Defenses block: slightly shorter pills + tighter arrows */
