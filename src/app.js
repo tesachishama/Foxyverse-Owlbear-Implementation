@@ -909,6 +909,8 @@ function rollTypeLabelFromPayload(payload) {
   if (kind === "theal") return t("overHeal");
   if (kind === "mana") return t("mana");
   if (kind === "roll") {
+    const key = String(payload?.typeLabelKey || "").trim();
+    if (key) return t(key);
     const lbl = String(payload?.typeLabel || "").trim();
     return lbl || t("roll");
   }
@@ -2064,6 +2066,8 @@ function formatRollChatLine(result, options = {}) {
     dice,
     value: result?.value ?? 0,
   };
+  const optKey = String(options?.typeLabelKey || "").trim();
+  if (optKey) payload.typeLabelKey = optKey;
   const optLabel = String(options?.typeLabel || "").trim();
   if (optLabel) payload.typeLabel = optLabel;
   if (result?.count && Number(result.count) > 1) payload.count = Number(result.count) || 1;
@@ -3183,7 +3187,7 @@ function bindEvents() {
   // Speed roll button (standard roll behavior + chat message labeled as Speed)
   app.querySelector("#btn-roll-speed")?.addEventListener("click", async () => {
     if (!state.sheet || !state.roomId) return;
-    const payload = { kind: "roll", formula: "1d6+agi%5+bonspe", count: 1, typeLabel: t("speed") };
+    const payload = { kind: "roll", formula: "1d6+agi%5+bonspe", count: 1, typeLabelKey: "speed" };
     const result = executeRoll(payload, state.sheet);
     if (!result) return;
     state.lastRoll = result;
@@ -3192,7 +3196,7 @@ function bindEvents() {
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: formatRollChatLine(result, { typeLabel: t("speed") }),
+        body: formatRollChatLine(result, { typeLabelKey: "speed" }),
       });
       appendChatMessageIfNew(row);
     } catch (err) {
@@ -3365,11 +3369,12 @@ function bindEvents() {
     state.lastRoll = result;
     state.rollModalOpen = true;
     try {
+      const typeLabelKey = String(state.lastRollPayload?.typeLabelKey || "").trim();
       const typeLabel = String(state.lastRollPayload?.typeLabel || "").trim();
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: formatRollChatLine(result, { favorReroll: true, typeLabel }),
+        body: formatRollChatLine(result, { favorReroll: true, typeLabelKey, typeLabel }),
       });
       appendChatMessageIfNew(row);
     } catch (err) {
