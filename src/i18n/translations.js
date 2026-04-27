@@ -340,7 +340,7 @@ export const translations = {
     talentDefault: "Talent",
     talentDescPlaceholder: "écrivez la description du talent ici",
     talentDescTooltip: "Description du talent",
-    totalPointsLabel: "Total des points",
+    totalPointsLabel: "Points totaux",
     ptsSuffix: " pts",
     tempHP: "PV temp",
     currentHP: "PV actuels",
