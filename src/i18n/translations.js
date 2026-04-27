@@ -440,7 +440,7 @@ export const translations = {
     spellCost: "Coût",
     costHP: "PV",
     costMP: "PM",
-    use: "LANCER",
+    use: "CAST",
     used: "Utilisé",
     times: "fois",
     continuous: "Continu",
