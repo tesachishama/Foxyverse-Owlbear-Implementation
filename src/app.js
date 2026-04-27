@@ -2430,6 +2430,8 @@ function applyColors() {
 function render() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
+  // Expose locale for CSS-only layout tweaks (avoid locale-driven reflows).
+  app.dataset.locale = String(state.locale || "en");
   if (state.startupError) {
     app.innerHTML = `<main class="tab-content"><div class="card"><h2>Error</h2><p>${escapeAttr(state.startupError)}</p></div></main>`;
     return;

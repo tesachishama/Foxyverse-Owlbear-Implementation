@@ -656,6 +656,11 @@ button:disabled {
   align-items: end;
 }
 
+/* French: slightly tighter Defenses spacing to avoid overflow */
+#app[data-locale="fr"] .stats-3sub .stats-sub:last-child .stats-sub-row {
+  gap: 0.28rem;
+}
+
 /* Compact Action/Speed/Defenses block: slightly shorter pills + tighter arrows */
 #app .stats-3sub .stats-pill--compact,
 #app .stats-3sub .stats-pill-stepper--compact {
