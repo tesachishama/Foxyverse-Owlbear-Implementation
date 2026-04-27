@@ -358,7 +358,7 @@ export const translations = {
     itemBonus: "Objet",
     passiveBonus: "Passif",
     total: "Total",
-    roll: "Jet",
+    roll: "dé",
     modifier: "Modificateur",
     quickMods: "Mod. rapides",
     knowledge: "Connaissances",
