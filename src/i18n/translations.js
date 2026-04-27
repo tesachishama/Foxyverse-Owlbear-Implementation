@@ -447,7 +447,7 @@ export const translations = {
     cost: "coût",
     toggle: "Ouvrir/fermer",
     reorder: "Réordonner",
-    selectSpellToRemove: "Sélectionnez un sort à retirer",
+    selectSpellToRemove: "Sélectionnez un sort à supprimer",
     deductCost: "Déduire coût",
     notEnoughMP: "Pas assez de PM — utiliser les PV ?",
     confirmUseHP: "Utiliser les PV à la place des PM va vous blesser. Continuer ?",
