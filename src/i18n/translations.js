@@ -328,7 +328,7 @@ export const translations = {
     health: "Santé",
     mana: "Mana",
     favor: "Faveur",
-    labelMaximum: "Maximum",
+    labelMaximum: "Max",
     labelCurrent: "Actuel",
     labelTemporary: "Temporaire",
     statBonusShort: "Bonus",
