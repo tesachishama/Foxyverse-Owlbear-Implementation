@@ -36,10 +36,11 @@ import rindexSlotIcon from "./data/icons/Icons_rightIndex.svg?raw";
 import rmiddleSlotIcon from "./data/icons/Icons_rightMiddle.svg?raw";
 import rringSlotIcon from "./data/icons/Icons_rightRing.svg?raw";
 import rpinkySlotIcon from "./data/icons/Icons_rightPinky.svg?raw";
-import lthumbSlotIcon from "./data/icons/Icons_leftThumb-38.svg?raw";
+import lthumbSlotIcon from "./data/icons/Icons_leftThumb.svg?raw";
 import lindexSlotIcon from "./data/icons/Icons_leftIndex.svg?raw";
 import lmiddleSlotIcon from "./data/icons/Icons_leftMiddle.svg?raw";
 import lringSlotIcon from "./data/icons/Icons_leftRing.svg?raw";
+import lpinkySlotIcon from "./data/icons/Icons_leftPinky.svg?raw";
 import beltSlotIcon from "./data/icons/Icons_belt.svg?raw";
 import rlegSlotIcon from "./data/icons/Icons_rightLeg.svg?raw";
 import llegSlotIcon from "./data/icons/Icons_leftLeg.svg?raw";
@@ -2194,7 +2195,7 @@ function renderInventoryTab() {
     lindex: lindexSlotIcon,
     lmiddle: lmiddleSlotIcon,
     lring: lringSlotIcon,
-    lpinky: rpinkySlotIcon,
+    lpinky: lpinkySlotIcon,
     belt: beltSlotIcon,
     rleg: rlegSlotIcon,
     lleg: llegSlotIcon,
