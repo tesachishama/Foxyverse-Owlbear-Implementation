@@ -17,6 +17,8 @@ import notesIcon from "./data/icons/Icons_notes.svg?raw";
 import settingsIcon from "./data/icons/Icons_settings.svg?raw";
 import editIcon from "./data/icons/Icons_edit.svg?raw";
 import handleIcon from "./data/icons/Icons_handle.svg?raw";
+import transferIcon from "./data/icons/Icons_transfer.svg?raw";
+import weaponIcon from "./data/icons/Icons_weapon.svg?raw";
 import frenchFlagIcon from "./data/icons/Icons_francais.svg";
 import englishFlagIcon from "./data/icons/Icons_anglais.svg";
 import {
@@ -1825,81 +1827,99 @@ function renderSpellsTab() {
   `;
 }
 
-function slotLabel(slotId) {
-  const key = "slot" + slotId;
-  return t(key) || slotId;
-}
-
-function itemsForSlot(sheet, slotId) {
-  const weaponSlots = ["Weapon1", "Weapon2", "Weapon3"];
-  if (weaponSlots.includes(slotId)) {
-    return (sheet.weapons || []).map((it) => ({ id: it.id, name: it.name || it.id?.slice(0, 8) }));
-  }
-  if (slotId === "Other") {
-    const out = [];
-    (sheet.weapons || []).forEach((it) => out.push({ id: it.id, name: (it.name || it.id?.slice(0, 8)) + " (W)" }));
-    (sheet.armor || []).forEach((it) => out.push({ id: it.id, name: (it.name || it.id?.slice(0, 8)) + " (A)" }));
-    (sheet.others || []).forEach((it) => out.push({ id: it.id, name: (it.name || it.id?.slice(0, 8)) + " (O)" }));
-    return out;
-  }
-  return (sheet.armor || []).filter((it) => {
-    const slots = it.equippableSlots || [];
-    return slots.length === 0 || slots.includes(slotId);
-  }).map((it) => ({ id: it.id, name: it.name || it.id?.slice(0, 8) }));
-}
-
 function renderInventoryTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const editable = canEdit(s.id);
-  const equipped = s.equipped || {};
-  const equippedRows = SLOT_IDS.map((slotId) => {
-    const currentId = equipped[slotId];
-    const options = itemsForSlot(s, slotId);
-    return `<div class="equip-row"><span class="equip-slot-label">${slotLabel(slotId)}</span><select class="equip-select" data-slot="${slotId}" ${editable ? "" : "disabled"}><option value="">—</option>${options.map((it) => `<option value="${it.id}" ${currentId === it.id ? "selected" : ""}>${escapeAttr(it.name)}</option>`).join("")}</select></div>`;
-  }).join("");
-  let html = `
-    <div class="card inventory-tab-card"><h2>${t("tabInventory")}</h2>
-    <h3>${t("equipped")}</h3>
-    <div class="equipped-grid">${equippedRows}</div>
+
+  const invBubbleTitleRow = (title, leftHtml, rightHtml, extraClass = "") => `
+    <div class="inv-bubble-title-row ${extraClass}">
+      <div class="inv-bubble-title-left">${leftHtml || ""}</div>
+      <div class="inv-bubble-title">${escapeAttr(title)}</div>
+      <div class="inv-bubble-title-right">${rightHtml || ""}</div>
+    </div>
   `;
-  const sections = [
-    { key: "consumables", label: t("consumables") },
-    { key: "others", label: t("others") },
-    { key: "weapons", label: t("weapons") },
-    { key: "armor", label: t("armor") },
-    { key: "bags", label: t("bags") },
-  ];
-  sections.forEach(({ key, label }) => {
-    const items = s[key] || [];
-    html += `
-      <h3>${label}</h3>
-      <ul class="item-list" data-section="${key}">
-        ${items
-          .map(
-            (it, i) => `
-          <li class="item-line" data-section="${key}" data-idx="${i}">
-            <input type="text" class="item-name-inp" value="${escapeAttr(it.name || "")}" data-item-name="${key}-${i}" placeholder="${escapeAttr(enterField("itemName"))}" ${editable ? "" : "readonly"} />
-            <input type="number" min="0" class="item-count-inp" value="${it.count != null ? it.count : 1}" data-item-count="${key}-${i}" placeholder="${escapeAttr(enterField("numberOwned"))}" ${editable ? "" : "readonly"} />
-            <span class="item-toggle" data-toggle-item="${key}-${i}" title="${t("itemDescription")}">▼</span>
-            <div class="item-detail hidden" id="item-detail-${key}-${i}">
-              <textarea data-item-desc="${key}-${i}" ${editable ? "" : "readonly"} placeholder="${escapeAttr(enterField("itemDescription"))}">${escapeAttr(it.description)}</textarea>
-              ${key === "weapons" ? `<label>${t("weaponSlots")}: <input type="number" min="1" data-item-weapon-slots="${key}-${i}" value="${it.weaponSlots ?? 1}" placeholder="${escapeAttr(enterField("weaponSlots"))}" ${editable ? "" : "readonly"} /></label>` : ""}
-              ${key === "armor" ? `<label>${t("defense")}: <input type="number" data-item-defense="${key}-${i}" value="${it.defense ?? ""}" placeholder="${escapeAttr(enterField("defense"))}" ${editable ? "" : "readonly"} /></label><label>${t("magicalDefense")}: <input type="number" data-item-magdef="${key}-${i}" value="${it.magicalDefense ?? ""}" placeholder="${escapeAttr(enterField("magicalDefense"))}" ${editable ? "" : "readonly"} /></label><label>${t("equippableSlots")}: <input type="text" data-item-equip-slots="${key}-${i}" value="${Array.isArray(it.equippableSlots) ? it.equippableSlots.join(", ") : (it.equippableSlots || "")}" placeholder="${escapeAttr(enterField("equippableSlots"))}" ${editable ? "" : "readonly"} /></label>` : ""}
-              ${it.defense != null && key !== "armor" ? `<span>${t("defense")}: ${it.defense}</span>` : ""}
-              ${it.magicalDefense != null && key !== "armor" ? `<span> ${t("magicalDefense")}: ${it.magicalDefense}</span>` : ""}
-            </div>
-            ${editable ? `<button type="button" class="btn-sm" data-remove-item="${key}-${i}">${t("remove")}</button>` : ""}
-          </li>
-        `
-          )
-          .join("")}
-      </ul>
-      ${editable ? `<button type="button" class="btn-add-item" data-section="${key}">${t("add")}</button>` : ""}
-    `;
-  });
-  html += "</div>";
-  return html;
+
+  const iconBtn = (id, svg, color, aria, extraClass = "") =>
+    `<button type="button" id="${escapeAttr(id)}" class="inv-icon-btn ${extraClass}" aria-label="${escapeAttr(aria)}" title="${escapeAttr(aria)}">${inlineSvg(svg, "inline-svg inv-icon-svg", color)}</button>`;
+
+  const bubble = (inner, extraClass = "") => `<div class="stats-bubble inv-bubble ${extraClass}">${inner}</div>`;
+
+  // Equipment slots block (visual-only layout for now; behavior added in later todos)
+  const weaponSvg = inlineSvg(weaponIcon, "inline-svg inv-weapon-svg", "var(--accent)");
+  const equipLeft = `
+    <div class="inv-equip-left">
+      <div class="inv-equip-title">${escapeAttr(t("equipmentSlots") || "Equipment Slots")}</div>
+      <div class="inv-weapon-col">
+        <div class="inv-weapon-ico">${weaponSvg}</div>
+        <div class="inv-weapon-ico">${weaponSvg}</div>
+        <div class="inv-weapon-ico">${weaponSvg}</div>
+      </div>
+    </div>
+  `;
+  const equipRight = `
+    <div class="inv-equip-silhouette" aria-label="${escapeAttr(t("equipmentSlots") || "Equipment Slots")}">
+      <div class="inv-silhouette-placeholder"></div>
+    </div>
+  `;
+  const equipBlock = bubble(`<div class="inv-equip-wrap">${equipLeft}${equipRight}</div>`, "inv-bubble--equip");
+
+  // Currency block (layout; modals + logic in later todos)
+  const cur = s.currency || { gold: 0, silver: 0, copper: 0 };
+  const transferBtn = iconBtn("btn-currency-transfer", transferIcon, "var(--accent)", t("transfer") || "Transfer");
+  const addBtn = iconBtn("btn-currency-add", addIcon, "var(--accent)", t("add") || "Add");
+  const removeBtn = iconBtn("btn-currency-remove", removeIcon, "var(--accent)", t("remove") || "Remove");
+  const currencyTitle = invBubbleTitleRow(
+    t("currency") || "Currency",
+    `<div class="inv-title-icon-row">${transferBtn}</div>`,
+    `<div class="inv-title-icon-row">${addBtn}${removeBtn}</div>`
+  );
+  const currencyBody = `
+    <div class="inv-currency-row">
+      <div class="inv-currency-col">
+        <div class="stats-col-label">${escapeAttr(t("goldCoin") || "Gold Coin")}</div>
+        ${stepper("currencyGold", cur.gold ?? 0, { min: 0, allowNegative: false, aria: t("goldCoin") || "Gold", variant: "inv-pill-stepper--coin" })}
+      </div>
+      <div class="inv-currency-col">
+        <div class="stats-col-label">${escapeAttr(t("silverCoin") || "Silver Coin")}</div>
+        ${stepper("currencySilver", cur.silver ?? 0, { min: 0, allowNegative: false, aria: t("silverCoin") || "Silver", variant: "inv-pill-stepper--coin" })}
+      </div>
+      <div class="inv-currency-col">
+        <div class="stats-col-label">${escapeAttr(t("copperCoin") || "Copper Coin")}</div>
+        ${stepper("currencyCopper", cur.copper ?? 0, { min: 0, allowNegative: false, aria: t("copperCoin") || "Copper", variant: "inv-pill-stepper--coin" })}
+      </div>
+    </div>
+  `;
+  const currencyBlock = bubble(`${currencyTitle}${currencyBody}`, "inv-bubble--currency");
+
+  const sectionHeader = (key, title, { allowTransfer = false } = {}) => {
+    const left = allowTransfer ? `<div class="inv-title-icon-row">${iconBtn(`btn-${key}-transfer`, transferIcon, "var(--accent)", t("transfer") || "Transfer")}</div>` : "";
+    const right = editable
+      ? `<div class="inv-title-icon-row">${iconBtn(`btn-${key}-add`, addIcon, "var(--accent)", t("add") || "Add")}${iconBtn(`btn-${key}-remove`, removeIcon, "var(--accent)", t("remove") || "Remove")}</div>`
+      : "";
+    return invBubbleTitleRow(title, left, right);
+  };
+
+  // Section bodies will be implemented in later todos; keep placeholders for layout now.
+  const sectionPlaceholder = (key) => `<div class="inv-section-placeholder" data-inv-section="${escapeAttr(key)}"></div>`;
+
+  const consumablesBlock = bubble(`${sectionHeader("consumables", t("consumables") || "Consumables", { allowTransfer: true })}${sectionPlaceholder("consumables")}`, "inv-bubble--section");
+  const weaponsBlock = bubble(`${sectionHeader("weapons", t("weapons") || "Weapons")}${sectionPlaceholder("weapons")}`, "inv-bubble--section");
+  const armorBlock = bubble(`${sectionHeader("armor", t("armor") || "Armor")}${sectionPlaceholder("armor")}`, "inv-bubble--section");
+  const othersBlock = bubble(`${sectionHeader("others", t("others") || "Others")}${sectionPlaceholder("others")}`, "inv-bubble--section");
+  const bagsBlock = bubble(`${sectionHeader("bags", t("bags") || "Bags")}${sectionPlaceholder("bags")}`, "inv-bubble--section");
+
+  return `
+    <div class="card inventory-tab-card inventory-template">
+      ${equipBlock}
+      ${currencyBlock}
+      ${consumablesBlock}
+      ${weaponsBlock}
+      ${armorBlock}
+      ${othersBlock}
+      ${bagsBlock}
+    </div>
+  `;
 }
 
 function renderChatTab() {
