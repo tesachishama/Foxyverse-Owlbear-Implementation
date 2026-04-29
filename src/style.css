@@ -671,6 +671,13 @@ button:disabled {
   align-items: end;
 }
 .inv-currency-col { min-width: 0; }
+.inv-currency-col .stats-col-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.05;
+  font-size: 0.92em;
+}
 .inv-coin-pill {
   width: 100%;
   max-width: 100%;
@@ -691,8 +698,24 @@ button:disabled {
   padding: 0.1rem 0.1rem;
 }
 #app .inv-coin-value:focus { outline: none; }
+.inv-coin-arrows .spell-cost-arrow-btn { width: 1.35rem; height: 1.25rem; }
+.inv-coin-arrows .spell-cost-arrow-svg { width: 1.15rem; height: 0.8rem; }
 .inv-currency-row--modal { margin-top: 0.4rem; }
 .inv-currency-modal-content { overflow: visible; }
+.inv-currency-modal-content .inv-coin-value {
+  margin: 0 !important;
+  padding: 0.1rem 0.1rem !important;
+  border: none !important;
+  background: transparent !important;
+}
+.inv-currency-modal-content .roll-modal-footer {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.inv-currency-modal-content .roll-modal-footer .btn-sm {
+  margin-right: 0 !important;
+}
 .inv-currency-confirm-text { margin: 0.35rem 0 0.2rem; }
 
 /* Section placeholder (real list comes later) */

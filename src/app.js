@@ -1842,19 +1842,20 @@ function simplifyCoins(coins) {
   return copperToCoins(coinsToCopper(coins));
 }
 
-function renderCoinCounter(kind, value, { inputIdPrefix = "", disabled = false } = {}) {
+function renderCoinCounter(kind, value, { inputIdPrefix = "", disabled = false, scope = "draft" } = {}) {
   const v = Math.max(0, clampInt(value));
   const dis = disabled ? " disabled" : "";
   const up = inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--text)");
   const down = inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--text)");
   const inputId = inputIdPrefix ? `${inputIdPrefix}-${kind}` : "";
   const idAttr = inputId ? ` id="${escapeAttr(inputId)}"` : "";
+  const scopeAttr = ` data-coin-scope="${escapeAttr(String(scope || "draft"))}"`;
   return `
     <div class="spell-cost-pill inv-coin-pill" data-coin-pill="${escapeAttr(kind)}">
-      <input type="text" class="inv-coin-value" data-coin-input="${escapeAttr(kind)}"${idAttr} value="${escapeAttr(String(v))}" inputmode="numeric" ${disabled ? "readonly" : ""} />
+      <input type="text" class="inv-coin-value" data-coin-input="${escapeAttr(kind)}"${scopeAttr}${idAttr} value="${escapeAttr(String(v))}" inputmode="numeric" ${disabled ? "readonly" : ""} />
       <div class="spell-cost-arrows inv-coin-arrows">
-        <button type="button" class="spell-cost-arrow-btn" data-coin-delta="${escapeAttr(kind)}" data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${up}</button>
-        <button type="button" class="spell-cost-arrow-btn" data-coin-delta="${escapeAttr(kind)}" data-delta="-1"${dis} aria-label="${escapeAttr(t("remove"))}">${down}</button>
+        <button type="button" class="spell-cost-arrow-btn" data-coin-delta="${escapeAttr(kind)}"${scopeAttr} data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${up}</button>
+        <button type="button" class="spell-cost-arrow-btn" data-coin-delta="${escapeAttr(kind)}"${scopeAttr} data-delta="-1"${dis} aria-label="${escapeAttr(t("remove"))}">${down}</button>
       </div>
     </div>
   `;
@@ -1888,15 +1889,15 @@ function renderCurrencyModals() {
     <div class="inv-currency-row inv-currency-row--modal">
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("goldCoin") || "Gold Coin")}</div>
-        ${renderCoinCounter("gold", draft.gold, { inputIdPrefix: "currency-draft" })}
+        ${renderCoinCounter("gold", draft.gold, { inputIdPrefix: "currency-draft", scope: "draft" })}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("silverCoin") || "Silver Coin")}</div>
-        ${renderCoinCounter("silver", draft.silver, { inputIdPrefix: "currency-draft" })}
+        ${renderCoinCounter("silver", draft.silver, { inputIdPrefix: "currency-draft", scope: "draft" })}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("copperCoin") || "Copper Coin")}</div>
-        ${renderCoinCounter("copper", draft.copper, { inputIdPrefix: "currency-draft" })}
+        ${renderCoinCounter("copper", draft.copper, { inputIdPrefix: "currency-draft", scope: "draft" })}
       </div>
     </div>
   `;
@@ -2400,15 +2401,15 @@ function renderInventoryTab() {
     <div class="inv-currency-row">
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("goldCoin") || "Gold Coin")}</div>
-        ${renderCoinCounter("gold", cur.gold ?? 0)}
+        ${renderCoinCounter("gold", cur.gold ?? 0, { scope: "sheet" })}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("silverCoin") || "Silver Coin")}</div>
-        ${renderCoinCounter("silver", cur.silver ?? 0)}
+        ${renderCoinCounter("silver", cur.silver ?? 0, { scope: "sheet" })}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("copperCoin") || "Copper Coin")}</div>
-        ${renderCoinCounter("copper", cur.copper ?? 0)}
+        ${renderCoinCounter("copper", cur.copper ?? 0, { scope: "sheet" })}
       </div>
     </div>
   `;
@@ -4604,21 +4605,43 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const kind = btn.getAttribute("data-coin-delta") || "";
       const delta = Number(btn.getAttribute("data-delta")) || 0;
+      const scope = btn.getAttribute("data-coin-scope") || "draft";
       if (!kind) return;
-      const draft = { ...(state.currencyDraft || {}) };
-      draft[kind] = Math.max(0, clampInt((draft[kind] ?? 0) + delta));
-      state.currencyDraft = draft;
+      if (scope === "sheet") {
+        if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+        const cur = { ...(state.sheet.currency || { gold: 0, silver: 0, copper: 0 }) };
+        cur[kind] = Math.max(0, clampInt((cur[kind] ?? 0) + delta));
+        applyLocalMutation((sheet) => { sheet.currency = cur; });
+        scheduleDebouncedSave(`currency_${state.activeSheetId}`, 250, () => {
+          storage.updateCurrency(state.roomId, state.activeSheetId, simplifyCoins(cur)).catch(console.error);
+        });
+      } else {
+        const draft = { ...(state.currencyDraft || {}) };
+        draft[kind] = Math.max(0, clampInt((draft[kind] ?? 0) + delta));
+        state.currencyDraft = draft;
+      }
       render();
     });
   });
   app.querySelectorAll("[data-coin-input]").forEach((inp) => {
     inp.addEventListener("change", () => {
       const kind = inp.getAttribute("data-coin-input") || "";
+      const scope = inp.getAttribute("data-coin-scope") || "draft";
       if (!kind) return;
-      const draft = { ...(state.currencyDraft || {}) };
       const v = Math.max(0, clampInt(String(inp.value || "").replace(/[^\d-]/g, "")));
-      draft[kind] = v;
-      state.currencyDraft = draft;
+      if (scope === "sheet") {
+        if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+        const cur = { ...(state.sheet.currency || { gold: 0, silver: 0, copper: 0 }) };
+        cur[kind] = v;
+        applyLocalMutation((sheet) => { sheet.currency = cur; });
+        scheduleDebouncedSave(`currency_${state.activeSheetId}`, 250, () => {
+          storage.updateCurrency(state.roomId, state.activeSheetId, simplifyCoins(cur)).catch(console.error);
+        });
+      } else {
+        const draft = { ...(state.currencyDraft || {}) };
+        draft[kind] = v;
+        state.currencyDraft = draft;
+      }
       render();
     });
   });
@@ -4626,6 +4649,13 @@ function bindEvents() {
   // Currency: simplify
   app.querySelector("#currency-simplify")?.addEventListener("click", () => {
     state.currencyDraft = simplifyCoins(state.currencyDraft || {});
+    // Also simplify the sheet's current wallet amounts (what you already have).
+    if (state.sheet && state.roomId && state.activeSheetId) {
+      const cur = state.sheet.currency || { gold: 0, silver: 0, copper: 0 };
+      const next = simplifyCoins(cur);
+      applyLocalMutation((sheet) => { sheet.currency = next; });
+      storage.updateCurrency(state.roomId, state.activeSheetId, next).catch(console.error);
+    }
     render();
   });
 
