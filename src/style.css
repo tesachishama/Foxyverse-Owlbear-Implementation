@@ -526,11 +526,55 @@ button:disabled {
   position: relative;
   overflow: hidden;
 }
-.inv-silhouette-placeholder {
+
+.inv-slot-btn {
   position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--surface) 35%, transparent);
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
 }
+.inv-slot-svg { width: 100%; height: 100%; display: block; }
+
+/* Silhouette positions (approx, refined in UI pass) */
+.inv-slot--hat { top: 0.55rem; left: 50%; transform: translateX(-50%); width: 1.75rem; height: 1.75rem; }
+.inv-slot--face { top: 2.05rem; left: 50%; transform: translateX(-50%); width: 1.55rem; height: 1.55rem; }
+.inv-slot--pendant1 { top: 2.35rem; left: 34%; }
+.inv-slot--pendant2 { top: 2.35rem; left: 50%; transform: translateX(-50%); }
+.inv-slot--pendant3 { top: 2.35rem; left: 66%; transform: translateX(-100%); }
+
+.inv-slot--torso { top: 3.6rem; left: 50%; transform: translateX(-50%); width: 2.2rem; height: 2.2rem; }
+.inv-slot--rshoulder { top: 3.7rem; left: 33%; }
+.inv-slot--lshoulder { top: 3.7rem; left: 67%; transform: translateX(-100%); }
+.inv-slot--rarm { top: 5.25rem; left: 27%; }
+.inv-slot--larm { top: 5.25rem; left: 73%; transform: translateX(-100%); }
+.inv-slot--rwrist { top: 6.95rem; left: 23%; }
+.inv-slot--lwrist { top: 6.95rem; left: 77%; transform: translateX(-100%); }
+
+/* Fingers (right is left side in view) */
+.inv-slot--rthumb { top: 8.2rem; left: 18%; width: 1.1rem; height: 1.6rem; }
+.inv-slot--rindex { top: 8.05rem; left: 24%; width: 1.1rem; height: 1.6rem; }
+.inv-slot--rmiddle { top: 8.0rem; left: 30%; width: 1.1rem; height: 1.6rem; }
+.inv-slot--rring { top: 8.05rem; left: 36%; width: 1.1rem; height: 1.6rem; }
+.inv-slot--rpinky { top: 8.2rem; left: 42%; width: 1.1rem; height: 1.6rem; }
+
+.inv-slot--lthumb { top: 8.2rem; left: 82%; transform: translateX(-100%); width: 1.1rem; height: 1.6rem; }
+.inv-slot--lindex { top: 8.05rem; left: 76%; transform: translateX(-100%); width: 1.1rem; height: 1.6rem; }
+.inv-slot--lmiddle { top: 8.0rem; left: 70%; transform: translateX(-100%); width: 1.1rem; height: 1.6rem; }
+.inv-slot--lring { top: 8.05rem; left: 64%; transform: translateX(-100%); width: 1.1rem; height: 1.6rem; }
+.inv-slot--lpinky { top: 8.2rem; left: 58%; transform: translateX(-100%); width: 1.1rem; height: 1.6rem; }
+
+.inv-slot--belt { top: 9.7rem; left: 50%; transform: translateX(-50%); width: 1.8rem; height: 1.4rem; }
+.inv-slot--rleg { top: 11.0rem; left: 42%; }
+.inv-slot--lleg { top: 11.0rem; left: 58%; transform: translateX(-100%); }
+.inv-slot--rankle { top: 12.45rem; left: 40%; }
+.inv-slot--lankle { top: 12.45rem; left: 60%; transform: translateX(-100%); }
+.inv-slot--rfoot { top: 13.75rem; left: 39%; }
+.inv-slot--lfoot { top: 13.75rem; left: 61%; transform: translateX(-100%); }
 
 /* Currency block */
 .inv-currency-row {

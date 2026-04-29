@@ -19,6 +19,34 @@ import editIcon from "./data/icons/Icons_edit.svg?raw";
 import handleIcon from "./data/icons/Icons_handle.svg?raw";
 import transferIcon from "./data/icons/Icons_transfer.svg?raw";
 import weaponIcon from "./data/icons/Icons_weapon.svg?raw";
+import helmetSlotIcon from "./data/icons/Icons_helmet.svg?raw";
+import faceSlotIcon from "./data/icons/Icons_face.svg?raw";
+import pendant1SlotIcon from "./data/icons/Icons_pendant1.svg?raw";
+import pendant2SlotIcon from "./data/icons/Icons_pendant2.svg?raw";
+import pendant3SlotIcon from "./data/icons/Icons_pendant3.svg?raw";
+import chestSlotIcon from "./data/icons/Icons_chest.svg?raw";
+import rshoulderSlotIcon from "./data/icons/Icons_rshoulder.svg?raw";
+import lshoulderSlotIcon from "./data/icons/Icons_lshoulder.svg?raw";
+import rarmSlotIcon from "./data/icons/Icons_rightArm.svg?raw";
+import larmSlotIcon from "./data/icons/Icons_leftArm.svg?raw";
+import rwristSlotIcon from "./data/icons/Icons_rightWrist.svg?raw";
+import lwristSlotIcon from "./data/icons/Icons_leftWrist.svg?raw";
+import rthumbSlotIcon from "./data/icons/Icons_rightThumb.svg?raw";
+import rindexSlotIcon from "./data/icons/Icons_rightIndex.svg?raw";
+import rmiddleSlotIcon from "./data/icons/Icons_rightMiddle.svg?raw";
+import rringSlotIcon from "./data/icons/Icons_rightRing.svg?raw";
+import rpinkySlotIcon from "./data/icons/Icons_rightPinky.svg?raw";
+import lthumbSlotIcon from "./data/icons/Icons_leftThumb-38.svg?raw";
+import lindexSlotIcon from "./data/icons/Icons_leftIndex.svg?raw";
+import lmiddleSlotIcon from "./data/icons/Icons_leftMiddle.svg?raw";
+import lringSlotIcon from "./data/icons/Icons_leftRing.svg?raw";
+import beltSlotIcon from "./data/icons/Icons_belt.svg?raw";
+import rlegSlotIcon from "./data/icons/Icons_rightLeg.svg?raw";
+import llegSlotIcon from "./data/icons/Icons_leftLeg.svg?raw";
+import rankleSlotIcon from "./data/icons/Icons_rightAnkle.svg?raw";
+import lankleSlotIcon from "./data/icons/Icons_leftAnkle.svg?raw";
+import rfootSlotIcon from "./data/icons/Icons_rightFoot.svg?raw";
+import lfootSlotIcon from "./data/icons/Icons_leftFoot.svg?raw";
 import frenchFlagIcon from "./data/icons/Icons_francais.svg";
 import englishFlagIcon from "./data/icons/Icons_anglais.svg";
 import {
@@ -1832,6 +1860,106 @@ function renderInventoryTab() {
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
   const editable = canEdit(s.id);
 
+  const SLOT_LEGACY_TO_CANON = {
+    Weapon1: "weapon1",
+    Weapon2: "weapon2",
+    Weapon3: "weapon3",
+    Hat: "hat",
+    Face: "face",
+    Pendant1: "pendant1",
+    Pendant2: "pendant2",
+    Pendant3: "pendant3",
+    Torso: "torso",
+    RightShoulder: "rshoulder",
+    LeftShoulder: "lshoulder",
+    RightArm: "rarm",
+    LeftArm: "larm",
+    RightWrist: "rwrist",
+    LeftWrist: "lwrist",
+    RightThumb: "rthumb",
+    RightIndex: "rindex",
+    RightMiddle: "rmiddle",
+    RightRing: "rring",
+    RightPinky: "rpinky",
+    LeftThumb: "lthumb",
+    LeftIndex: "lindex",
+    LeftMiddle: "lmiddle",
+    LeftRing: "lring",
+    LeftPinky: "lpinky",
+    Belt: "belt",
+    RightLeg: "rleg",
+    LeftLeg: "lleg",
+    RightAnkle: "rankle",
+    LeftAnkle: "lankle",
+    RightFoot: "rfoot",
+    LeftFoot: "lfoot",
+    Other: "other",
+  };
+
+  const slotIconByCanon = {
+    hat: helmetSlotIcon,
+    face: faceSlotIcon,
+    pendant1: pendant1SlotIcon,
+    pendant2: pendant2SlotIcon,
+    pendant3: pendant3SlotIcon,
+    torso: chestSlotIcon,
+    rshoulder: rshoulderSlotIcon,
+    lshoulder: lshoulderSlotIcon,
+    rarm: rarmSlotIcon,
+    larm: larmSlotIcon,
+    rwrist: rwristSlotIcon,
+    lwrist: lwristSlotIcon,
+    rthumb: rthumbSlotIcon,
+    rindex: rindexSlotIcon,
+    rmiddle: rmiddleSlotIcon,
+    rring: rringSlotIcon,
+    rpinky: rpinkySlotIcon,
+    lthumb: lthumbSlotIcon,
+    lindex: lindexSlotIcon,
+    lmiddle: lmiddleSlotIcon,
+    lring: lringSlotIcon,
+    lpinky: rpinkySlotIcon,
+    belt: beltSlotIcon,
+    rleg: rlegSlotIcon,
+    lleg: llegSlotIcon,
+    rankle: rankleSlotIcon,
+    lankle: lankleSlotIcon,
+    rfoot: rfootSlotIcon,
+    lfoot: lfootSlotIcon,
+  };
+
+  const slotTitle = (canon) => {
+    // i18n keys follow schema SLOT_IDS style today; we keep best-effort fallback.
+    // e.g. slotWeapon1, slotRightWrist, ...
+    const legacy = Object.keys(SLOT_LEGACY_TO_CANON).find((k) => SLOT_LEGACY_TO_CANON[k] === canon) || canon;
+    const key = "slot" + legacy;
+    return t(key) || canon;
+  };
+
+  const deriveEquipped = () => {
+    const eq = s.equipped || {};
+    const canonToItem = {};
+    Object.entries(eq).forEach(([legacySlot, itemId]) => {
+      const canon = SLOT_LEGACY_TO_CANON[legacySlot] || null;
+      if (!canon || !itemId) return;
+      canonToItem[canon] = itemId;
+    });
+    return canonToItem;
+  };
+  const canonEquipped = deriveEquipped();
+
+  const renderSlotIcon = (canon, extraClass = "") => {
+    const itemId = canonEquipped[canon] || null;
+    const item = itemId ? findItemById(s, itemId) : null;
+    const equipped = !!itemId;
+    const color = equipped ? "var(--text)" : "var(--accent)";
+    const title = equipped ? `${slotTitle(canon)}: ${item?.name || ""}`.trim() : slotTitle(canon);
+    const svg = slotIconByCanon[canon];
+    if (!svg) return "";
+    const itemAttr = itemId ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
+    return `<button type="button" class="inv-slot-btn ${extraClass} ${equipped ? "equipped" : ""}" data-equip-slot="${escapeAttr(canon)}"${itemAttr} title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">${inlineSvg(svg, "inline-svg inv-slot-svg", color)}</button>`;
+  };
+
   const invBubbleTitleRow = (title, leftHtml, rightHtml, extraClass = "") => `
     <div class="inv-bubble-title-row ${extraClass}">
       <div class="inv-bubble-title-left">${leftHtml || ""}</div>
@@ -1859,7 +1987,35 @@ function renderInventoryTab() {
   `;
   const equipRight = `
     <div class="inv-equip-silhouette" aria-label="${escapeAttr(t("equipmentSlots") || "Equipment Slots")}">
-      <div class="inv-silhouette-placeholder"></div>
+      ${renderSlotIcon("hat", "inv-slot--hat")}
+      ${renderSlotIcon("face", "inv-slot--face")}
+      ${renderSlotIcon("pendant1", "inv-slot--pendant1")}
+      ${renderSlotIcon("pendant2", "inv-slot--pendant2")}
+      ${renderSlotIcon("pendant3", "inv-slot--pendant3")}
+      ${renderSlotIcon("torso", "inv-slot--torso")}
+      ${renderSlotIcon("rshoulder", "inv-slot--rshoulder")}
+      ${renderSlotIcon("lshoulder", "inv-slot--lshoulder")}
+      ${renderSlotIcon("rarm", "inv-slot--rarm")}
+      ${renderSlotIcon("larm", "inv-slot--larm")}
+      ${renderSlotIcon("rwrist", "inv-slot--rwrist")}
+      ${renderSlotIcon("lwrist", "inv-slot--lwrist")}
+      ${renderSlotIcon("rthumb", "inv-slot--rthumb")}
+      ${renderSlotIcon("rindex", "inv-slot--rindex")}
+      ${renderSlotIcon("rmiddle", "inv-slot--rmiddle")}
+      ${renderSlotIcon("rring", "inv-slot--rring")}
+      ${renderSlotIcon("rpinky", "inv-slot--rpinky")}
+      ${renderSlotIcon("lthumb", "inv-slot--lthumb")}
+      ${renderSlotIcon("lindex", "inv-slot--lindex")}
+      ${renderSlotIcon("lmiddle", "inv-slot--lmiddle")}
+      ${renderSlotIcon("lring", "inv-slot--lring")}
+      ${renderSlotIcon("lpinky", "inv-slot--lpinky")}
+      ${renderSlotIcon("belt", "inv-slot--belt")}
+      ${renderSlotIcon("rleg", "inv-slot--rleg")}
+      ${renderSlotIcon("lleg", "inv-slot--lleg")}
+      ${renderSlotIcon("rankle", "inv-slot--rankle")}
+      ${renderSlotIcon("lankle", "inv-slot--lankle")}
+      ${renderSlotIcon("rfoot", "inv-slot--rfoot")}
+      ${renderSlotIcon("lfoot", "inv-slot--lfoot")}
     </div>
   `;
   const equipBlock = bubble(`<div class="inv-equip-wrap">${equipLeft}${equipRight}</div>`, "inv-bubble--equip");
@@ -2526,6 +2682,42 @@ function render() {
     return did;
   };
 
+  const scrollToInventoryItemNow = () => {
+    const id = String(state._scrollToInventoryItemId || "").trim();
+    if (!id) return false;
+    const targetEl = document.getElementById(`inv-item-${id}`);
+    if (!targetEl) return false;
+    const containers = [
+      app.querySelector("main.tab-content"),
+      app,
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter(Boolean);
+    let did = false;
+    for (const c of containers) {
+      try {
+        const cRect = c.getBoundingClientRect ? c.getBoundingClientRect() : null;
+        const tRect = targetEl.getBoundingClientRect ? targetEl.getBoundingClientRect() : null;
+        if (!cRect || !tRect) continue;
+        const delta = tRect.top - cRect.top;
+        if (!Number.isFinite(delta)) continue;
+        if (typeof c.scrollTop === "number") {
+          c.scrollTop = Math.max(0, c.scrollTop + delta - 8);
+          did = true;
+        }
+      } catch (_) {}
+    }
+    try {
+      const tRect = targetEl.getBoundingClientRect();
+      if (tRect && Number.isFinite(tRect.top)) {
+        window.scrollTo(0, (window.scrollY || 0) + tRect.top - 60);
+        did = true;
+      }
+    } catch (_) {}
+    return did;
+  };
+
   const shouldScrollToTalents = state.activeTab === "stats" && state._scrollToTalents;
   if (shouldScrollToTalents) {
     state._scrollToTalents = false;
@@ -2534,6 +2726,20 @@ function render() {
       requestAnimationFrame(scrollToTalentsNow);
       setTimeout(scrollToTalentsNow, 0);
       setTimeout(scrollToTalentsNow, 30);
+    });
+  }
+  const shouldScrollToInvItem = state.activeTab === "inventory" && !!state._scrollToInventoryItemId;
+  if (shouldScrollToInvItem) {
+    const id = state._scrollToInventoryItemId;
+    // Clear only after a successful scroll, so subsequent renders can still try.
+    requestAnimationFrame(() => {
+      const did = scrollToInventoryItemNow();
+      requestAnimationFrame(scrollToInventoryItemNow);
+      setTimeout(scrollToInventoryItemNow, 0);
+      setTimeout(() => {
+        if (did) state._scrollToInventoryItemId = "";
+        else state._scrollToInventoryItemId = id;
+      }, 40);
     });
   }
   if (state.activeTab !== "chat") {
@@ -3638,6 +3844,15 @@ function bindEvents() {
   // Spells reorder is handled via event delegation (bound once below).
 
   // Inventory
+  app.querySelectorAll(".inv-slot-btn[data-equip-item]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const itemId = btn.getAttribute("data-equip-item");
+      if (!itemId) return;
+      state._scrollToInventoryItemId = String(itemId);
+      render();
+    });
+  });
+
   app.querySelectorAll(".equip-select").forEach((el) => {
     el.addEventListener("change", async (e) => {
       const slotId = el.dataset.slot;
