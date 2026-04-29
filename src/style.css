@@ -640,6 +640,76 @@ button:disabled {
   justify-content: center;
   font-weight: 900;
 }
+
+/* Weapon/armor extras */
+.inv-item-strip {
+  margin-top: 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.18rem;
+  align-items: end;
+}
+.inv-item-strip-col { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.12rem; }
+.inv-item-strip-lbl { font-size: 0.72rem !important; font-weight: 900; opacity: 0.95; }
+
+.inv-mini-stepper { display: inline-flex; align-items: center; gap: 0.06rem; }
+.inv-mini-btn {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  border: 3px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.inv-mini-pill {
+  border: 3px solid var(--border);
+  border-radius: 999px;
+  height: 1.2rem;
+  min-width: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.82rem !important;
+}
+.inv-mini-pill--ro { background: transparent; }
+
+.inv-armor-def-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  align-items: end;
+}
+.inv-armor-def-col { display: flex; flex-direction: column; align-items: center; gap: 0.12rem; }
+.inv-armor-def-lbl { font-size: 0.78rem !important; font-weight: 900; opacity: 0.95; text-align: center; }
+
+.inv-slots-row {
+  margin-top: 0.35rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem;
+  align-items: center;
+}
+.inv-slots-title { font-weight: 900; opacity: 0.95; }
+.inv-slot-picker { min-height: 2.15rem; }
+.inv-slot-expr-inp {
+  width: 100%;
+  border: 3px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  background: transparent;
+  color: var(--text);
+  font-weight: 800;
+}
+#app .inv-slot-expr-inp:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.sheet-menu-item.disabled { opacity: 0.45; pointer-events: none; }
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble--strip { padding-left: 0.05rem; padding-right: 0.05rem; }

@@ -65,6 +65,7 @@ import {
   getSheetDefense,
   getSheetMagicalDefense,
 } from "./data/schema.js";
+import { evalEquipSlotsExpr } from "./data/equipSlots.js";
 import * as storage from "./data/storage.js";
 import {
   executeRoll,
@@ -175,6 +176,7 @@ const state = {
   itemRemoveMenuOpen: false,
   itemRemoveSection: "", // section key
   itemRemoveSelectedId: "",
+  invSlotMenuOpenFor: "", // itemId
 };
 
 function canView(sheetId) {
@@ -2282,6 +2284,96 @@ function renderInventoryTab() {
       ? `<textarea class="spell-effect-inp" rows="3" data-inv-item-desc="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemDescription") || "Description")}">${escapeAttr(desc)}</textarea>`
       : `<div class="spell-effect-text">${renderChatBody(desc || "")}</div>`;
 
+    const signed = (n) => {
+      const v = clampInt(n);
+      return v > 0 ? `+${v}` : String(v);
+    };
+    const invMiniStepper = (field, value, { minWidth = "2.4rem" } = {}) => {
+      const v = clampInt(value);
+      return `
+        <div class="inv-mini-stepper" data-inv-mini-stepper="${escapeAttr(id)}:${escapeAttr(field)}">
+          <button type="button" class="inv-mini-btn" data-inv-mini-delta="${escapeAttr(id)}" data-field="${escapeAttr(field)}" data-delta="-1" aria-label="${escapeAttr(t("remove"))}">−</button>
+          <div class="inv-mini-pill" style="min-width:${escapeAttr(minWidth)}">${escapeAttr(signed(v))}</div>
+          <button type="button" class="inv-mini-btn" data-inv-mini-delta="${escapeAttr(id)}" data-field="${escapeAttr(field)}" data-delta="1" aria-label="${escapeAttr(t("add"))}">+</button>
+        </div>
+      `;
+    };
+
+    const weaponArmorExtras = (() => {
+      if (!(sectionKey === "weapons" || sectionKey === "armor")) return "";
+
+      const statKeys = ["constitution", "strength", "intelligence", "perception", "social", "agility", "focus"];
+      const statAbbr = ["Con", "Str", "Int", "Per", "Soc", "Agi", "Foc"];
+      const strip = `
+        <div class="inv-item-strip">
+          ${statKeys.map((k, idx) => {
+            const val = clampInt(it?.[k] ?? 0);
+            return `
+              <div class="inv-item-strip-col">
+                <div class="inv-item-strip-lbl">${escapeAttr(statAbbr[idx])}</div>
+                ${editing ? invMiniStepper(k, val) : `<div class="inv-mini-pill inv-mini-pill--ro">${escapeAttr(signed(val))}</div>`}
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+
+      const defRow = sectionKey === "armor" ? `
+        <div class="inv-armor-def-row">
+          <div class="inv-armor-def-col">
+            <div class="inv-armor-def-lbl">${escapeAttr(t("physicalDefense") || "Physical Defense")}</div>
+            ${editing ? invMiniStepper("physical_defense", clampInt(it.defense ?? 0), { minWidth: "3.2rem" }) : `<div class="inv-mini-pill inv-mini-pill--ro" style="min-width:3.2rem">${escapeAttr(signed(clampInt(it.defense ?? 0)))}</div>`}
+          </div>
+          <div class="inv-armor-def-col">
+            <div class="inv-armor-def-lbl">${escapeAttr(t("magicDefense") || "Magical Defense")}</div>
+            ${editing ? invMiniStepper("magical_defense", clampInt(it.magicalDefense ?? 0), { minWidth: "3.2rem" }) : `<div class="inv-mini-pill inv-mini-pill--ro" style="min-width:3.2rem">${escapeAttr(signed(clampInt(it.magicalDefense ?? 0)))}</div>`}
+          </div>
+        </div>
+      ` : "";
+
+      const exprText = String(it.equippableExpr || "").trim();
+      const usable = exprText ? exprText : "";
+      const { options } = usable ? evalEquipSlotsExpr(usable) : { options: [] };
+      const canonEq = Object.entries((s.equipped || {}))
+        .map(([k, v]) => ({ slot: SLOT_LEGACY_TO_CANON[k], itemId: v }))
+        .filter((x) => x.slot && x.itemId);
+      const occupied = new Set(canonEq.filter((x) => String(x.itemId) !== String(id)).map((x) => x.slot).filter((x) => x && x !== "other"));
+      const choices = [
+        { key: "unequipped", label: t("unequipped") || "Unequipped", slots: [] },
+        ...options.map((slots) => ({ key: slots.join("+"), label: slots.join(" + "), slots })),
+        { key: "other", label: "other", slots: ["other"] },
+      ];
+      const selectedSlots = Array.isArray(it?.usedSlots?.equippedSlots) ? it.usedSlots.equippedSlots : [];
+      const selectedKey = selectedSlots.length ? selectedSlots.join("+") : "unequipped";
+
+      const menuItems = choices.map((c) => {
+        const disabled = c.slots.some((sl) => sl !== "other" && occupied.has(sl));
+        return { ...c, disabled };
+      }).sort((a, b) => Number(!!a.disabled) - Number(!!b.disabled));
+
+      const shown = menuItems.find((m) => m.key === selectedKey) || menuItems[0];
+      const slotsUI = editing
+        ? `<input type="text" class="inv-slot-expr-inp" data-inv-slot-expr="${escapeAttr(id)}" value="${escapeAttr(usable)}" placeholder="${escapeAttr(t("slots") || "Slots")}" />`
+        : `
+          <div class="sheet-picker inv-slot-picker" data-inv-slot-picker="${escapeAttr(id)}">
+            <div class="sheet-title">${escapeAttr(shown?.label || (t("unequipped") || "Unequipped"))}</div>
+            <button type="button" class="header-icon-btn sheet-arrow-btn ${state.invSlotMenuOpenFor === id ? "open" : ""}" data-inv-slot-menu="${escapeAttr(id)}" aria-label="${escapeAttr(t("slots") || "Slots")}">
+              ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+            </button>
+            ${state.invSlotMenuOpenFor === id ? `<div class="sheet-menu">${menuItems.map((m) => `<button type="button" class="sheet-menu-item ${m.key === shown.key ? "active" : ""} ${m.disabled ? "disabled" : ""}" ${m.disabled ? "disabled" : ""} data-inv-slot-pick="${escapeAttr(id)}" data-slot-key="${escapeAttr(m.key)}" data-slot-json="${escapeAttr(JSON.stringify(m.slots))}">${escapeAttr(m.label)}</button>`).join("")}</div>` : ""}
+          </div>
+        `;
+
+      return `
+        ${strip}
+        ${defRow}
+        <div class="inv-slots-row">
+          <div class="inv-slots-title">${escapeAttr(t("slots") || "Slots")}</div>
+          ${slotsUI}
+        </div>
+      `;
+    })();
+
     return `
       <div class="spell-item-wrap ${open ? "open" : "wrapped"} inv-item-wrap" id="inv-item-${escapeAttr(id)}" data-inv-item-id="${escapeAttr(id)}" data-inv-section="${escapeAttr(sectionKey)}" draggable="false">
         <div class="spell-row inv-item-row">
@@ -2296,6 +2388,7 @@ function renderInventoryTab() {
               ${descNode}
               ${editable ? `<button type="button" class="spell-edit-btn" data-inv-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${editSvg}</button>` : ""}
             </div>
+            ${weaponArmorExtras}
           </div>
         ` : ""}
       </div>
@@ -4543,6 +4636,81 @@ function bindEvents() {
         const it = findItemById(next, id);
         if (it) storage.updateItemFields(state.roomId, state.activeSheetId, id, { quantity: Math.max(0, clampInt(it.count ?? 0)) }).catch(console.error);
       }
+      render();
+    });
+  });
+
+  // Inventory items: weapon/armor mini steppers (stats + defenses)
+  app.querySelectorAll("[data-inv-mini-delta]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const id = btn.getAttribute("data-inv-mini-delta") || "";
+      const field = btn.getAttribute("data-field") || "";
+      const delta = Number(btn.getAttribute("data-delta")) || 0;
+      if (!id || !field) return;
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, id);
+        if (!it) return;
+        if (field === "physical_defense") it.defense = clampInt((it.defense ?? 0) + delta);
+        else if (field === "magical_defense") it.magicalDefense = clampInt((it.magicalDefense ?? 0) + delta);
+        else it[field] = clampInt((it[field] ?? 0) + delta);
+      });
+      if (next) {
+        const it = findItemById(next, id);
+        if (it) {
+          const patch = {};
+          if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
+          else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
+          else patch[field] = clampInt(it[field] ?? 0);
+          storage.updateItemFields(state.roomId, state.activeSheetId, id, patch).catch(console.error);
+        }
+      }
+      render();
+    });
+  });
+
+  // Inventory items: slots dropdown/menu
+  app.querySelectorAll("[data-inv-slot-menu]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-inv-slot-menu") || "";
+      state.invSlotMenuOpenFor = state.invSlotMenuOpenFor === id ? "" : id;
+      render();
+    });
+  });
+  app.querySelectorAll("[data-inv-slot-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      if (btn.disabled) return;
+      const id = btn.getAttribute("data-inv-slot-pick") || "";
+      const slotsJson = btn.getAttribute("data-slot-json") || "[]";
+      let slots = [];
+      try { slots = JSON.parse(slotsJson); } catch (_) { slots = []; }
+      const used = slots && slots.length ? { equippedSlots: slots } : null;
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, id);
+        if (!it) return;
+        it.usedSlots = used;
+      });
+      storage.updateItemFields(state.roomId, state.activeSheetId, id, { used_slots: used }).catch(console.error);
+      state.invSlotMenuOpenFor = "";
+      render();
+    });
+  });
+  app.querySelectorAll("[data-inv-slot-expr]").forEach((inp) => {
+    inp.addEventListener("change", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const id = inp.getAttribute("data-inv-slot-expr") || "";
+      const expr = String(inp.value || "").trim();
+      const usable = expr ? { expr } : null;
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, id);
+        if (!it) return;
+        it.equippableExpr = expr;
+      });
+      storage.updateItemFields(state.roomId, state.activeSheetId, id, { usable_slots: usable }).catch(console.error);
       render();
     });
   });
