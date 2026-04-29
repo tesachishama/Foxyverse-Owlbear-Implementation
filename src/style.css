@@ -594,6 +594,9 @@ button:disabled {
   font-weight: 800;
   margin-top: 0.1rem;
 }
+.inv-equip-tip-item.nowrap {
+  white-space: nowrap;
+}
 
 .inv-slot-btn {
   position: absolute;

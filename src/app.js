@@ -3210,6 +3210,10 @@ function render() {
   }
   if (state.activeTab !== "chat") {
     if (shouldScrollToTalents) return;
+    // If we explicitly requested a scroll-to-item, don't restore the previous scroll position
+    // on this render; that restoration can race and undo the scroll, making it feel like a
+    // "double click" is required.
+    if (shouldScrollToInvItem) return;
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
@@ -4473,8 +4477,9 @@ function bindEvents() {
         hide();
         return;
       }
+      const itemNoWrap = item && item.length <= 15;
       equipTip.innerHTML = item
-        ? `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div><div class="inv-equip-tip-item">${escapeAttr(item)}</div>`
+        ? `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div><div class="inv-equip-tip-item${itemNoWrap ? " nowrap" : ""}">${escapeAttr(item)}</div>`
         : `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div>`;
       equipTip.classList.remove("hidden");
       const posRoot = equipTip.offsetParent || equipRoot;
