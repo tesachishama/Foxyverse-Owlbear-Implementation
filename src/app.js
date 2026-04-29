@@ -2297,14 +2297,31 @@ function renderInventoryTab() {
   const bubble = (inner, extraClass = "") => `<div class="stats-bubble inv-bubble ${extraClass}">${inner}</div>`;
 
   // Equipment slots block (visual-only layout for now; behavior added in later todos)
-  const weaponSvg = inlineSvg(weaponIcon, "inline-svg inv-weapon-svg", "var(--accent)");
+  const renderWeaponSlotIcon = (canon) => {
+    const itemId = canonEquipped[canon] || null;
+    const item = itemId ? findItemById(s, itemId) : null;
+    const equipped = !!itemId;
+    const color = equipped ? "var(--text)" : "var(--accent)";
+    const title = equipped ? `${slotTitle(canon)}: ${item?.name || ""}`.trim() : slotTitle(canon);
+    const itemAttr = itemId ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
+    return `
+      <button type="button"
+        class="inv-weapon-btn ${equipped ? "equipped" : ""}"
+        data-equip-slot="${escapeAttr(canon)}"${itemAttr}
+        data-equip-tip="${escapeAttr(title)}"
+        aria-label="${escapeAttr(title)}"
+        title="${escapeAttr(title)}">
+        ${inlineSvg(weaponIcon, "inline-svg inv-weapon-svg", color)}
+      </button>
+    `;
+  };
   const equipLeft = `
     <div class="inv-equip-left">
       <div class="inv-equip-title">${escapeAttr(t("equipmentSlots") || "Equipment Slots")}</div>
       <div class="inv-weapon-col">
-        <div class="inv-weapon-ico">${weaponSvg}</div>
-        <div class="inv-weapon-ico">${weaponSvg}</div>
-        <div class="inv-weapon-ico">${weaponSvg}</div>
+        <div class="inv-weapon-ico">${renderWeaponSlotIcon("weapon1")}</div>
+        <div class="inv-weapon-ico">${renderWeaponSlotIcon("weapon2")}</div>
+        <div class="inv-weapon-ico">${renderWeaponSlotIcon("weapon3")}</div>
       </div>
     </div>
   `;
@@ -3176,6 +3193,9 @@ function render() {
       requestAnimationFrame(scrollToInventoryItemNow);
       setTimeout(scrollToInventoryItemNow, 0);
       setTimeout(() => {
+        // Important: only clear the scroll request if it hasn't been replaced
+        // by a newer click since we scheduled this RAF/timeout chain.
+        if (state._scrollToInventoryItemId !== id) return;
         if (did) state._scrollToInventoryItemId = "";
         else state._scrollToInventoryItemId = id;
       }, 40);
@@ -4451,8 +4471,19 @@ function bindEvents() {
       const r = equipWrap.getBoundingClientRect();
       const x = (e.clientX - r.left) + 10;
       const y = (e.clientY - r.top) + 10;
-      equipTip.style.left = `${Math.max(0, Math.min(r.width - 10, x))}px`;
-      equipTip.style.top = `${Math.max(0, Math.min(r.height - 10, y))}px`;
+      // Two-step: set a provisional position, then clamp using real tooltip size.
+      equipTip.style.left = `${Math.max(0, x)}px`;
+      equipTip.style.top = `${Math.max(0, y)}px`;
+      requestAnimationFrame(() => {
+        if (equipTip.classList.contains("hidden")) return;
+        const tr = equipTip.getBoundingClientRect();
+        const maxLeft = Math.max(0, r.width - tr.width - 6);
+        const maxTop = Math.max(0, r.height - tr.height - 6);
+        const nextLeft = Math.max(0, Math.min(maxLeft, x));
+        const nextTop = Math.max(0, Math.min(maxTop, y));
+        equipTip.style.left = `${nextLeft}px`;
+        equipTip.style.top = `${nextTop}px`;
+      });
     });
   }
 
