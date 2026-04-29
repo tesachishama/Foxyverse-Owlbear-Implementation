@@ -499,6 +499,7 @@ button:disabled {
   grid-template-columns: 0.95fr 1.05fr;
   gap: 0.55rem;
   align-items: stretch;
+  position: relative;
 }
 .inv-equip-left {
   display: flex;

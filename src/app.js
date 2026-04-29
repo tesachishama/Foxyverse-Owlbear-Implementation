@@ -2379,10 +2379,12 @@ function renderInventoryTab() {
   const equipRight = `
     <div class="inv-equip-silhouette" aria-label="${escapeAttr(t("equipmentSlots") || "Equipment Slots")}">
       ${renderEquipmentSlotsSvg()}
-      <div class="inv-equip-tooltip hidden" id="inv-equip-tooltip"></div>
     </div>
   `;
-  const equipBlock = bubble(`<div class="inv-equip-wrap">${equipLeft}${equipRight}</div>`, "inv-bubble--equip");
+  const equipBlock = bubble(
+    `<div class="inv-equip-wrap">${equipLeft}${equipRight}<div class="inv-equip-tooltip hidden" id="inv-equip-tooltip"></div></div>`,
+    "inv-bubble--equip"
+  );
 
   // Currency block (layout; modals + logic in later todos)
   const cur = s.currency || { gold: 0, silver: 0, copper: 0 };
