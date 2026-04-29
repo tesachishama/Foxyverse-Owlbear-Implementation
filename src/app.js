@@ -4437,27 +4437,26 @@ function bindEvents() {
 
   // Spells reorder is handled via event delegation (bound once below).
 
-  // Inventory
-  app.querySelectorAll(".inv-slot-btn[data-equip-item], .inv-equip-silhouette [data-equip-item]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const itemId = btn.getAttribute("data-equip-item");
+  // Inventory: equip-slot click + tooltip via delegation (SVGs can have nested shapes).
+  const equipRoot = app.querySelector(".inv-equip-wrap");
+  const equipTip = document.getElementById("inv-equip-tooltip");
+  if (equipRoot) {
+    equipRoot.addEventListener("click", (e) => {
+      const el = e.target?.closest?.("[data-equip-item]");
+      if (!el || !equipRoot.contains(el)) return;
+      const itemId = el.getAttribute("data-equip-item");
       if (!itemId) return;
-      // Make it obvious what we scrolled to.
       state._openItems[String(itemId)] = true;
       state._scrollToInventoryItemId = String(itemId);
       render();
     });
-  });
-
-  // Equipment silhouette tooltip (custom overlay; SVG title is unreliable in Owlbear).
-  const equipWrap = app.querySelector(".inv-equip-silhouette");
-  const equipTip = document.getElementById("inv-equip-tooltip");
-  if (equipWrap && equipTip) {
+  }
+  if (equipRoot && equipTip) {
     const hide = () => equipTip.classList.add("hidden");
-    equipWrap.addEventListener("mouseleave", hide);
-    equipWrap.addEventListener("mousemove", (e) => {
+    equipRoot.addEventListener("mouseleave", hide);
+    equipRoot.addEventListener("mousemove", (e) => {
       const part = e.target?.closest?.("[data-equip-tip]");
-      if (!part || !equipWrap.contains(part)) {
+      if (!part || !equipRoot.contains(part)) {
         hide();
         return;
       }
@@ -4468,18 +4467,20 @@ function bindEvents() {
       }
       equipTip.textContent = text;
       equipTip.classList.remove("hidden");
-      const r = equipWrap.getBoundingClientRect();
+      const r = equipRoot.getBoundingClientRect();
       const x = (e.clientX - r.left) + 10;
       const y = (e.clientY - r.top) + 10;
-      // Two-step: set a provisional position, then clamp using real tooltip size.
       equipTip.style.left = `${Math.max(0, x)}px`;
       equipTip.style.top = `${Math.max(0, y)}px`;
       requestAnimationFrame(() => {
         if (equipTip.classList.contains("hidden")) return;
         const tr = equipTip.getBoundingClientRect();
+        // Prefer staying on the side with room instead of breaking words.
+        const preferLeft = x + tr.width + 6 > r.width;
+        const nextLeftRaw = preferLeft ? (x - tr.width - 16) : x;
         const maxLeft = Math.max(0, r.width - tr.width - 6);
         const maxTop = Math.max(0, r.height - tr.height - 6);
-        const nextLeft = Math.max(0, Math.min(maxLeft, x));
+        const nextLeft = Math.max(0, Math.min(maxLeft, nextLeftRaw));
         const nextTop = Math.max(0, Math.min(maxTop, y));
         equipTip.style.left = `${nextLeft}px`;
         equipTip.style.top = `${nextTop}px`;
