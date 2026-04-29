@@ -158,6 +158,13 @@ const state = {
   _tabScrollTop: {}, // tabId -> number
   _pageScrollTop: 0,
   _scrollToTalents: false,
+  // Inventory: currency modals
+  currencyModalOpen: false,
+  currencyModalMode: "transfer", // "transfer" | "add" | "remove" | "confirm"
+  currencyRecipientMenuOpen: false,
+  currencyRecipientSheetId: "",
+  currencyDraft: { gold: 0, silver: 0, copper: 0 },
+  currencyPendingAction: null, // { mode, recipientSheetId, draft }
 };
 
 function canView(sheetId) {
@@ -1660,6 +1667,136 @@ function renderRollModals() {
         <button type="button" id="stat-roll-cancel">${t("cancel")}</button>
       </div>
     </div>
+    ${renderCurrencyModals()}
+  `;
+}
+
+function clampInt(n) {
+  const v = Math.trunc(Number(n) || 0);
+  return Number.isFinite(v) ? v : 0;
+}
+
+function coinsToCopper({ gold = 0, silver = 0, copper = 0 } = {}) {
+  return Math.max(0, clampInt(copper)) + Math.max(0, clampInt(silver)) * 100 + Math.max(0, clampInt(gold)) * 100 * 100;
+}
+
+function copperToCoins(totalCopper) {
+  const t = Math.max(0, clampInt(totalCopper));
+  const gold = Math.floor(t / 10000);
+  const rem1 = t - gold * 10000;
+  const silver = Math.floor(rem1 / 100);
+  const copper = rem1 - silver * 100;
+  return { gold, silver, copper };
+}
+
+function simplifyCoins(coins) {
+  return copperToCoins(coinsToCopper(coins));
+}
+
+function renderCoinCounter(kind, value, { inputIdPrefix = "", disabled = false } = {}) {
+  const v = Math.max(0, clampInt(value));
+  const dis = disabled ? " disabled" : "";
+  const up = inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--text)");
+  const down = inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--text)");
+  const inputId = inputIdPrefix ? `${inputIdPrefix}-${kind}` : "";
+  const idAttr = inputId ? ` id="${escapeAttr(inputId)}"` : "";
+  return `
+    <div class="spell-cost-pill inv-coin-pill" data-coin-pill="${escapeAttr(kind)}">
+      <input type="text" class="inv-coin-value" data-coin-input="${escapeAttr(kind)}"${idAttr} value="${escapeAttr(String(v))}" inputmode="numeric" ${disabled ? "readonly" : ""} />
+      <div class="spell-cost-arrows inv-coin-arrows">
+        <button type="button" class="spell-cost-arrow-btn" data-coin-delta="${escapeAttr(kind)}" data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${up}</button>
+        <button type="button" class="spell-cost-arrow-btn" data-coin-delta="${escapeAttr(kind)}" data-delta="-1"${dis} aria-label="${escapeAttr(t("remove"))}">${down}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderCurrencyModals() {
+  const open = !!state.currencyModalOpen;
+  if (!open) return "";
+
+  const mode = String(state.currencyModalMode || "transfer");
+  const draft = state.currencyDraft || { gold: 0, silver: 0, copper: 0 };
+  const vis = getVisibleSheets();
+  const recipientId = String(state.currencyRecipientSheetId || "");
+  const canPick = vis.filter((id) => id !== state.activeSheetId);
+  const safeRecipient = recipientId && canPick.includes(recipientId) ? recipientId : (canPick[0] || "");
+  const recipientName = state.sheetNames[safeRecipient] || "Name Surname";
+  const senderName = resolveCharacterDisplayName(state.activeSheetId);
+  const menuItems = canPick
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === safeRecipient ? "active" : ""}" data-currency-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || "Name Surname")}</button>`)
+    .join("");
+
+  const title = mode === "transfer"
+    ? (t("transfer") || "Transfer")
+    : mode === "add"
+      ? (t("add") || "Add")
+      : mode === "remove"
+        ? (t("remove") || "Remove")
+        : (t("confirm") || "Confirm");
+
+  const coinRow = `
+    <div class="inv-currency-row inv-currency-row--modal">
+      <div class="inv-currency-col">
+        <div class="stats-col-label">${escapeAttr(t("goldCoin") || "Gold Coin")}</div>
+        ${renderCoinCounter("gold", draft.gold, { inputIdPrefix: "currency-draft" })}
+      </div>
+      <div class="inv-currency-col">
+        <div class="stats-col-label">${escapeAttr(t("silverCoin") || "Silver Coin")}</div>
+        ${renderCoinCounter("silver", draft.silver, { inputIdPrefix: "currency-draft" })}
+      </div>
+      <div class="inv-currency-col">
+        <div class="stats-col-label">${escapeAttr(t("copperCoin") || "Copper Coin")}</div>
+        ${renderCoinCounter("copper", draft.copper, { inputIdPrefix: "currency-draft" })}
+      </div>
+    </div>
+  `;
+
+  const recipientPicker = mode === "transfer" ? `
+    <label class="label">${escapeAttr(t("recipient") || "Recipient")}</label>
+    <div class="sheet-picker inv-currency-recipient-picker">
+      <div class="sheet-title">${escapeAttr(recipientName)}</div>
+      <button type="button" id="btn-currency-recipient-menu" class="header-icon-btn sheet-arrow-btn ${state.currencyRecipientMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("selectSheet") || "Select sheet")}">
+        ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+      </button>
+      ${state.currencyRecipientMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
+    </div>
+  ` : "";
+
+  const confirmText = mode === "confirm" && state.currencyPendingAction ? (() => {
+    const d = simplifyCoins(state.currencyPendingAction.draft || {});
+    const to = state.sheetNames[state.currencyPendingAction.recipientSheetId] || "Name Surname";
+    return `${t("confirmSending") || "Confirm sending"} ${d.gold} ${t("goldCoin") || "gold"} ${d.silver} ${t("silverCoin") || "silver"} ${d.copper} ${t("copperCoin") || "copper"} ${t("to") || "to"} ${to}`;
+  })() : "";
+
+  const footer = mode === "confirm"
+    ? `
+      <div class="roll-modal-footer">
+        <button type="button" id="currency-confirm-send" class="btn-sm">${t("confirm") || "Confirm"}</button>
+        <button type="button" id="currency-cancel" class="btn-sm">${t("cancel")}</button>
+      </div>
+    `
+    : `
+      <div class="roll-modal-footer">
+        ${mode === "add" || mode === "remove" ? `<button type="button" id="currency-simplify" class="btn-sm">${t("simplify") || "Simplify"}</button>` : ""}
+        <div style="flex:1"></div>
+        <button type="button" id="currency-save" class="btn-sm">${mode === "transfer" ? (t("send") || "Send") : (t("save") || "Save")}</button>
+        <button type="button" id="currency-cancel" class="btn-sm">${t("cancel")}</button>
+      </div>
+    `;
+
+  const body = mode === "confirm"
+    ? `<p class="inv-currency-confirm-text">${escapeAttr(confirmText)}</p>`
+    : `${recipientPicker}${coinRow}`;
+
+  return `
+    <div id="currency-modal" class="modal">
+      <div class="modal-content inv-currency-modal-content">
+        <h3>${escapeAttr(title)}</h3>
+        ${body}
+        ${footer}
+      </div>
+    </div>
   `;
 }
 
@@ -2034,15 +2171,15 @@ function renderInventoryTab() {
     <div class="inv-currency-row">
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("goldCoin") || "Gold Coin")}</div>
-        ${stepper("currencyGold", cur.gold ?? 0, { min: 0, allowNegative: false, aria: t("goldCoin") || "Gold", variant: "inv-pill-stepper--coin" })}
+        ${renderCoinCounter("gold", cur.gold ?? 0)}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("silverCoin") || "Silver Coin")}</div>
-        ${stepper("currencySilver", cur.silver ?? 0, { min: 0, allowNegative: false, aria: t("silverCoin") || "Silver", variant: "inv-pill-stepper--coin" })}
+        ${renderCoinCounter("silver", cur.silver ?? 0)}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${escapeAttr(t("copperCoin") || "Copper Coin")}</div>
-        ${stepper("currencyCopper", cur.copper ?? 0, { min: 0, allowNegative: false, aria: t("copperCoin") || "Copper", variant: "inv-pill-stepper--coin" })}
+        ${renderCoinCounter("copper", cur.copper ?? 0)}
       </div>
     </div>
   `;
@@ -3851,6 +3988,192 @@ function bindEvents() {
       state._scrollToInventoryItemId = String(itemId);
       render();
     });
+  });
+
+  // Currency: open modals
+  app.querySelector("#btn-currency-transfer")?.addEventListener("click", () => {
+    if (!state.sheet) return;
+    state.currencyModalOpen = true;
+    state.currencyModalMode = "transfer";
+    state.currencyRecipientMenuOpen = false;
+    state.currencyRecipientSheetId = "";
+    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+    state.currencyPendingAction = null;
+    render();
+  });
+  app.querySelector("#btn-currency-add")?.addEventListener("click", () => {
+    if (!state.sheet) return;
+    state.currencyModalOpen = true;
+    state.currencyModalMode = "add";
+    state.currencyRecipientMenuOpen = false;
+    state.currencyRecipientSheetId = "";
+    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+    state.currencyPendingAction = null;
+    render();
+  });
+  app.querySelector("#btn-currency-remove")?.addEventListener("click", () => {
+    if (!state.sheet) return;
+    state.currencyModalOpen = true;
+    state.currencyModalMode = "remove";
+    state.currencyRecipientMenuOpen = false;
+    state.currencyRecipientSheetId = "";
+    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+    state.currencyPendingAction = null;
+    render();
+  });
+
+  // Currency: modal recipient dropdown
+  app.querySelector("#btn-currency-recipient-menu")?.addEventListener("click", () => {
+    state.currencyRecipientMenuOpen = !state.currencyRecipientMenuOpen;
+    render();
+  });
+  app.querySelectorAll("[data-currency-recipient-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.currencyRecipientSheetId = btn.getAttribute("data-currency-recipient-pick") || "";
+      state.currencyRecipientMenuOpen = false;
+      render();
+    });
+  });
+
+  // Currency: modal coin steppers + inputs
+  app.querySelectorAll("[data-coin-delta]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kind = btn.getAttribute("data-coin-delta") || "";
+      const delta = Number(btn.getAttribute("data-delta")) || 0;
+      if (!kind) return;
+      const draft = { ...(state.currencyDraft || {}) };
+      draft[kind] = Math.max(0, clampInt((draft[kind] ?? 0) + delta));
+      state.currencyDraft = draft;
+      render();
+    });
+  });
+  app.querySelectorAll("[data-coin-input]").forEach((inp) => {
+    inp.addEventListener("change", () => {
+      const kind = inp.getAttribute("data-coin-input") || "";
+      if (!kind) return;
+      const draft = { ...(state.currencyDraft || {}) };
+      const v = Math.max(0, clampInt(String(inp.value || "").replace(/[^\d-]/g, "")));
+      draft[kind] = v;
+      state.currencyDraft = draft;
+      render();
+    });
+  });
+
+  // Currency: simplify
+  app.querySelector("#currency-simplify")?.addEventListener("click", () => {
+    state.currencyDraft = simplifyCoins(state.currencyDraft || {});
+    render();
+  });
+
+  // Currency: cancel / esc
+  app.querySelector("#currency-cancel")?.addEventListener("click", () => {
+    state.currencyModalOpen = false;
+    state.currencyModalMode = "transfer";
+    state.currencyRecipientMenuOpen = false;
+    state.currencyRecipientSheetId = "";
+    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+    state.currencyPendingAction = null;
+    render();
+  });
+  if (!app.dataset.currencyEscapeBound) {
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const modal = document.getElementById("currency-modal");
+      if (!modal || modal.classList.contains("hidden") || !state.currencyModalOpen) return;
+      e.preventDefault();
+      state.currencyModalOpen = false;
+      state.currencyModalMode = "transfer";
+      state.currencyRecipientMenuOpen = false;
+      state.currencyRecipientSheetId = "";
+      state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+      state.currencyPendingAction = null;
+      render();
+    });
+    app.dataset.currencyEscapeBound = "1";
+  }
+
+  // Currency: save/send/confirm
+  app.querySelector("#currency-save")?.addEventListener("click", async () => {
+    if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+    const mode = String(state.currencyModalMode || "transfer");
+    const draft = simplifyCoins(state.currencyDraft || {});
+    if (mode === "transfer") {
+      const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+      const toId = String(state.currencyRecipientSheetId || "") || (vis[0] || "");
+      if (!toId) return;
+      state.currencyPendingAction = { mode: "transfer", recipientSheetId: toId, draft };
+      state.currencyModalMode = "confirm";
+      render();
+      return;
+    }
+    const cur = state.sheet.currency || { gold: 0, silver: 0, copper: 0 };
+    const curTotal = coinsToCopper(cur);
+    const delta = coinsToCopper(draft);
+    if (mode === "add") {
+      const next = copperToCoins(curTotal + delta);
+      applyLocalMutation((sheet) => { sheet.currency = next; });
+      storage.updateCurrency(state.roomId, state.activeSheetId, next).catch(console.error);
+      state.currencyModalOpen = false;
+      render();
+      return;
+    }
+    if (mode === "remove") {
+      if (delta > curTotal) {
+        try { OBR.notification.show(t("notEnoughMoney") || "Not enough money"); } catch (_) {}
+        return;
+      }
+      const next = copperToCoins(curTotal - delta);
+      applyLocalMutation((sheet) => { sheet.currency = next; });
+      storage.updateCurrency(state.roomId, state.activeSheetId, next).catch(console.error);
+      state.currencyModalOpen = false;
+      render();
+    }
+  });
+
+  app.querySelector("#currency-confirm-send")?.addEventListener("click", async () => {
+    if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+    const pending = state.currencyPendingAction;
+    if (!pending || pending.mode !== "transfer") return;
+    const toId = String(pending.recipientSheetId || "");
+    const amt = simplifyCoins(pending.draft || {});
+    const cur = state.sheet.currency || { gold: 0, silver: 0, copper: 0 };
+    const curTotal = coinsToCopper(cur);
+    const sendTotal = coinsToCopper(amt);
+    if (!toId || sendTotal <= 0) return;
+    if (sendTotal > curTotal) {
+      try { OBR.notification.show(t("notEnoughMoney") || "Not enough money"); } catch (_) {}
+      return;
+    }
+    const nextSender = copperToCoins(curTotal - sendTotal);
+    applyLocalMutation((sheet) => { sheet.currency = nextSender; });
+    storage.updateCurrency(state.roomId, state.activeSheetId, nextSender).catch(console.error);
+    // Recipient update: best-effort read from local cache if loaded.
+    try {
+      const recipSheet = await storage.getSheet(state.roomId, toId, { forceRefresh: true });
+      const recipCur = recipSheet?.currency || { gold: 0, silver: 0, copper: 0 };
+      const nextRecip = copperToCoins(coinsToCopper(recipCur) + sendTotal);
+      storage.updateCurrency(state.roomId, toId, nextRecip).catch(console.error);
+    } catch (err) {
+      console.error(err);
+    }
+    // Chat line
+    try {
+      const toName = resolveCharacterDisplayName(toId);
+      const fromName = resolveCharacterDisplayName(state.activeSheetId);
+      const line = `${fromName} ${t("gave") || "gave"} ${amt.gold} ${t("goldCoin") || "gold"} ${amt.silver} ${t("silverCoin") || "silver"} ${amt.copper} ${t("copperCoin") || "copper"} ${t("to") || "to"} ${toName}`.trim();
+      const row = await storage.insertChatMessage(state.roomId, {
+        playerId: state.playerId || "",
+        sheetId: state.activeSheetId || null,
+        body: line,
+      });
+      appendChatMessageIfNew(row);
+    } catch (err) {
+      console.error(err);
+    }
+    state.currencyModalOpen = false;
+    state.currencyModalMode = "transfer";
+    state.currencyPendingAction = null;
+    render();
   });
 
   app.querySelectorAll(".equip-select").forEach((el) => {

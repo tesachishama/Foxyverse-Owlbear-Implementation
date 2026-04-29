@@ -584,10 +584,29 @@ button:disabled {
   align-items: end;
 }
 .inv-currency-col { min-width: 0; }
-.inv-pill-stepper--coin {
+.inv-coin-pill {
+  width: 100%;
   max-width: 100%;
   min-height: 2.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12rem;
 }
+.inv-coin-value {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 900;
+  text-align: center;
+  padding: 0.1rem 0.1rem;
+}
+#app .inv-coin-value:focus { outline: none; }
+.inv-currency-row--modal { margin-top: 0.4rem; }
+.inv-currency-modal-content { overflow: visible; }
+.inv-currency-confirm-text { margin: 0.35rem 0 0.2rem; }
 
 /* Section placeholder (real list comes later) */
 .inv-section-placeholder {
