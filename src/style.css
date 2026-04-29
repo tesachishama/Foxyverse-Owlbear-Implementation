@@ -588,6 +588,7 @@ button:disabled {
 
 .inv-equip-tip-slot {
   font-weight: 900;
+  white-space: nowrap;
 }
 .inv-equip-tip-item {
   font-weight: 800;
