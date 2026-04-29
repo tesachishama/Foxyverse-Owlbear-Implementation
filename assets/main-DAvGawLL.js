@@ -574,9 +574,8 @@ Total : ${_}`}}else if(t.kind==="stat"){const o=Array.isArray(t.diceResults)?t.d
   `,_=`
     <div class="inv-equip-silhouette" aria-label="${b(m("equipmentSlots")||"Equipment Slots")}">
       ${l()}
-      <div class="inv-equip-tooltip hidden" id="inv-equip-tooltip"></div>
     </div>
-  `,T=d(`<div class="inv-equip-wrap">${g}${_}</div>`,"inv-bubble--equip"),k=t.currency||{gold:0,silver:0,copper:0},R=u("btn-currency-transfer",di,"var(--accent)",m("transfer")||"Transfer"),x=u("btn-currency-add",an,"var(--accent)",m("add")||"Add"),M=u("btn-currency-remove",ln,"var(--accent)",m("remove")||"Remove"),P=c(m("currency")||"Currency",`<div class="inv-title-icon-row">${R}</div>`,`<div class="inv-title-icon-row">${x}${M}</div>`),q=`
+  `,T=d(`<div class="inv-equip-wrap">${g}${_}<div class="inv-equip-tooltip hidden" id="inv-equip-tooltip"></div></div>`,"inv-bubble--equip"),k=t.currency||{gold:0,silver:0,copper:0},R=u("btn-currency-transfer",di,"var(--accent)",m("transfer")||"Transfer"),x=u("btn-currency-add",an,"var(--accent)",m("add")||"Add"),M=u("btn-currency-remove",ln,"var(--accent)",m("remove")||"Remove"),P=c(m("currency")||"Currency",`<div class="inv-title-icon-row">${R}</div>`,`<div class="inv-title-icon-row">${x}${M}</div>`),q=`
     <div class="inv-currency-row">
       <div class="inv-currency-col">
         <div class="stats-col-label">${b(m("goldCoin")||"Gold Coin")}</div>
