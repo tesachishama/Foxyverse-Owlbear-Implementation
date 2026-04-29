@@ -60,8 +60,17 @@ function toSectionKey(type) {
   return "others";
 }
 
+function computeUsableSlotsFromItem(item) {
+  const expr = String(item?.equippableExpr || "").trim();
+  if (expr) return { expr };
+  const slots = item?.equippableSlots;
+  return Array.isArray(slots) && slots.length ? { slots } : null;
+}
+
 function serializeUsedSlots(sheet, item) {
-  const equippedSlots = Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
+  const equippedSlots = Array.isArray(item?.usedSlots?.equippedSlots)
+    ? item.usedSlots.equippedSlots
+    : Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
   const out = {};
   if (equippedSlots.length) out.equippedSlots = equippedSlots;
   if (item.weaponSlots != null) out.weaponSlots = item.weaponSlots;
@@ -218,6 +227,8 @@ function assembleSheet(sheetId, rows) {
         : Array.isArray(row.usable_slots)
           ? row.usable_slots
           : [],
+      equippableExpr: typeof row.usable_slots?.expr === "string" ? row.usable_slots.expr : "",
+      usedSlots: usedSlots.equippedSlots.length ? { equippedSlots: usedSlots.equippedSlots } : null,
       weaponSlots: usedSlots.weaponSlots,
       constitution: row.constitution ?? 0,
       strength: row.strength ?? 0,
@@ -596,7 +607,7 @@ async function persistRows(roomId, sheet) {
     social: Number(item.social) || 0,
     agility: Number(item.agility) || 0,
     focus: Number(item.focus) || 0,
-    usable_slots: item.equippableSlots?.length ? { slots: item.equippableSlots } : null,
+    usable_slots: computeUsableSlotsFromItem(item),
     used_slots: serializeUsedSlots(sheet, item),
   }));
   const { error: deleteItemError } = await supabase.from("item").delete().eq("sheet_id", sheet.id);

@@ -338,6 +338,8 @@ function computeUsedSlots(sheet, item) {
 }
 
 function computeUsableSlots(item) {
+  const expr = String(item?.equippableExpr || "").trim();
+  if (expr) return { expr };
   return item?.equippableSlots?.length ? { slots: item.equippableSlots } : null;
 }
 
@@ -2211,12 +2213,30 @@ function renderInventoryTab() {
   };
 
   const deriveEquipped = () => {
-    const eq = s.equipped || {};
     const canonToItem = {};
+    const all = [
+      ...(s.consumables || []),
+      ...(s.weapons || []),
+      ...(s.armor || []),
+      ...(s.others || []),
+      ...(s.bags || []),
+    ];
+    all.forEach((it) => {
+      const id = String(it?.id || "");
+      const slots = it?.usedSlots?.equippedSlots;
+      if (!id || !Array.isArray(slots) || !slots.length) return;
+      slots.forEach((raw) => {
+        const canon = SLOT_LEGACY_TO_CANON[raw] || String(raw || "").toLowerCase();
+        if (!canon || canon === "other") return;
+        canonToItem[canon] = id;
+      });
+    });
+    // Backward-compat fallback: legacy cache
+    const eq = s.equipped || {};
     Object.entries(eq).forEach(([legacySlot, itemId]) => {
       const canon = SLOT_LEGACY_TO_CANON[legacySlot] || null;
       if (!canon || !itemId) return;
-      canonToItem[canon] = itemId;
+      if (!canonToItem[canon]) canonToItem[canon] = itemId;
     });
     return canonToItem;
   };
