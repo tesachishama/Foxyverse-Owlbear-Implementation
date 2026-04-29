@@ -891,19 +891,40 @@ function wrapWordsByLen(str, maxLen) {
   const words = raw.split(/\s+/g).filter(Boolean);
   const lines = [];
   let cur = "";
-  for (const w of words) {
-    if (!cur) {
-      cur = w;
-      continue;
+  const pushCur = () => {
+    if (cur) lines.push(cur);
+    cur = "";
+  };
+  const hyphenateWord = (w) => {
+    // If a single word exceeds max, split with hyphens.
+    if (w.length <= max) return [w];
+    if (max === 1) return w.split(""); // can't hyphenate meaningfully
+    const parts = [];
+    let rest = w;
+    while (rest.length > max) {
+      const take = max - 1; // reserve last char for '-'
+      parts.push(rest.slice(0, take) + "-");
+      rest = rest.slice(take);
     }
-    if ((cur.length + 1 + w.length) <= max) {
-      cur = `${cur} ${w}`;
-    } else {
-      lines.push(cur);
-      cur = w;
+    if (rest) parts.push(rest);
+    return parts;
+  };
+  for (const w of words) {
+    const chunks = hyphenateWord(w);
+    for (const chunk of chunks) {
+      if (!cur) {
+        cur = chunk;
+        continue;
+      }
+      if ((cur.length + 1 + chunk.length) <= max) {
+        cur = `${cur} ${chunk}`;
+      } else {
+        pushCur();
+        cur = chunk;
+      }
     }
   }
-  if (cur) lines.push(cur);
+  pushCur();
   return lines;
 }
 
