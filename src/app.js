@@ -2256,12 +2256,18 @@ function renderInventoryTab() {
   };
 
   const renderEquipmentSlotsSvg = () => {
-    const equipped = new Set(Object.keys(canonEquipped || {}));
+    const equippedSlots = new Set(Object.keys(canonEquipped || {}));
     const base = inlineSvgKeepIds(equipmentSlotsSvg, "inv-equip-svg", "var(--accent)");
-    // Apply per-slot color by setting inline style color on each slot element.
+    // Mark slot elements with classes + data attributes (avoid injecting duplicate style="").
+    // Tooltip uses `title` attribute (works reliably in Owlbear's Chromium).
     return base.replace(/\sid=\"([a-z0-9]+)\"/g, (m, id) => {
-      if (!equipped.has(id)) return m;
-      return ` id="${id}" style="color:var(--text);"`;
+      const itemId = canonEquipped[id];
+      const isEquipped = !!itemId && equippedSlots.has(id);
+      const item = isEquipped ? findItemById(s, itemId) : null;
+      const title = isEquipped ? `${slotTitle(id)}: ${item?.name || ""}`.trim() : slotTitle(id);
+      const cls = `inv-equip-part${isEquipped ? " equipped" : ""}`;
+      const itemAttr = isEquipped ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
+      return ` id="${id}" class="${cls}"${itemAttr} title="${escapeAttr(title)}"`;
     });
   };
 
@@ -4411,7 +4417,7 @@ function bindEvents() {
   // Spells reorder is handled via event delegation (bound once below).
 
   // Inventory
-  app.querySelectorAll(".inv-slot-btn[data-equip-item]").forEach((btn) => {
+  app.querySelectorAll(".inv-slot-btn[data-equip-item], .inv-equip-silhouette [data-equip-item]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const itemId = btn.getAttribute("data-equip-item");
       if (!itemId) return;

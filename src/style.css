@@ -539,6 +539,17 @@ button:disabled {
   display: block;
 }
 
+/* Assembled equipment SVG parts */
+.inv-equip-svg .inv-equip-part {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  cursor: default;
+}
+.inv-equip-svg .inv-equip-part.equipped {
+  cursor: pointer;
+  color: var(--text);
+}
+
 .inv-slot-btn {
   position: absolute;
   padding: 0;
