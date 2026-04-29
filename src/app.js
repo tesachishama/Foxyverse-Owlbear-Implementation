@@ -4523,7 +4523,7 @@ function bindEvents() {
         hide();
         return;
       }
-      const itemLines = item ? wrapWordsByLen(item, 15) : [];
+      const itemLines = item ? wrapWordsByLen(item, 20) : [];
       const itemHtml = itemLines.length
         ? `<div class="inv-equip-tip-item">${itemLines.map((ln) => `<div class="inv-equip-tip-item-line">${escapeAttr(ln)}</div>`).join("")}</div>`
         : "";
