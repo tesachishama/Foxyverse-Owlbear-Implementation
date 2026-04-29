@@ -527,6 +527,12 @@ button:disabled {
   overflow: visible;
 }
 
+.inv-equip-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .inv-slot-btn {
   position: absolute;
   padding: 0;

@@ -48,6 +48,7 @@ import rankleSlotIcon from "./data/icons/Icons_rightAnkle.svg?raw";
 import lankleSlotIcon from "./data/icons/Icons_leftAnkle.svg?raw";
 import rfootSlotIcon from "./data/icons/Icons_rightFoot.svg?raw";
 import lfootSlotIcon from "./data/icons/Icons_leftFoot.svg?raw";
+import equipmentSlotsSvg from "./data/icons/Icons_equipmentSlots.svg?raw";
 import frenchFlagIcon from "./data/icons/Icons_francais.svg";
 import englishFlagIcon from "./data/icons/Icons_anglais.svg";
 import {
@@ -2243,6 +2244,27 @@ function renderInventoryTab() {
   };
   const canonEquipped = deriveEquipped();
 
+  const inlineSvgKeepIds = (svg, className, color) => {
+    return String(svg || "")
+      .replace(/<\?xml[\s\S]*?\?>/g, "")
+      .replace(/<svg\b/, `<svg class="${className}" style="color:${color};"`)
+      .replace(/#4b002c/gi, "currentColor")
+      .replace(/#ffdbff/gi, "currentColor")
+      .replace(/fill:\s*currentColor/g, "fill:currentColor")
+      .replace(/fill=\"currentColor\"/g, 'fill="currentColor"')
+      .replace(/stroke=\"currentColor\"/g, 'stroke="currentColor"');
+  };
+
+  const renderEquipmentSlotsSvg = () => {
+    const equipped = new Set(Object.keys(canonEquipped || {}));
+    const base = inlineSvgKeepIds(equipmentSlotsSvg, "inv-equip-svg", "var(--accent)");
+    // Apply per-slot color by setting inline style color on each slot element.
+    return base.replace(/\sid=\"([a-z0-9]+)\"/g, (m, id) => {
+      if (!equipped.has(id)) return m;
+      return ` id="${id}" style="color:var(--text);"`;
+    });
+  };
+
   const renderSlotIcon = (canon, extraClass = "") => {
     const itemId = canonEquipped[canon] || null;
     const item = itemId ? findItemById(s, itemId) : null;
@@ -2282,35 +2304,7 @@ function renderInventoryTab() {
   `;
   const equipRight = `
     <div class="inv-equip-silhouette" aria-label="${escapeAttr(t("equipmentSlots") || "Equipment Slots")}">
-      ${renderSlotIcon("hat", "inv-slot--hat")}
-      ${renderSlotIcon("face", "inv-slot--face")}
-      ${renderSlotIcon("pendant1", "inv-slot--pendant1")}
-      ${renderSlotIcon("pendant2", "inv-slot--pendant2")}
-      ${renderSlotIcon("pendant3", "inv-slot--pendant3")}
-      ${renderSlotIcon("torso", "inv-slot--torso")}
-      ${renderSlotIcon("rshoulder", "inv-slot--rshoulder")}
-      ${renderSlotIcon("lshoulder", "inv-slot--lshoulder")}
-      ${renderSlotIcon("rarm", "inv-slot--rarm")}
-      ${renderSlotIcon("larm", "inv-slot--larm")}
-      ${renderSlotIcon("rwrist", "inv-slot--rwrist")}
-      ${renderSlotIcon("lwrist", "inv-slot--lwrist")}
-      ${renderSlotIcon("rthumb", "inv-slot--rthumb")}
-      ${renderSlotIcon("rindex", "inv-slot--rindex")}
-      ${renderSlotIcon("rmiddle", "inv-slot--rmiddle")}
-      ${renderSlotIcon("rring", "inv-slot--rring")}
-      ${renderSlotIcon("rpinky", "inv-slot--rpinky")}
-      ${renderSlotIcon("lthumb", "inv-slot--lthumb")}
-      ${renderSlotIcon("lindex", "inv-slot--lindex")}
-      ${renderSlotIcon("lmiddle", "inv-slot--lmiddle")}
-      ${renderSlotIcon("lring", "inv-slot--lring")}
-      ${renderSlotIcon("lpinky", "inv-slot--lpinky")}
-      ${renderSlotIcon("belt", "inv-slot--belt")}
-      ${renderSlotIcon("rleg", "inv-slot--rleg")}
-      ${renderSlotIcon("lleg", "inv-slot--lleg")}
-      ${renderSlotIcon("rankle", "inv-slot--rankle")}
-      ${renderSlotIcon("lankle", "inv-slot--lankle")}
-      ${renderSlotIcon("rfoot", "inv-slot--rfoot")}
-      ${renderSlotIcon("lfoot", "inv-slot--lfoot")}
+      ${renderEquipmentSlotsSvg()}
     </div>
   `;
   const equipBlock = bubble(`<div class="inv-equip-wrap">${equipLeft}${equipRight}</div>`, "inv-bubble--equip");
