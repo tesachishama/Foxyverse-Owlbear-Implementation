@@ -884,6 +884,29 @@ function escapeAttr(str) {
     .replace(/</g, "&lt;");
 }
 
+function wrapWordsByLen(str, maxLen) {
+  const max = Math.max(1, Number(maxLen) || 1);
+  const raw = String(str || "").trim();
+  if (!raw) return [];
+  const words = raw.split(/\s+/g).filter(Boolean);
+  const lines = [];
+  let cur = "";
+  for (const w of words) {
+    if (!cur) {
+      cur = w;
+      continue;
+    }
+    if ((cur.length + 1 + w.length) <= max) {
+      cur = `${cur} ${w}`;
+    } else {
+      lines.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 function formatI18nTemplate(key, vars) {
   let s = t(key);
   if (!vars) return s;
@@ -4477,10 +4500,11 @@ function bindEvents() {
         hide();
         return;
       }
-      const itemNoWrap = item && item.length <= 15;
-      equipTip.innerHTML = item
-        ? `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div><div class="inv-equip-tip-item${itemNoWrap ? " nowrap" : ""}">${escapeAttr(item)}</div>`
-        : `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div>`;
+      const itemLines = item ? wrapWordsByLen(item, 15) : [];
+      const itemHtml = itemLines.length
+        ? `<div class="inv-equip-tip-item">${itemLines.map((ln) => `<div class="inv-equip-tip-item-line">${escapeAttr(ln)}</div>`).join("")}</div>`
+        : "";
+      equipTip.innerHTML = `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div>${itemHtml}`;
       equipTip.classList.remove("hidden");
       const posRoot = equipTip.offsetParent || equipRoot;
       const r = posRoot.getBoundingClientRect();
