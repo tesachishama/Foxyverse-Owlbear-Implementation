@@ -177,6 +177,15 @@ const state = {
   itemRemoveSection: "", // section key
   itemRemoveSelectedId: "",
   invSlotMenuOpenFor: "", // itemId
+  // Inventory: consumable transfer modal
+  consumableTransferOpen: false,
+  consumableTransferMode: "draft", // "draft" | "confirm"
+  consumableTransferRecipientMenuOpen: false,
+  consumableTransferItemMenuOpen: false,
+  consumableTransferRecipientSheetId: "",
+  consumableTransferItemId: "",
+  consumableTransferQty: 1,
+  consumableTransferPending: null, // { recipientSheetId, itemId, qty }
 };
 
 function canView(sheetId) {
@@ -1681,6 +1690,7 @@ function renderRollModals() {
     </div>
     ${renderCurrencyModals()}
     ${renderActiveItemRemoveModal()}
+    ${renderConsumableTransferModal()}
   `;
 }
 
@@ -1694,6 +1704,72 @@ function renderActiveItemRemoveModal() {
           : key === "bags" ? (state.sheet.bags || [])
             : (state.sheet.others || []);
   return renderItemRemoveModal(key, items);
+}
+
+function renderConsumableTransferModal() {
+  if (!state.consumableTransferOpen || !state.sheet) return "";
+  const s = state.sheet;
+  const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+  const recipId = String(state.consumableTransferRecipientSheetId || "") || (vis[0] || "");
+  const recipName = state.sheetNames[recipId] || "Name Surname";
+  const items = s.consumables || [];
+  const itemId = String(state.consumableTransferItemId || "") || (items[0]?.id ? String(items[0].id) : "");
+  const item = itemId ? (items || []).find((x) => String(x.id) === itemId) : null;
+  const itemName = item?.name || (t("itemName") || "Item");
+  const qty = Math.max(1, clampInt(state.consumableTransferQty || 1));
+
+  const recipMenu = vis
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-cons-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || "Name Surname")}</button>`)
+    .join("");
+  const itemMenu = items
+    .map((it) => `<button type="button" class="sheet-menu-item ${String(it.id) === itemId ? "active" : ""}" data-cons-xfer-item-pick="${escapeAttr(String(it.id))}">${escapeAttr(String(it.name || t("itemName") || "Item").replace(/\[[^\]]+\]/g, "").trim())}</button>`)
+    .join("");
+
+  const pickerRow = `
+    <label class="label">${escapeAttr(t("recipient") || "Recipient")}</label>
+    <div class="sheet-picker inv-currency-recipient-picker">
+      <div class="sheet-title">${escapeAttr(recipName)}</div>
+      <button type="button" id="btn-cons-xfer-recipient-menu" class="header-icon-btn sheet-arrow-btn ${state.consumableTransferRecipientMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("selectSheet") || "Select sheet")}">
+        ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+      </button>
+      ${state.consumableTransferRecipientMenuOpen ? `<div class="sheet-menu">${recipMenu}</div>` : ""}
+    </div>
+    <label class="label" style="margin-top:0.35rem">${escapeAttr(t("item") || "Item")}</label>
+    <div class="inv-cons-xfer-item-row">
+      <div class="sheet-picker inv-cons-xfer-item-picker">
+        <div class="sheet-title">${escapeAttr(itemName)}</div>
+        <button type="button" id="btn-cons-xfer-item-menu" class="header-icon-btn sheet-arrow-btn ${state.consumableTransferItemMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("item") || "Item")}">
+          ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+        </button>
+        ${state.consumableTransferItemMenuOpen ? `<div class="sheet-menu">${itemMenu}</div>` : ""}
+      </div>
+      <div class="inv-cons-xfer-qty">
+        <button type="button" class="inv-qty-btn" id="cons-xfer-qty-minus" aria-label="${escapeAttr(t("remove"))}">−</button>
+        <div class="inv-qty-pill" id="cons-xfer-qty-val">${escapeAttr(String(qty))}</div>
+        <button type="button" class="inv-qty-btn" id="cons-xfer-qty-plus" aria-label="${escapeAttr(t("add"))}">+</button>
+      </div>
+    </div>
+  `;
+
+  const confirmText = state.consumableTransferMode === "confirm" && state.consumableTransferPending
+    ? `${t("confirmSending") || "Confirm sending"} ${qty} ${itemName} ${t("to") || "to"} ${recipName}`
+    : "";
+
+  return `
+    <div id="consumable-transfer-modal" class="modal">
+      <div class="modal-content inv-currency-modal-content">
+        <h3>${escapeAttr(t("transfer") || "Transfer")}</h3>
+        ${state.consumableTransferMode === "confirm" ? `<p class="inv-currency-confirm-text">${escapeAttr(confirmText)}</p>` : pickerRow}
+        <div class="roll-modal-footer">
+          ${state.consumableTransferMode === "confirm"
+            ? `<button type="button" id="cons-xfer-confirm" class="btn-sm">${t("confirm") || "Confirm"}</button>`
+            : `<button type="button" id="cons-xfer-send" class="btn-sm">${t("send") || "Send"}</button>`
+          }
+          <button type="button" id="cons-xfer-cancel" class="btn-sm">${t("cancel")}</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function clampInt(n) {
@@ -4758,6 +4834,167 @@ function bindEvents() {
       state.itemRemoveSelectedId = "";
       render();
     });
+  });
+
+  // Consumables transfer modal open
+  app.querySelector("#btn-consumables-transfer")?.addEventListener("click", () => {
+    if (!state.sheet) return;
+    state.consumableTransferOpen = true;
+    state.consumableTransferMode = "draft";
+    state.consumableTransferRecipientMenuOpen = false;
+    state.consumableTransferItemMenuOpen = false;
+    state.consumableTransferRecipientSheetId = "";
+    state.consumableTransferItemId = "";
+    state.consumableTransferQty = 1;
+    state.consumableTransferPending = null;
+    render();
+  });
+
+  // Consumables transfer modal controls
+  app.querySelector("#btn-cons-xfer-recipient-menu")?.addEventListener("click", () => {
+    state.consumableTransferRecipientMenuOpen = !state.consumableTransferRecipientMenuOpen;
+    state.consumableTransferItemMenuOpen = false;
+    render();
+  });
+  app.querySelectorAll("[data-cons-xfer-recipient-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.consumableTransferRecipientSheetId = btn.getAttribute("data-cons-xfer-recipient-pick") || "";
+      state.consumableTransferRecipientMenuOpen = false;
+      render();
+    });
+  });
+  app.querySelector("#btn-cons-xfer-item-menu")?.addEventListener("click", () => {
+    state.consumableTransferItemMenuOpen = !state.consumableTransferItemMenuOpen;
+    state.consumableTransferRecipientMenuOpen = false;
+    render();
+  });
+  app.querySelectorAll("[data-cons-xfer-item-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.consumableTransferItemId = btn.getAttribute("data-cons-xfer-item-pick") || "";
+      state.consumableTransferItemMenuOpen = false;
+      render();
+    });
+  });
+  app.querySelector("#cons-xfer-qty-minus")?.addEventListener("click", () => {
+    state.consumableTransferQty = Math.max(1, clampInt(state.consumableTransferQty) - 1);
+    render();
+  });
+  app.querySelector("#cons-xfer-qty-plus")?.addEventListener("click", () => {
+    state.consumableTransferQty = Math.max(1, clampInt(state.consumableTransferQty) + 1);
+    render();
+  });
+  app.querySelector("#cons-xfer-cancel")?.addEventListener("click", () => {
+    state.consumableTransferOpen = false;
+    state.consumableTransferMode = "draft";
+    state.consumableTransferRecipientMenuOpen = false;
+    state.consumableTransferItemMenuOpen = false;
+    state.consumableTransferRecipientSheetId = "";
+    state.consumableTransferItemId = "";
+    state.consumableTransferQty = 1;
+    state.consumableTransferPending = null;
+    render();
+  });
+  app.querySelector("#cons-xfer-send")?.addEventListener("click", () => {
+    const s = state.sheet;
+    if (!s) return;
+    const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+    const recipId = String(state.consumableTransferRecipientSheetId || "") || (vis[0] || "");
+    const items = s.consumables || [];
+    const itemId = String(state.consumableTransferItemId || "") || (items[0]?.id ? String(items[0].id) : "");
+    const qty = Math.max(1, clampInt(state.consumableTransferQty || 1));
+    if (!recipId || !itemId) return;
+    state.consumableTransferPending = { recipientSheetId: recipId, itemId, qty };
+    state.consumableTransferMode = "confirm";
+    render();
+  });
+  app.querySelector("#cons-xfer-confirm")?.addEventListener("click", async () => {
+    if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+    const pending = state.consumableTransferPending;
+    if (!pending) return;
+    const recipId = String(pending.recipientSheetId || "");
+    const itemId = String(pending.itemId || "");
+    const qty = Math.max(1, clampInt(pending.qty || 1));
+    const senderItem = (state.sheet.consumables || []).find((it) => String(it.id) === itemId);
+    if (!senderItem) return;
+    const senderCount = Math.max(0, clampInt(senderItem.count ?? 0));
+    if (qty > senderCount) return;
+
+    // Decrement sender
+    const nextSender = applyLocalMutation((sheet) => {
+      const it = (sheet.consumables || []).find((x) => String(x.id) === itemId);
+      if (!it) return;
+      it.count = Math.max(0, clampInt(it.count ?? 0) - qty);
+      if ((it.count ?? 0) <= 0) {
+        sheet.consumables = (sheet.consumables || []).filter((x) => String(x.id) !== itemId);
+      }
+    });
+    if (state.roomId && state.activeSheetId) {
+      if (senderCount - qty <= 0) storage.deleteItem(state.roomId, state.activeSheetId, itemId).catch(console.error);
+      else storage.updateItemFields(state.roomId, state.activeSheetId, itemId, { quantity: senderCount - qty }).catch(console.error);
+    }
+
+    // Increment recipient (merge-or-create)
+    try {
+      const recipSheet = await storage.getSheet(state.roomId, recipId, { forceRefresh: true });
+      const recipItems = recipSheet?.consumables || [];
+      const match = recipItems.find((it) =>
+        String(it.name || "") === String(senderItem.name || "") &&
+        String(it.description || "") === String(senderItem.description || "") &&
+        String(it.equippableExpr || "") === String(senderItem.equippableExpr || "")
+      );
+      if (match) {
+        const cur = Math.max(0, clampInt(match.count ?? 0));
+        storage.updateItemFields(state.roomId, recipId, match.id, { quantity: cur + qty }).catch(console.error);
+      } else {
+        const newId = crypto.randomUUID();
+        storage.upsertItem(state.roomId, recipId, {
+          id: newId,
+          type: "consumable",
+          position: recipItems.length,
+          name: senderItem.name || "",
+          description: senderItem.description || "",
+          quantity: qty,
+          physical_defense: 0,
+          magical_defense: 0,
+          constitution: 0,
+          strength: 0,
+          intelligence: 0,
+          perception: 0,
+          social: 0,
+          agility: 0,
+          focus: 0,
+          usable_slots: senderItem.equippableExpr ? { expr: senderItem.equippableExpr } : null,
+          used_slots: null,
+        }).catch(console.error);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    // Chat line
+    try {
+      const fromName = resolveCharacterDisplayName(state.activeSheetId);
+      const toName = resolveCharacterDisplayName(recipId);
+      const line = `${fromName} ${t("gave") || "gave"} ${qty} ${senderItem.name || (t("itemName") || "Item")} ${t("to") || "to"} ${toName}`.trim();
+      const row = await storage.insertChatMessage(state.roomId, {
+        playerId: state.playerId || "",
+        sheetId: state.activeSheetId || null,
+        body: line,
+      });
+      appendChatMessageIfNew(row);
+    } catch (err) {
+      console.error(err);
+    }
+
+    state.consumableTransferOpen = false;
+    state.consumableTransferMode = "draft";
+    state.consumableTransferRecipientMenuOpen = false;
+    state.consumableTransferItemMenuOpen = false;
+    state.consumableTransferRecipientSheetId = "";
+    state.consumableTransferItemId = "";
+    state.consumableTransferQty = 1;
+    state.consumableTransferPending = null;
+    render();
   });
 
   // Inventory remove modal

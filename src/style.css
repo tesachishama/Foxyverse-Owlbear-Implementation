@@ -710,6 +710,15 @@ button:disabled {
 }
 #app .inv-slot-expr-inp:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
 .sheet-menu-item.disabled { opacity: 0.45; pointer-events: none; }
+
+.inv-cons-xfer-item-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+.inv-cons-xfer-item-picker { min-height: 2.15rem; }
+.inv-cons-xfer-qty { display: inline-flex; align-items: center; gap: 0.08rem; }
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble--strip { padding-left: 0.05rem; padding-right: 0.05rem; }
