@@ -611,7 +611,7 @@ export const translations = {
     itemName: "Objet",
     itemDescription: "Description",
     selectItemToRemove: "Choisir l'objet à retirer",
-    equipmentSlots: "Slots d'équipement",
+    equipmentSlots: "Slots d'Équipement",
     currency: "Monnaie",
     goldCoin: "Pièce d'or",
     silverCoin: "Pièce d'argent",
