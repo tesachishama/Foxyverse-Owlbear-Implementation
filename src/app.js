@@ -2259,15 +2259,18 @@ function renderInventoryTab() {
     const equippedSlots = new Set(Object.keys(canonEquipped || {}));
     const base = inlineSvgKeepIds(equipmentSlotsSvg, "inv-equip-svg", "var(--accent)");
     // Mark slot elements with classes + data attributes (avoid injecting duplicate style="").
-    // Tooltip uses `title` attribute (works reliably in Owlbear's Chromium).
     return base.replace(/\sid=\"([a-z0-9]+)\"/g, (m, id) => {
       const itemId = canonEquipped[id];
       const isEquipped = !!itemId && equippedSlots.has(id);
       const item = isEquipped ? findItemById(s, itemId) : null;
-      const title = isEquipped ? `${slotTitle(id)}: ${item?.name || ""}`.trim() : slotTitle(id);
+      const slot = slotTitle(id);
+      const itemName = (item?.name || "").trim();
       const cls = `inv-equip-part${isEquipped ? " equipped" : ""}`;
       const itemAttr = isEquipped ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
-      return ` id="${id}" class="${cls}" data-equip-slot="${escapeAttr(id)}"${itemAttr} data-equip-tip="${escapeAttr(title)}"`;
+      const tip =
+        ` data-equip-tip-slot="${escapeAttr(slot)}"` +
+        (isEquipped && itemName ? ` data-equip-tip-item="${escapeAttr(itemName)}"` : "");
+      return ` id="${id}" class="${cls}" data-equip-slot="${escapeAttr(id)}"${itemAttr}${tip}`;
     });
   };
 
@@ -2302,13 +2305,17 @@ function renderInventoryTab() {
     const item = itemId ? findItemById(s, itemId) : null;
     const equipped = !!itemId;
     const color = equipped ? "var(--text)" : "var(--accent)";
-    const title = equipped ? `${slotTitle(canon)}: ${item?.name || ""}`.trim() : slotTitle(canon);
+    const slot = slotTitle(canon);
+    const itemName = (item?.name || "").trim();
+    const title = equipped && itemName ? `${slot} ${itemName}` : slot;
     const itemAttr = itemId ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
+    const tip =
+      ` data-equip-tip-slot="${escapeAttr(slot)}"` +
+      (equipped && itemName ? ` data-equip-tip-item="${escapeAttr(itemName)}"` : "");
     return `
       <button type="button"
         class="inv-weapon-btn ${equipped ? "equipped" : ""}"
-        data-equip-slot="${escapeAttr(canon)}"${itemAttr}
-        data-equip-tip="${escapeAttr(title)}"
+        data-equip-slot="${escapeAttr(canon)}"${itemAttr}${tip}
         aria-label="${escapeAttr(title)}"
         title="${escapeAttr(title)}">
         ${inlineSvg(weaponIcon, "inline-svg inv-weapon-svg", color)}
@@ -4455,19 +4462,23 @@ function bindEvents() {
     const hide = () => equipTip.classList.add("hidden");
     equipRoot.addEventListener("mouseleave", hide);
     equipRoot.addEventListener("mousemove", (e) => {
-      const part = e.target?.closest?.("[data-equip-tip]");
+      const part = e.target?.closest?.("[data-equip-tip-slot]");
       if (!part || !equipRoot.contains(part)) {
         hide();
         return;
       }
-      const text = part.getAttribute("data-equip-tip") || "";
-      if (!text) {
+      const slot = (part.getAttribute("data-equip-tip-slot") || "").trim();
+      const item = (part.getAttribute("data-equip-tip-item") || "").trim();
+      if (!slot) {
         hide();
         return;
       }
-      equipTip.textContent = text;
+      equipTip.innerHTML = item
+        ? `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div><div class="inv-equip-tip-item">${escapeAttr(item)}</div>`
+        : `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div>`;
       equipTip.classList.remove("hidden");
-      const r = equipRoot.getBoundingClientRect();
+      const posRoot = equipTip.offsetParent || equipRoot;
+      const r = posRoot.getBoundingClientRect();
       const x = (e.clientX - r.left) + 10;
       const y = (e.clientY - r.top) + 10;
       equipTip.style.left = `${Math.max(0, x)}px`;
@@ -4476,8 +4487,11 @@ function bindEvents() {
         if (equipTip.classList.contains("hidden")) return;
         const tr = equipTip.getBoundingClientRect();
         // Prefer staying on the side with room instead of breaking words.
-        const preferLeft = x + tr.width + 6 > r.width;
-        const nextLeftRaw = preferLeft ? (x - tr.width - 16) : x;
+        const rightSpace = r.width - x;
+        const leftSpace = x;
+        const need = tr.width + 8;
+        const preferLeft = rightSpace < need && leftSpace >= need;
+        const nextLeftRaw = preferLeft ? (x - tr.width - 8) : x;
         const maxLeft = Math.max(0, r.width - tr.width - 6);
         const maxTop = Math.max(0, r.height - tr.height - 6);
         const nextLeft = Math.max(0, Math.min(maxLeft, nextLeftRaw));
