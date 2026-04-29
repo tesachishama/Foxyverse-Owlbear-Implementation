@@ -550,6 +550,25 @@ button:disabled {
   color: var(--text);
 }
 
+.inv-equip-tooltip {
+  position: absolute;
+  z-index: 50;
+  transform: translate(-2px, -2px);
+  padding: 0.2rem 0.4rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.85rem;
+  line-height: 1.05;
+  white-space: nowrap;
+  pointer-events: none;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .inv-slot-btn {
   position: absolute;
   padding: 0;

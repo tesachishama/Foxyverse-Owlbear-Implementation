@@ -2267,7 +2267,7 @@ function renderInventoryTab() {
       const title = isEquipped ? `${slotTitle(id)}: ${item?.name || ""}`.trim() : slotTitle(id);
       const cls = `inv-equip-part${isEquipped ? " equipped" : ""}`;
       const itemAttr = isEquipped ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
-      return ` id="${id}" class="${cls}"${itemAttr} title="${escapeAttr(title)}"`;
+      return ` id="${id}" class="${cls}" data-equip-slot="${escapeAttr(id)}"${itemAttr} data-equip-tip="${escapeAttr(title)}"`;
     });
   };
 
@@ -2311,6 +2311,7 @@ function renderInventoryTab() {
   const equipRight = `
     <div class="inv-equip-silhouette" aria-label="${escapeAttr(t("equipmentSlots") || "Equipment Slots")}">
       ${renderEquipmentSlotsSvg()}
+      <div class="inv-equip-tooltip hidden" id="inv-equip-tooltip"></div>
     </div>
   `;
   const equipBlock = bubble(`<div class="inv-equip-wrap">${equipLeft}${equipRight}</div>`, "inv-bubble--equip");
@@ -4421,10 +4422,39 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const itemId = btn.getAttribute("data-equip-item");
       if (!itemId) return;
+      // Make it obvious what we scrolled to.
+      state._openItems[String(itemId)] = true;
       state._scrollToInventoryItemId = String(itemId);
       render();
     });
   });
+
+  // Equipment silhouette tooltip (custom overlay; SVG title is unreliable in Owlbear).
+  const equipWrap = app.querySelector(".inv-equip-silhouette");
+  const equipTip = document.getElementById("inv-equip-tooltip");
+  if (equipWrap && equipTip) {
+    const hide = () => equipTip.classList.add("hidden");
+    equipWrap.addEventListener("mouseleave", hide);
+    equipWrap.addEventListener("mousemove", (e) => {
+      const part = e.target?.closest?.("[data-equip-tip]");
+      if (!part || !equipWrap.contains(part)) {
+        hide();
+        return;
+      }
+      const text = part.getAttribute("data-equip-tip") || "";
+      if (!text) {
+        hide();
+        return;
+      }
+      equipTip.textContent = text;
+      equipTip.classList.remove("hidden");
+      const r = equipWrap.getBoundingClientRect();
+      const x = (e.clientX - r.left) + 10;
+      const y = (e.clientY - r.top) + 10;
+      equipTip.style.left = `${Math.max(0, Math.min(r.width - 10, x))}px`;
+      equipTip.style.top = `${Math.max(0, Math.min(r.height - 10, y))}px`;
+    });
+  }
 
   // Currency: open modals
   app.querySelector("#btn-currency-transfer")?.addEventListener("click", () => {
