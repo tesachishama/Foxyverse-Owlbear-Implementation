@@ -101,6 +101,8 @@ const TAB_META = {
 
 // Spell reorder drag state (event-delegated; survives re-render).
 let spellReorderDrag = null;
+// Inventory reorder drag state (per section; event-delegated).
+let invReorderDrag = null;
 
 const state = {
   locale: "en",
@@ -165,6 +167,14 @@ const state = {
   currencyRecipientSheetId: "",
   currencyDraft: { gold: 0, silver: 0, copper: 0 },
   currencyPendingAction: null, // { mode, recipientSheetId, draft }
+  // Inventory: section UI state
+  _openItems: {}, // itemId -> boolean
+  _editingItemId: null,
+  _itemEditDraft: null, // { id, name, description }
+  itemRemoveModalOpen: false,
+  itemRemoveMenuOpen: false,
+  itemRemoveSection: "", // section key
+  itemRemoveSelectedId: "",
 };
 
 function canView(sheetId) {
@@ -1668,7 +1678,20 @@ function renderRollModals() {
       </div>
     </div>
     ${renderCurrencyModals()}
+    ${renderActiveItemRemoveModal()}
   `;
+}
+
+function renderActiveItemRemoveModal() {
+  if (!state.itemRemoveModalOpen || !state.sheet) return "";
+  const key = String(state.itemRemoveSection || "");
+  const items =
+    key === "consumables" ? (state.sheet.consumables || [])
+      : key === "weapons" ? (state.sheet.weapons || [])
+        : key === "armor" ? (state.sheet.armor || [])
+          : key === "bags" ? (state.sheet.bags || [])
+            : (state.sheet.others || []);
+  return renderItemRemoveModal(key, items);
 }
 
 function clampInt(n) {
@@ -1836,6 +1859,42 @@ function renderSpellRemoveModal(spells) {
         <div class="roll-modal-footer">
           <button type="button" id="spell-remove-confirm" class="btn-sm">${t("remove")}</button>
           <button type="button" id="spell-remove-cancel" class="btn-sm">${t("cancel")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderItemRemoveModal(sectionKey, items) {
+  const stripInlineButtons = (text) => String(text || "").replace(/\[[^\]]+\]/g, "").replace(/\s+/g, " ").trim();
+  const list = items || [];
+  const firstId = list[0]?.id != null ? String(list[0].id) : "";
+  const selRaw = String(state.itemRemoveSelectedId || "");
+  const selId = selRaw && list.some((it) => String(it.id) === selRaw) ? selRaw : firstId;
+  const selItem = list.find((it) => String(it.id) === String(selId));
+  const title = stripInlineButtons(selItem?.name || "").trim() || (t("itemName") || "Item");
+  const menuItems = list
+    .map((it) => {
+      const id = String(it.id || "");
+      const name = stripInlineButtons(it.name || "").trim() || (t("itemName") || "Item");
+      return `<button type="button" class="sheet-menu-item spell-remove-menu-item ${id === selId ? "active" : ""}" data-item-remove-pick="${escapeAttr(id)}">${escapeAttr(name)}</button>`;
+    })
+    .join("");
+  return `
+    <div id="item-remove-modal" class="modal ${state.itemRemoveModalOpen ? "" : "hidden"}">
+      <div class="modal-content spell-remove-modal-content">
+        <h3>${t("remove")}</h3>
+        <label class="label">${escapeAttr(t("selectItemToRemove") || "Select item to remove")}</label>
+        <div class="sheet-picker spell-remove-picker">
+          <div class="sheet-title">${escapeAttr(title)}</div>
+          <button type="button" id="btn-item-remove-menu" class="header-icon-btn sheet-arrow-btn ${state.itemRemoveMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("selectItemToRemove") || "Select item")}">
+            ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+          </button>
+          ${state.itemRemoveMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
+        </div>
+        <div class="roll-modal-footer">
+          <button type="button" id="item-remove-confirm" class="btn-sm" data-item-remove-section="${escapeAttr(sectionKey)}">${t("remove")}</button>
+          <button type="button" id="item-remove-cancel" class="btn-sm">${t("cancel")}</button>
         </div>
       </div>
     </div>
@@ -2193,14 +2252,66 @@ function renderInventoryTab() {
     return invBubbleTitleRow(title, left, right);
   };
 
-  // Section bodies will be implemented in later todos; keep placeholders for layout now.
-  const sectionPlaceholder = (key) => `<div class="inv-section-placeholder" data-inv-section="${escapeAttr(key)}"></div>`;
+  const renderQtyCounter = (id, count) => {
+    const v = Math.max(0, clampInt(count ?? 0));
+    return `
+      <div class="inv-qty-counter" data-inv-qty="${escapeAttr(id)}">
+        <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="-1" aria-label="${escapeAttr(t("remove"))}">−</button>
+        <div class="inv-qty-pill">${escapeAttr(String(v))}</div>
+        <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="1" aria-label="${escapeAttr(t("add"))}">+</button>
+      </div>
+    `;
+  };
 
-  const consumablesBlock = bubble(`${sectionHeader("consumables", t("consumables") || "Consumables", { allowTransfer: true })}${sectionPlaceholder("consumables")}`, "inv-bubble--section");
-  const weaponsBlock = bubble(`${sectionHeader("weapons", t("weapons") || "Weapons")}${sectionPlaceholder("weapons")}`, "inv-bubble--section");
-  const armorBlock = bubble(`${sectionHeader("armor", t("armor") || "Armor")}${sectionPlaceholder("armor")}`, "inv-bubble--section");
-  const othersBlock = bubble(`${sectionHeader("others", t("others") || "Others")}${sectionPlaceholder("others")}`, "inv-bubble--section");
-  const bagsBlock = bubble(`${sectionHeader("bags", t("bags") || "Bags")}${sectionPlaceholder("bags")}`, "inv-bubble--section");
+  const renderInvItem = (sectionKey, it) => {
+    const id = String(it.id || "");
+    const open = !!state._openItems?.[id];
+    const editing = state._editingItemId === id;
+    const draft = editing && state._itemEditDraft && String(state._itemEditDraft.id) === id ? state._itemEditDraft : null;
+    const name = (draft ? draft.name : it.name) || "";
+    const desc = (draft ? draft.description : it.description) || "";
+    const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--text)");
+    const chevron = inlineSvg(arrowIcon, "inline-svg spell-chevron-svg", "var(--text)");
+    const editSvg = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--accent)");
+
+    const nameNode = editing
+      ? `<input type="text" class="spell-name spell-name-inp" value="${escapeAttr(name)}" data-inv-item-name="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemName") || "Item name")}" />`
+      : `<div class="spell-name-display">${escapeAttr(name || (t("itemName") || "Item"))}</div>`;
+
+    const descNode = editing
+      ? `<textarea class="spell-effect-inp" rows="3" data-inv-item-desc="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemDescription") || "Description")}">${escapeAttr(desc)}</textarea>`
+      : `<div class="spell-effect-text">${renderChatBody(desc || "")}</div>`;
+
+    return `
+      <div class="spell-item-wrap ${open ? "open" : "wrapped"} inv-item-wrap" id="inv-item-${escapeAttr(id)}" data-inv-item-id="${escapeAttr(id)}" data-inv-section="${escapeAttr(sectionKey)}" draggable="false">
+        <div class="spell-row inv-item-row">
+          <button type="button" class="spell-handle-btn" data-inv-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
+          ${nameNode}
+          ${renderQtyCounter(id, it.count ?? it.quantity ?? 1)}
+          <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-inv-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${chevron}</button>
+        </div>
+        ${open ? `
+          <div class="spell-details inv-item-details">
+            <div class="spell-effect-row">
+              ${descNode}
+              ${editable ? `<button type="button" class="spell-edit-btn" data-inv-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${editSvg}</button>` : ""}
+            </div>
+          </div>
+        ` : ""}
+      </div>
+    `;
+  };
+
+  const renderSectionList = (sectionKey, items) => {
+    const list = (items || []).map((it) => renderInvItem(sectionKey, it)).join("");
+    return `<div class="spell-list inv-list" data-inv-list="${escapeAttr(sectionKey)}">${list}</div>`;
+  };
+
+  const consumablesBlock = bubble(`${sectionHeader("consumables", t("consumables") || "Consumables", { allowTransfer: true })}${renderSectionList("consumables", s.consumables || [])}`, "inv-bubble--section");
+  const weaponsBlock = bubble(`${sectionHeader("weapons", t("weapons") || "Weapons")}${renderSectionList("weapons", s.weapons || [])}`, "inv-bubble--section");
+  const armorBlock = bubble(`${sectionHeader("armor", t("armor") || "Armor")}${renderSectionList("armor", s.armor || [])}`, "inv-bubble--section");
+  const othersBlock = bubble(`${sectionHeader("others", t("others") || "Others")}${renderSectionList("others", s.others || [])}`, "inv-bubble--section");
+  const bagsBlock = bubble(`${sectionHeader("bags", t("bags") || "Bags")}${renderSectionList("bags", s.bags || [])}`, "inv-bubble--section");
 
   return `
     <div class="card inventory-tab-card inventory-template">
@@ -3192,6 +3303,141 @@ function bindEvents() {
     });
 
     app.dataset.spellReorderBound = "true";
+  }
+
+  // Inventory reorder (event delegated; similar to spells)
+  if (!app.dataset.invReorderBound) {
+    const beginDrag = (clientX, clientY, handleEl) => {
+      if (!canEdit(state.activeSheetId)) return;
+      if (state.activeTab !== "inventory") return;
+      const item = handleEl.closest(".inv-item-wrap");
+      const list = item?.closest(".inv-list");
+      if (!item || !list) return;
+      const itemId = item.dataset.invItemId;
+      const section = item.dataset.invSection;
+      if (!itemId || !section) return;
+
+      const rect = item.getBoundingClientRect();
+      const offsetY = clientY - rect.top;
+      const ghost = item.cloneNode(true);
+      ghost.classList.add("spell-drag-ghost");
+      ghost.style.width = rect.width + "px";
+      ghost.style.left = rect.left + "px";
+      ghost.style.top = rect.top + "px";
+      document.body.appendChild(ghost);
+
+      const ph = document.createElement("div");
+      ph.className = "spell-drag-placeholder";
+      ph.style.height = rect.height + "px";
+      ph.style.borderRadius = getComputedStyle(item).borderRadius;
+
+      item.classList.add("dragging");
+      list.classList.add("dragging-active");
+      item.replaceWith(ph);
+
+      invReorderDrag = { list, item, placeholder: ph, ghost, offsetY, section };
+    };
+
+    const moveDrag = (clientX, clientY) => {
+      const d = invReorderDrag;
+      if (!d) return;
+      d.ghost.style.top = Math.round(clientY - d.offsetY) + "px";
+      const elAtPoint = document.elementFromPoint(clientX, clientY);
+      const over = elAtPoint?.closest?.(".inv-item-wrap, .spell-drag-placeholder");
+      if (!over) return;
+      if (over === d.placeholder) return;
+      const overItem = over.classList.contains("inv-item-wrap") ? over : null;
+      if (!overItem) return;
+      const r = overItem.getBoundingClientRect();
+      const before = clientY < r.top + r.height / 2;
+      d.list.insertBefore(d.placeholder, before ? overItem : overItem.nextSibling);
+    };
+
+    const endDrag = async (persist = true) => {
+      const d = invReorderDrag;
+      if (!d) return;
+      d.ghost.remove();
+      d.placeholder.replaceWith(d.item);
+      d.item.classList.remove("dragging");
+      d.list.classList.remove("dragging-active");
+      invReorderDrag = null;
+
+      if (!persist || !state.sheet || !state.roomId || !state.activeSheetId) {
+        render();
+        return;
+      }
+      const orderedIds = Array.from(d.list.querySelectorAll(".inv-item-wrap"))
+        .map((el) => el.dataset.invItemId)
+        .filter(Boolean);
+      const section = d.section;
+      const next = applyLocalMutation((sheet) => {
+        const arr = sheet[section] || [];
+        const map = new Map(arr.map((it) => [String(it.id), it]));
+        sheet[section] = orderedIds.map((id) => map.get(String(id))).filter(Boolean);
+      });
+      if (next?.[section]?.length) {
+        try {
+          await storage.setItemPositions(state.roomId, state.activeSheetId, next[section].map((it) => it.id));
+        } catch (err) {
+          console.error(err);
+          const msg = err?.message || err?.details || String(err);
+          try { OBR.notification.show(`Item reorder save failed: ${msg}`); } catch (_) {}
+        }
+      }
+      render();
+    };
+
+    // Mouse
+    app.addEventListener("mousedown", (e) => {
+      const handle = e.target.closest?.("[data-inv-handle]");
+      if (!handle) return;
+      e.preventDefault();
+      beginDrag(e.clientX, e.clientY, handle);
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!invReorderDrag) return;
+      e.preventDefault();
+      moveDrag(e.clientX, e.clientY);
+    }, { passive: false });
+    document.addEventListener("mouseup", (e) => {
+      if (!invReorderDrag) return;
+      e.preventDefault();
+      endDrag(true);
+    }, { passive: false });
+
+    // Touch
+    app.addEventListener("touchstart", (e) => {
+      const handle = e.target.closest?.("[data-inv-handle]");
+      if (!handle) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      e.preventDefault();
+      beginDrag(t.clientX, t.clientY, handle);
+    }, { passive: false });
+    document.addEventListener("touchmove", (e) => {
+      if (!invReorderDrag) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      e.preventDefault();
+      moveDrag(t.clientX, t.clientY);
+    }, { passive: false });
+    document.addEventListener("touchend", (e) => {
+      if (!invReorderDrag) return;
+      e.preventDefault();
+      endDrag(true);
+    }, { passive: false });
+    document.addEventListener("touchcancel", () => {
+      if (!invReorderDrag) return;
+      endDrag(false);
+    }, { passive: true });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!invReorderDrag) return;
+      endDrag(false);
+    });
+
+    app.dataset.invReorderBound = "true";
   }
 
   if (!app.dataset.chatRollApplyBound) {
@@ -4217,6 +4463,176 @@ function bindEvents() {
       }
       render();
     });
+  });
+
+  // Inventory items: open/close
+  app.querySelectorAll("[data-inv-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-inv-toggle") || "";
+      if (!id) return;
+      state._openItems[id] = !state._openItems[id];
+      render();
+    });
+  });
+
+  // Inventory items: edit toggle (enter/exit edit mode, persist on exit)
+  app.querySelectorAll("[data-inv-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-inv-edit") || "";
+      if (!id || !state.sheet || !canEdit(state.activeSheetId)) return;
+      if (state._editingItemId === id && state._itemEditDraft) {
+        const draft = state._itemEditDraft;
+        const wrap = document.querySelector(`.inv-item-wrap[data-inv-item-id="${CSS.escape(id)}"]`);
+        const section = wrap?.getAttribute("data-inv-section") || "";
+        const next = applyLocalMutation((sheet) => {
+          const it = findItemById(sheet, id);
+          if (!it) return;
+          it.name = draft.name || "";
+          it.description = draft.description || "";
+        });
+        if (state.roomId && state.activeSheetId && next) {
+          const it = findItemById(next, id);
+          if (it) storage.updateItemFields(state.roomId, state.activeSheetId, id, { name: it.name || "", description: it.description || "" }).catch(console.error);
+        }
+        state._editingItemId = null;
+        state._itemEditDraft = null;
+        render();
+        return;
+      }
+      const it = findItemById(state.sheet, id);
+      if (!it) return;
+      state._editingItemId = id;
+      state._itemEditDraft = { id, name: it.name || "", description: it.description || "" };
+      render();
+      requestAnimationFrame(() => {
+        document.querySelector(`[data-inv-item-name="${CSS.escape(id)}"]`)?.focus();
+      });
+    });
+  });
+
+  app.querySelectorAll("[data-inv-item-name]").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      const id = inp.getAttribute("data-inv-item-name") || "";
+      if (!id || !state._itemEditDraft || state._itemEditDraft.id !== id) return;
+      state._itemEditDraft.name = String(inp.value || "");
+    });
+  });
+  app.querySelectorAll("[data-inv-item-desc]").forEach((ta) => {
+    ta.addEventListener("input", () => {
+      const id = ta.getAttribute("data-inv-item-desc") || "";
+      if (!id || !state._itemEditDraft || state._itemEditDraft.id !== id) return;
+      state._itemEditDraft.description = String(ta.value || "");
+    });
+  });
+
+  // Inventory items: quantity counter
+  app.querySelectorAll("[data-inv-qty-delta]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const id = btn.getAttribute("data-inv-qty-delta") || "";
+      const delta = Number(btn.getAttribute("data-delta")) || 0;
+      if (!id) return;
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, id);
+        if (!it) return;
+        const cur = Math.max(0, clampInt(it.count ?? 1));
+        it.count = Math.max(0, cur + delta);
+      });
+      if (next) {
+        const it = findItemById(next, id);
+        if (it) storage.updateItemFields(state.roomId, state.activeSheetId, id, { quantity: Math.max(0, clampInt(it.count ?? 0)) }).catch(console.error);
+      }
+      render();
+    });
+  });
+
+  // Inventory: add/remove per section
+  ["consumables", "weapons", "armor", "others", "bags"].forEach((sec) => {
+    app.querySelector(`#btn-${sec}-add`)?.addEventListener("click", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const id = crypto.randomUUID();
+      const type = sec === "weapons" ? "weapon" : sec === "armor" ? "armor" : sec === "consumables" ? "consumable" : sec === "bags" ? "bag" : "other";
+      const next = applyLocalMutation((sheet) => {
+        if (!sheet[sec]) sheet[sec] = [];
+        sheet[sec].push({ id, type, name: t("itemName") || "Item", description: "", count: 1 });
+      });
+      if (next?.[sec]?.length) {
+        const it = next[sec][next[sec].length - 1];
+        storage.upsertItem(state.roomId, state.activeSheetId, {
+          id: it.id,
+          type,
+          position: next[sec].length - 1,
+          name: it.name || "",
+          description: it.description || "",
+          quantity: Number(it.count) || 1,
+          physical_defense: Number(it.defense) || 0,
+          magical_defense: Number(it.magicalDefense) || 0,
+          constitution: Number(it.constitution) || 0,
+          strength: Number(it.strength) || 0,
+          intelligence: Number(it.intelligence) || 0,
+          perception: Number(it.perception) || 0,
+          social: Number(it.social) || 0,
+          agility: Number(it.agility) || 0,
+          focus: Number(it.focus) || 0,
+          usable_slots: computeUsableSlots(it),
+          used_slots: computeUsedSlots(next, it),
+        }).catch(console.error);
+      }
+      render();
+    });
+    app.querySelector(`#btn-${sec}-remove`)?.addEventListener("click", () => {
+      if (!canEdit(state.activeSheetId)) return;
+      state.itemRemoveModalOpen = true;
+      state.itemRemoveMenuOpen = false;
+      state.itemRemoveSection = sec;
+      state.itemRemoveSelectedId = "";
+      render();
+    });
+  });
+
+  // Inventory remove modal
+  app.querySelector("#btn-item-remove-menu")?.addEventListener("click", () => {
+    state.itemRemoveMenuOpen = !state.itemRemoveMenuOpen;
+    render();
+  });
+  app.querySelectorAll("[data-item-remove-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.itemRemoveSelectedId = btn.getAttribute("data-item-remove-pick") || "";
+      state.itemRemoveMenuOpen = false;
+      render();
+    });
+  });
+  app.querySelector("#item-remove-cancel")?.addEventListener("click", () => {
+    state.itemRemoveModalOpen = false;
+    state.itemRemoveMenuOpen = false;
+    state.itemRemoveSection = "";
+    state.itemRemoveSelectedId = "";
+    render();
+  });
+  app.querySelector("#item-remove-confirm")?.addEventListener("click", () => {
+    if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+    if (!canEdit(state.activeSheetId)) return;
+    const sec = String(state.itemRemoveSection || "");
+    const list = sec === "consumables" ? (state.sheet.consumables || [])
+      : sec === "weapons" ? (state.sheet.weapons || [])
+        : sec === "armor" ? (state.sheet.armor || [])
+          : sec === "bags" ? (state.sheet.bags || [])
+            : (state.sheet.others || []);
+    const firstId = list[0]?.id != null ? String(list[0].id) : "";
+    const selId = state.itemRemoveSelectedId && list.some((it) => String(it.id) === String(state.itemRemoveSelectedId)) ? String(state.itemRemoveSelectedId) : firstId;
+    if (!selId) return;
+    applyLocalMutation((sheet) => {
+      const arr = sheet[sec] || [];
+      sheet[sec] = arr.filter((it) => String(it.id) !== String(selId));
+    });
+    storage.deleteItem(state.roomId, state.activeSheetId, selId).catch(console.error);
+    state.itemRemoveModalOpen = false;
+    state.itemRemoveMenuOpen = false;
+    state.itemRemoveSection = "";
+    state.itemRemoveSelectedId = "";
+    render();
   });
 
   app.querySelectorAll("[data-toggle-item]").forEach((el) => {
