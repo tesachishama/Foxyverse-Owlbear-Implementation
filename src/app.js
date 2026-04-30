@@ -2527,7 +2527,7 @@ function renderInventoryTab() {
       </div>
     </div>
   `;
-  const currencyBlock = bubble(`${currencyTitle}${currencyBody}`, "inv-bubble--currency");
+  const currencyBlock = `<div id="inv-currency-block">${bubble(`${currencyTitle}${currencyBody}`, "inv-bubble--currency")}</div>`;
 
   const sectionHeader = (key, title, { allowTransfer = false } = {}) => {
     const left = allowTransfer ? `<div class="inv-title-icon-row">${iconBtn(`btn-${key}-transfer`, transferIcon, "var(--accent)", t("transfer") || "Transfer")}</div>` : "";
@@ -3342,6 +3342,40 @@ function render() {
     return did;
   };
 
+  const scrollToCurrencyBlockNow = () => {
+    const targetEl = document.getElementById("inv-currency-block");
+    if (!targetEl) return false;
+    const containers = [
+      app.querySelector("main.tab-content"),
+      app,
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter(Boolean);
+    let did = false;
+    for (const c of containers) {
+      try {
+        const cRect = c.getBoundingClientRect ? c.getBoundingClientRect() : null;
+        const tRect = targetEl.getBoundingClientRect ? targetEl.getBoundingClientRect() : null;
+        if (!cRect || !tRect) continue;
+        const delta = tRect.top - cRect.top;
+        if (!Number.isFinite(delta)) continue;
+        if (typeof c.scrollTop === "number") {
+          c.scrollTop = Math.max(0, c.scrollTop + delta - 8);
+          did = true;
+        }
+      } catch (_) {}
+    }
+    try {
+      const tRect = targetEl.getBoundingClientRect();
+      if (tRect && Number.isFinite(tRect.top)) {
+        window.scrollTo(0, (window.scrollY || 0) + tRect.top - 60);
+        did = true;
+      }
+    } catch (_) {}
+    return did;
+  };
+
   const shouldScrollToTalents = state.activeTab === "stats" && state._scrollToTalents;
   if (shouldScrollToTalents) {
     state._scrollToTalents = false;
@@ -3369,12 +3403,22 @@ function render() {
       }, 40);
     });
   }
+  const shouldScrollToCurrency = state.activeTab === "inventory" && !!state._scrollToCurrencyBlock;
+  if (shouldScrollToCurrency) {
+    state._scrollToCurrencyBlock = false;
+    requestAnimationFrame(() => {
+      scrollToCurrencyBlockNow();
+      requestAnimationFrame(scrollToCurrencyBlockNow);
+      setTimeout(scrollToCurrencyBlockNow, 0);
+      setTimeout(scrollToCurrencyBlockNow, 30);
+    });
+  }
   if (state.activeTab !== "chat") {
     if (shouldScrollToTalents) return;
     // If we explicitly requested a scroll-to-item, don't restore the previous scroll position
     // on this render; that restoration can race and undo the scroll, making it feel like a
     // "double click" is required.
-    if (shouldScrollToInvItem) return;
+    if (shouldScrollToInvItem || shouldScrollToCurrency) return;
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
@@ -4689,15 +4733,16 @@ function bindEvents() {
     });
   };
   const closeCurrencyModal = () => {
-    const snap = state._currencyModalScrollSnap;
+    // Instead of restoring exact scroll (Owlbear can interfere), just scroll back to the
+    // currency block after close.
     state.currencyModalOpen = false;
     state.currencyModalMode = "transfer";
     state.currencyRecipientMenuOpen = false;
     state.currencyRecipientSheetId = "";
     state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
     state.currencyPendingAction = null;
+    state._scrollToCurrencyBlock = true;
     render();
-    restoreCurrencyScroll(snap);
   };
 
   app.querySelector("#btn-currency-transfer")?.addEventListener("click", () => {
@@ -4823,13 +4868,7 @@ function bindEvents() {
       const modal = document.getElementById("currency-modal");
       if (!modal || modal.classList.contains("hidden") || !state.currencyModalOpen) return;
       e.preventDefault();
-      state.currencyModalOpen = false;
-      state.currencyModalMode = "transfer";
-      state.currencyRecipientMenuOpen = false;
-      state.currencyRecipientSheetId = "";
-      state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
-      state.currencyPendingAction = null;
-      render();
+      closeCurrencyModal();
     });
     app.dataset.currencyEscapeBound = "1";
   }
