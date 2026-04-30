@@ -2559,7 +2559,7 @@ function renderInventoryTab() {
     return `
       <div class="inv-qty-counter" data-inv-qty="${escapeAttr(id)}">
         <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="-1" aria-label="${escapeAttr(t("remove"))}">${remSvg}</button>
-        <input type="text" class="inv-qty-pill inv-qty-inp" data-inv-qty-input="${escapeAttr(id)}" value="${escapeAttr(String(v))}" inputmode="numeric" ${dis} />
+        <input type="text" class="inv-qty-pill inv-qty-inp" data-inv-qty-input="${escapeAttr(id)}" value="${escapeAttr(String(v))}" inputmode="numeric" size="2" ${dis} />
         <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="1" aria-label="${escapeAttr(t("add"))}">${addSvg}</button>
       </div>
     `;

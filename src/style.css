@@ -786,13 +786,14 @@ button:disabled {
   font-weight: 900;
 }
 .inv-qty-inp {
-  border: 3px solid var(--border);
   background: transparent;
   color: var(--text);
   text-align: center;
   padding: 0;
   margin: 0;
   outline: none;
+  width: 2.9rem;
+  flex: 0 0 auto;
 }
 
 /* Weapon/armor extras */
