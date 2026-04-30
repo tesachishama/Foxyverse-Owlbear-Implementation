@@ -2060,7 +2060,9 @@ function renderCurrencyModals() {
       <div class="modal-content inv-currency-modal-content">
         <div class="inv-currency-modal-header">
           <h3>${escapeAttr(title)}</h3>
-          <div class="inv-currency-wallet" aria-label="${escapeAttr(t("currency") || "Currency")}">${escapeAttr(walletText)}</div>
+          <div class="inv-currency-wallet-row">
+            <div class="inv-currency-wallet" aria-label="${escapeAttr(t("currency") || "Currency")}">${escapeAttr(walletText)}</div>
+          </div>
         </div>
         ${body}
         ${footer}
