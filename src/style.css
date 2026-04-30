@@ -681,11 +681,13 @@ button:disabled {
 .inv-coin-pill {
   width: 100%;
   max-width: 100%;
-  min-height: 2.6rem;
+  min-height: 2.3rem;
   display: inline-flex;
   align-items: center;
   gap: 0.12rem;
 }
+.inv-currency-row--modal .inv-coin-pill { min-height: 2.05rem; }
+.inv-coin-pill.spell-cost-pill { padding: 0.06rem 0.32rem; }
 .inv-coin-value {
   width: 100%;
   min-width: 0;
