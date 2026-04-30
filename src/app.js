@@ -188,6 +188,7 @@ const state = {
   consumableTransferItemId: "",
   consumableTransferQty: 1,
   consumableTransferPending: null, // { recipientSheetId, itemId, qty }
+  consumableTransferSection: "consumables", // inventory section key
 };
 
 function canView(sheetId) {
@@ -1760,7 +1761,13 @@ function renderConsumableTransferModal() {
   const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
   const recipId = String(state.consumableTransferRecipientSheetId || "") || (vis[0] || "");
   const recipName = state.sheetNames[recipId] || "Name Surname";
-  const items = s.consumables || [];
+  const sec = String(state.consumableTransferSection || "consumables");
+  const items =
+    sec === "weapons" ? (s.weapons || [])
+      : sec === "armor" ? (s.armor || [])
+        : sec === "bags" ? (s.bags || [])
+          : sec === "others" ? (s.others || [])
+            : (s.consumables || []);
   const itemId = String(state.consumableTransferItemId || "") || (items[0]?.id ? String(items[0].id) : "");
   const item = itemId ? (items || []).find((x) => String(x.id) === itemId) : null;
   const itemName = item?.name || (t("itemName") || "Item");
@@ -2546,11 +2553,14 @@ function renderInventoryTab() {
 
   const renderQtyCounter = (id, count) => {
     const v = Math.max(0, clampInt(count ?? 0));
+    const dis = canEdit(state.activeSheetId) ? "" : "readonly";
+    const addSvg = inlineSvg(addIcon, "inline-svg inv-qty-ico", "var(--accent)");
+    const remSvg = inlineSvg(removeIcon, "inline-svg inv-qty-ico", "var(--accent)");
     return `
       <div class="inv-qty-counter" data-inv-qty="${escapeAttr(id)}">
-        <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="-1" aria-label="${escapeAttr(t("remove"))}">−</button>
-        <div class="inv-qty-pill">${escapeAttr(String(v))}</div>
-        <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="1" aria-label="${escapeAttr(t("add"))}">+</button>
+        <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="-1" aria-label="${escapeAttr(t("remove"))}">${remSvg}</button>
+        <input type="text" class="inv-qty-pill inv-qty-inp" data-inv-qty-input="${escapeAttr(id)}" value="${escapeAttr(String(v))}" inputmode="numeric" ${dis} />
+        <button type="button" class="inv-qty-btn" data-inv-qty-delta="${escapeAttr(id)}" data-delta="1" aria-label="${escapeAttr(t("add"))}">${addSvg}</button>
       </div>
     `;
   };
@@ -2568,7 +2578,7 @@ function renderInventoryTab() {
 
     const nameNode = editing
       ? `<input type="text" class="spell-name spell-name-inp" value="${escapeAttr(name)}" data-inv-item-name="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemName") || "Item name")}" />`
-      : `<div class="spell-name-display">${escapeAttr(name || (t("itemName") || "Item"))}</div>`;
+      : `<div class="spell-name-display inv-item-title">${renderChatBody(name || (t("itemName") || "Item"))}</div>`;
 
     const descNode = editing
       ? `<textarea class="spell-effect-inp" rows="3" data-inv-item-desc="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemDescription") || "Description")}">${escapeAttr(desc)}</textarea>`
@@ -2691,10 +2701,10 @@ function renderInventoryTab() {
   };
 
   const consumablesBlock = bubble(`${sectionHeader("consumables", t("consumables") || "Consumables", { allowTransfer: true })}${renderSectionList("consumables", s.consumables || [])}`, "inv-bubble--section");
-  const weaponsBlock = bubble(`${sectionHeader("weapons", t("weapons") || "Weapons")}${renderSectionList("weapons", s.weapons || [])}`, "inv-bubble--section");
-  const armorBlock = bubble(`${sectionHeader("armor", t("armor") || "Armor")}${renderSectionList("armor", s.armor || [])}`, "inv-bubble--section");
-  const othersBlock = bubble(`${sectionHeader("others", t("others") || "Others")}${renderSectionList("others", s.others || [])}`, "inv-bubble--section");
-  const bagsBlock = bubble(`${sectionHeader("bags", t("bags") || "Bags")}${renderSectionList("bags", s.bags || [])}`, "inv-bubble--section");
+  const weaponsBlock = bubble(`${sectionHeader("weapons", t("weapons") || "Weapons", { allowTransfer: true })}${renderSectionList("weapons", s.weapons || [])}`, "inv-bubble--section");
+  const armorBlock = bubble(`${sectionHeader("armor", t("armor") || "Armor", { allowTransfer: true })}${renderSectionList("armor", s.armor || [])}`, "inv-bubble--section");
+  const othersBlock = bubble(`${sectionHeader("others", t("others") || "Others", { allowTransfer: true })}${renderSectionList("others", s.others || [])}`, "inv-bubble--section");
+  const bagsBlock = bubble(`${sectionHeader("bags", t("bags") || "Bags", { allowTransfer: true })}${renderSectionList("bags", s.bags || [])}`, "inv-bubble--section");
 
   return `
     <div class="card inventory-tab-card inventory-template">
@@ -5021,6 +5031,23 @@ function bindEvents() {
   // Inventory items: open/close
   app.querySelectorAll("[data-inv-toggle]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      // Any non-edit action should close+save current edit.
+      if (state._editingItemId && state._itemEditDraft) {
+        const id0 = String(state._editingItemId);
+        const draft0 = state._itemEditDraft;
+        const next0 = applyLocalMutation((sheet) => {
+          const it0 = findItemById(sheet, id0);
+          if (!it0) return;
+          it0.name = draft0.name || "";
+          it0.description = draft0.description || "";
+        });
+        if (state.roomId && state.activeSheetId && next0) {
+          const it0 = findItemById(next0, id0);
+          if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
+        }
+        state._editingItemId = null;
+        state._itemEditDraft = null;
+      }
       const id = btn.getAttribute("data-inv-toggle") || "";
       if (!id) return;
       state._openItems[id] = !state._openItems[id];
@@ -5033,6 +5060,23 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-inv-edit") || "";
       if (!id || !state.sheet || !canEdit(state.activeSheetId)) return;
+      // Switching to another edit target should save+close the previous one.
+      if (state._editingItemId && state._itemEditDraft && state._editingItemId !== id) {
+        const id0 = String(state._editingItemId);
+        const draft0 = state._itemEditDraft;
+        const next0 = applyLocalMutation((sheet) => {
+          const it0 = findItemById(sheet, id0);
+          if (!it0) return;
+          it0.name = draft0.name || "";
+          it0.description = draft0.description || "";
+        });
+        if (state.roomId && state.activeSheetId && next0) {
+          const it0 = findItemById(next0, id0);
+          if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
+        }
+        state._editingItemId = null;
+        state._itemEditDraft = null;
+      }
       if (state._editingItemId === id && state._itemEditDraft) {
         const draft = state._itemEditDraft;
         const wrap = document.querySelector(`.inv-item-wrap[data-inv-item-id="${CSS.escape(id)}"]`);
@@ -5095,6 +5139,26 @@ function bindEvents() {
       if (next) {
         const it = findItemById(next, id);
         if (it) storage.updateItemFields(state.roomId, state.activeSheetId, id, { quantity: Math.max(0, clampInt(it.count ?? 0)) }).catch(console.error);
+      }
+      render();
+    });
+  });
+
+  // Inventory items: quantity input (typeable even outside edit mode)
+  app.querySelectorAll("[data-inv-qty-input]").forEach((inp) => {
+    inp.addEventListener("change", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const id = inp.getAttribute("data-inv-qty-input") || "";
+      if (!id) return;
+      const v = Math.max(0, clampInt(String(inp.value || "").replace(/[^\d-]/g, "")));
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, id);
+        if (!it) return;
+        it.count = v;
+      });
+      if (next) {
+        storage.updateItemFields(state.roomId, state.activeSheetId, id, { quantity: v }).catch(console.error);
       }
       render();
     });
@@ -5220,18 +5284,38 @@ function bindEvents() {
     });
   });
 
-  // Consumables transfer modal open
-  app.querySelector("#btn-consumables-transfer")?.addEventListener("click", () => {
-    if (!state.sheet) return;
-    state.consumableTransferOpen = true;
-    state.consumableTransferMode = "draft";
-    state.consumableTransferRecipientMenuOpen = false;
-    state.consumableTransferItemMenuOpen = false;
-    state.consumableTransferRecipientSheetId = "";
-    state.consumableTransferItemId = "";
-    state.consumableTransferQty = 1;
-    state.consumableTransferPending = null;
-    render();
+  // Item transfer modal open (consumables/weapons/armor/others/bags)
+  ["consumables", "weapons", "armor", "others", "bags"].forEach((sec) => {
+    app.querySelector(`#btn-${sec}-transfer`)?.addEventListener("click", () => {
+      if (!state.sheet) return;
+      // Any non-edit action should close+save current edit.
+      if (state._editingItemId && state._itemEditDraft) {
+        const id0 = String(state._editingItemId);
+        const draft0 = state._itemEditDraft;
+        const next0 = applyLocalMutation((sheet) => {
+          const it0 = findItemById(sheet, id0);
+          if (!it0) return;
+          it0.name = draft0.name || "";
+          it0.description = draft0.description || "";
+        });
+        if (state.roomId && state.activeSheetId && next0) {
+          const it0 = findItemById(next0, id0);
+          if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
+        }
+        state._editingItemId = null;
+        state._itemEditDraft = null;
+      }
+      state.consumableTransferOpen = true;
+      state.consumableTransferMode = "draft";
+      state.consumableTransferRecipientMenuOpen = false;
+      state.consumableTransferItemMenuOpen = false;
+      state.consumableTransferRecipientSheetId = "";
+      state.consumableTransferItemId = "";
+      state.consumableTransferQty = 1;
+      state.consumableTransferPending = null;
+      state.consumableTransferSection = sec;
+      render();
+    });
   });
 
   // Consumables transfer modal controls
@@ -5298,18 +5382,34 @@ function bindEvents() {
     const recipId = String(pending.recipientSheetId || "");
     const itemId = String(pending.itemId || "");
     const qty = Math.max(1, clampInt(pending.qty || 1));
-    const senderItem = (state.sheet.consumables || []).find((it) => String(it.id) === itemId);
+    const sec = String(state.consumableTransferSection || "consumables");
+    const senderList =
+      sec === "weapons" ? (state.sheet.weapons || [])
+        : sec === "armor" ? (state.sheet.armor || [])
+          : sec === "bags" ? (state.sheet.bags || [])
+            : sec === "others" ? (state.sheet.others || [])
+              : (state.sheet.consumables || []);
+    const senderItem = senderList.find((it) => String(it.id) === itemId);
     if (!senderItem) return;
     const senderCount = Math.max(0, clampInt(senderItem.count ?? 0));
-    if (qty > senderCount) return;
+    if (qty > senderCount) {
+      try { OBR.notification.show(t("notEnoughToTransfer") || "Not enough to transfer"); } catch (_) {}
+      return;
+    }
 
     // Decrement sender
     const nextSender = applyLocalMutation((sheet) => {
-      const it = (sheet.consumables || []).find((x) => String(x.id) === itemId);
+      const arr =
+        sec === "weapons" ? (sheet.weapons || [])
+          : sec === "armor" ? (sheet.armor || [])
+            : sec === "bags" ? (sheet.bags || [])
+              : sec === "others" ? (sheet.others || [])
+                : (sheet.consumables || []);
+      const it = arr.find((x) => String(x.id) === itemId);
       if (!it) return;
       it.count = Math.max(0, clampInt(it.count ?? 0) - qty);
       if ((it.count ?? 0) <= 0) {
-        sheet.consumables = (sheet.consumables || []).filter((x) => String(x.id) !== itemId);
+        sheet[sec] = (sheet[sec] || []).filter((x) => String(x.id) !== itemId);
       }
     });
     if (state.roomId && state.activeSheetId) {
@@ -5320,7 +5420,12 @@ function bindEvents() {
     // Increment recipient (merge-or-create)
     try {
       const recipSheet = await storage.getSheet(state.roomId, recipId, { forceRefresh: true });
-      const recipItems = recipSheet?.consumables || [];
+      const recipItems =
+        sec === "weapons" ? (recipSheet?.weapons || [])
+          : sec === "armor" ? (recipSheet?.armor || [])
+            : sec === "bags" ? (recipSheet?.bags || [])
+              : sec === "others" ? (recipSheet?.others || [])
+                : (recipSheet?.consumables || []);
       const match = recipItems.find((it) =>
         String(it.name || "") === String(senderItem.name || "") &&
         String(it.description || "") === String(senderItem.description || "") &&
@@ -5331,9 +5436,10 @@ function bindEvents() {
         storage.updateItemFields(state.roomId, recipId, match.id, { quantity: cur + qty }).catch(console.error);
       } else {
         const newId = crypto.randomUUID();
+        const type = sec === "weapons" ? "weapon" : sec === "armor" ? "armor" : sec === "bags" ? "bag" : sec === "others" ? "other" : "consumable";
         storage.upsertItem(state.roomId, recipId, {
           id: newId,
-          type: "consumable",
+          type,
           position: recipItems.length,
           name: senderItem.name || "",
           description: senderItem.description || "",
