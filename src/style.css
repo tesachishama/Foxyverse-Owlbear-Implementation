@@ -686,7 +686,8 @@ button:disabled {
   align-items: center;
   gap: 0.12rem;
 }
-.inv-currency-row--modal .inv-coin-pill { min-height: 2.05rem; }
+/* Modal uses the same counter sizing as the block. */
+.inv-currency-row--modal .inv-coin-pill { min-height: 2.3rem; }
 .inv-coin-pill.spell-cost-pill {
   border: 3px solid var(--border);
   border-radius: 999px;

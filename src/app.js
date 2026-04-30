@@ -1862,19 +1862,51 @@ function subCoinsWithBorrow(cur, delta) {
   const ds = Math.max(0, clampInt(d.silver ?? 0));
   const dc = Math.max(0, clampInt(d.copper ?? 0));
 
-  c -= dc;
-  if (c < 0) {
-    const need = Math.ceil((-c) / 100);
-    s -= need;
-    c += need * 100;
-  }
-  s -= ds;
-  if (s < 0) {
-    const need = Math.ceil((-s) / 100);
-    g -= need;
-    s += need * 100;
+  // Allow minimal conversions both ways, only as needed for the payment.
+  // 1g = 100s, 1s = 100c.
+
+  // Ensure enough gold (convert up from silver/copper if needed).
+  if (g < dg) {
+    let short = dg - g;
+    const fromSilver = Math.min(short, Math.floor(s / 100));
+    if (fromSilver > 0) { s -= fromSilver * 100; g += fromSilver; short -= fromSilver; }
+    const fromCopper = Math.min(short, Math.floor(c / 10000));
+    if (fromCopper > 0) { c -= fromCopper * 10000; g += fromCopper; short -= fromCopper; }
+    if (short > 0) return null;
   }
   g -= dg;
+
+  // Ensure enough silver (convert up from copper; or down from gold if needed).
+  if (s < ds) {
+    let short = ds - s;
+    const fromCopper = Math.min(short, Math.floor(c / 100));
+    if (fromCopper > 0) { c -= fromCopper * 100; s += fromCopper; short -= fromCopper; }
+    if (short > 0) {
+      const needGold = Math.min(g, Math.ceil(short / 100));
+      if (needGold <= 0) return null;
+      g -= needGold;
+      s += needGold * 100;
+    }
+    if (s < ds) return null;
+  }
+  s -= ds;
+
+  // Ensure enough copper (convert down from silver/gold if needed).
+  if (c < dc) {
+    let short = dc - c;
+    const needSilver = Math.min(s, Math.ceil(short / 100));
+    if (needSilver > 0) { s -= needSilver; c += needSilver * 100; }
+    if (c < dc) {
+      short = dc - c;
+      const needGold = Math.min(g, Math.ceil(short / 10000));
+      if (needGold <= 0) return null;
+      g -= needGold;
+      c += needGold * 10000;
+    }
+    if (c < dc) return null;
+  }
+  c -= dc;
+
   if (g < 0 || s < 0 || c < 0) return null;
   return { gold: g, silver: s, copper: c };
 }
@@ -1988,7 +2020,15 @@ function renderCurrencyModals() {
       <div class="roll-modal-footer">
         ${mode === "add" || mode === "remove" ? `<button type="button" id="currency-simplify" class="btn-sm">${t("simplify") || "Simplify"}</button>` : ""}
         <button type="button" id="currency-cancel" class="btn-sm">${t("cancel")}</button>
-        <button type="button" id="currency-save" class="btn-sm">${mode === "transfer" ? (t("send") || "Send") : (t("save") || "Save")}</button>
+        <button type="button" id="currency-save" class="btn-sm">${
+          mode === "transfer"
+            ? (t("send") || "Send")
+            : mode === "add"
+              ? (t("add") || "Add")
+              : mode === "remove"
+                ? (t("remove") || "Remove")
+                : (t("save") || "Save")
+        }</button>
       </div>
     `;
 
@@ -4730,9 +4770,8 @@ function bindEvents() {
         draft[kind] = v;
         state.currencyDraft = draft;
       }
-      // Important: re-rendering synchronously on blur can replace the clicked button and
-      // make the user click twice (blur -> change -> render eats the click). Defer it.
-      setTimeout(() => render(), 0);
+      // Don't re-render on blur/change; it can steal the click on Save/Send.
+      // The input already shows the new value; state is updated for the upcoming action.
     });
   });
 
@@ -4785,11 +4824,12 @@ function bindEvents() {
   app.querySelector("#currency-save")?.addEventListener("click", async () => {
     if (!state.sheet || !state.roomId || !state.activeSheetId) return;
     const mode = String(state.currencyModalMode || "transfer");
-    const draft = {
-      gold: Math.max(0, clampInt(state.currencyDraft?.gold ?? 0)),
-      silver: Math.max(0, clampInt(state.currencyDraft?.silver ?? 0)),
-      copper: Math.max(0, clampInt(state.currencyDraft?.copper ?? 0)),
+    const readDraftInput = (kind) => {
+      const el = document.getElementById(`currency-draft-${kind}`);
+      if (!el) return Math.max(0, clampInt(state.currencyDraft?.[kind] ?? 0));
+      return Math.max(0, clampInt(String(el.value || "").replace(/[^\d-]/g, "")));
     };
+    const draft = { gold: readDraftInput("gold"), silver: readDraftInput("silver"), copper: readDraftInput("copper") };
     if (mode === "transfer") {
       const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
       const toId = String(state.currencyRecipientSheetId || "") || (vis[0] || "");
