@@ -412,7 +412,9 @@ Total : ${S}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
       <div class="modal-content inv-currency-modal-content">
         <div class="inv-currency-modal-header">
           <h3>${_(h)}</h3>
-          <div class="inv-currency-wallet" aria-label="${_(m("currency")||"Currency")}">${_(r)}</div>
+          <div class="inv-currency-wallet-row">
+            <div class="inv-currency-wallet" aria-label="${_(m("currency")||"Currency")}">${_(r)}</div>
+          </div>
         </div>
         ${R}
         ${k}
