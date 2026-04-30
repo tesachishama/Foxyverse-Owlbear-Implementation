@@ -613,9 +613,9 @@ export const translations = {
     selectItemToRemove: "Choisir l'objet à retirer",
     equipmentSlots: "Slots d'Équipement",
     currency: "Monnaie",
-    goldCoin: "Pièce d'or",
-    silverCoin: "Pièce d'argent",
-    copperCoin: "Pièce de cuivre",
+    goldCoin: "Pièce d'Or",
+    silverCoin: "Pièce d'Argent",
+    copperCoin: "Pièce de Cuivre",
   },
 };
 
