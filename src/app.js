@@ -1974,6 +1974,8 @@ function renderCurrencyModals() {
 
   const mode = String(state.currencyModalMode || "transfer");
   const draft = state.currencyDraft || { gold: 0, silver: 0, copper: 0 };
+  const curWallet = state.sheet?.currency || { gold: 0, silver: 0, copper: 0 };
+  const walletText = `${Math.max(0, clampInt(curWallet.gold ?? 0))}GC ${Math.max(0, clampInt(curWallet.silver ?? 0))}SC ${Math.max(0, clampInt(curWallet.copper ?? 0))}CC`;
   const vis = getVisibleSheets();
   const recipientId = String(state.currencyRecipientSheetId || "");
   const canPick = vis.filter((id) => id !== state.activeSheetId);
@@ -2056,7 +2058,10 @@ function renderCurrencyModals() {
   return `
     <div id="currency-modal" class="modal">
       <div class="modal-content inv-currency-modal-content">
-        <h3>${escapeAttr(title)}</h3>
+        <div class="inv-currency-modal-header">
+          <h3>${escapeAttr(title)}</h3>
+          <div class="inv-currency-wallet" aria-label="${escapeAttr(t("currency") || "Currency")}">${escapeAttr(walletText)}</div>
+        </div>
         ${body}
         ${footer}
       </div>

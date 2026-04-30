@@ -714,6 +714,20 @@ button:disabled {
 .inv-coin-arrows .spell-cost-arrow-svg { width: 1.15rem; height: 0.8rem; }
 .inv-currency-row--modal { margin-top: 0.4rem; }
 .inv-currency-modal-content { overflow: visible; }
+.inv-currency-modal-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.inv-currency-modal-header h3 { margin: 0; }
+.inv-currency-wallet {
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: var(--text);
+  opacity: 0.95;
+  white-space: nowrap;
+}
 .inv-currency-modal-content .inv-coin-value {
   margin: 0 !important;
   padding: 0.1rem 0.1rem !important;
