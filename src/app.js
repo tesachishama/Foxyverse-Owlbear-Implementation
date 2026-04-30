@@ -1865,46 +1865,63 @@ function subCoinsWithBorrow(cur, delta) {
   // Allow minimal conversions both ways, only as needed for the payment.
   // 1g = 100s, 1s = 100c.
 
-  // Ensure enough gold (convert up from silver/copper if needed).
-  if (g < dg) {
-    let short = dg - g;
-    const fromSilver = Math.min(short, Math.floor(s / 100));
-    if (fromSilver > 0) { s -= fromSilver * 100; g += fromSilver; short -= fromSilver; }
-    const fromCopper = Math.min(short, Math.floor(c / 10000));
-    if (fromCopper > 0) { c -= fromCopper * 10000; g += fromCopper; short -= fromCopper; }
-    if (short > 0) return null;
+  // Pay gold requirement: allow building silver from copper, then gold from silver.
+  while (g < dg) {
+    if (s >= 100) {
+      s -= 100;
+      g += 1;
+      continue;
+    }
+    if (c >= 100) {
+      const needS = 100 - s;
+      const takeC = Math.min(c, needS * 100);
+      const convS = Math.floor(takeC / 100);
+      if (convS <= 0) break;
+      c -= convS * 100;
+      s += convS;
+      continue;
+    }
+    break;
   }
+  if (g < dg) return null;
   g -= dg;
 
-  // Ensure enough silver (convert up from copper; or down from gold if needed).
-  if (s < ds) {
-    let short = ds - s;
-    const fromCopper = Math.min(short, Math.floor(c / 100));
-    if (fromCopper > 0) { c -= fromCopper * 100; s += fromCopper; short -= fromCopper; }
-    if (short > 0) {
-      const needGold = Math.min(g, Math.ceil(short / 100));
-      if (needGold <= 0) return null;
-      g -= needGold;
-      s += needGold * 100;
+  // Pay silver requirement: build from copper, or break gold if needed.
+  while (s < ds) {
+    if (c >= 100) {
+      const need = ds - s;
+      const convS = Math.min(need, Math.floor(c / 100));
+      if (convS > 0) {
+        c -= convS * 100;
+        s += convS;
+        continue;
+      }
     }
-    if (s < ds) return null;
+    if (g > 0) {
+      g -= 1;
+      s += 100;
+      continue;
+    }
+    break;
   }
+  if (s < ds) return null;
   s -= ds;
 
-  // Ensure enough copper (convert down from silver/gold if needed).
-  if (c < dc) {
-    let short = dc - c;
-    const needSilver = Math.min(s, Math.ceil(short / 100));
-    if (needSilver > 0) { s -= needSilver; c += needSilver * 100; }
-    if (c < dc) {
-      short = dc - c;
-      const needGold = Math.min(g, Math.ceil(short / 10000));
-      if (needGold <= 0) return null;
-      g -= needGold;
-      c += needGold * 10000;
+  // Pay copper requirement: break silver then gold if needed.
+  while (c < dc) {
+    if (s > 0) {
+      s -= 1;
+      c += 100;
+      continue;
     }
-    if (c < dc) return null;
+    if (g > 0) {
+      g -= 1;
+      c += 10000;
+      continue;
+    }
+    break;
   }
+  if (c < dc) return null;
   c -= dc;
 
   if (g < 0 || s < 0 || c < 0) return null;
@@ -4653,9 +4670,39 @@ function bindEvents() {
   }
 
   // Currency: open modals
+  const snapshotCurrencyScroll = () => {
+    state._currencyModalScrollSnap = getScrollSnapshot(app);
+  };
+  app.querySelector("#btn-currency-transfer")?.addEventListener("mousedown", snapshotCurrencyScroll);
+  app.querySelector("#btn-currency-add")?.addEventListener("mousedown", snapshotCurrencyScroll);
+  app.querySelector("#btn-currency-remove")?.addEventListener("mousedown", snapshotCurrencyScroll);
+
+  const restoreCurrencyScroll = (snap) => {
+    if (!snap) return;
+    requestAnimationFrame(() => {
+      const main = document.querySelector("#app main.tab-content");
+      if (main) main.scrollTop = snap.prevMainTop;
+      const se = document.scrollingElement || document.documentElement;
+      if (se) se.scrollTop = snap.prevPageTop;
+      try { window.scrollTo(0, snap.prevWinY); } catch (_) {}
+      if (app) app.scrollTop = snap.prevAppTop;
+    });
+  };
+  const closeCurrencyModal = () => {
+    const snap = state._currencyModalScrollSnap;
+    state.currencyModalOpen = false;
+    state.currencyModalMode = "transfer";
+    state.currencyRecipientMenuOpen = false;
+    state.currencyRecipientSheetId = "";
+    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+    state.currencyPendingAction = null;
+    render();
+    restoreCurrencyScroll(snap);
+  };
+
   app.querySelector("#btn-currency-transfer")?.addEventListener("click", () => {
     if (!state.sheet) return;
-    const snap = getScrollSnapshot(app);
+    const snap = state._currencyModalScrollSnap || getScrollSnapshot(app);
     state.currencyModalOpen = true;
     state.currencyModalMode = "transfer";
     state.currencyRecipientMenuOpen = false;
@@ -4665,18 +4712,11 @@ function bindEvents() {
     state._currencyModalScrollSnap = snap;
     render();
     // Owlbear sometimes jumps to top on modal mount; force restore immediately.
-    requestAnimationFrame(() => {
-      const main = document.querySelector("#app main.tab-content");
-      if (main) main.scrollTop = snap.prevMainTop;
-      const se = document.scrollingElement || document.documentElement;
-      if (se) se.scrollTop = snap.prevPageTop;
-      try { window.scrollTo(0, snap.prevWinY); } catch (_) {}
-      if (app) app.scrollTop = snap.prevAppTop;
-    });
+    restoreCurrencyScroll(snap);
   });
   app.querySelector("#btn-currency-add")?.addEventListener("click", () => {
     if (!state.sheet) return;
-    const snap = getScrollSnapshot(app);
+    const snap = state._currencyModalScrollSnap || getScrollSnapshot(app);
     state.currencyModalOpen = true;
     state.currencyModalMode = "add";
     state.currencyRecipientMenuOpen = false;
@@ -4685,18 +4725,11 @@ function bindEvents() {
     state.currencyPendingAction = null;
     state._currencyModalScrollSnap = snap;
     render();
-    requestAnimationFrame(() => {
-      const main = document.querySelector("#app main.tab-content");
-      if (main) main.scrollTop = snap.prevMainTop;
-      const se = document.scrollingElement || document.documentElement;
-      if (se) se.scrollTop = snap.prevPageTop;
-      try { window.scrollTo(0, snap.prevWinY); } catch (_) {}
-      if (app) app.scrollTop = snap.prevAppTop;
-    });
+    restoreCurrencyScroll(snap);
   });
   app.querySelector("#btn-currency-remove")?.addEventListener("click", () => {
     if (!state.sheet) return;
-    const snap = getScrollSnapshot(app);
+    const snap = state._currencyModalScrollSnap || getScrollSnapshot(app);
     state.currencyModalOpen = true;
     state.currencyModalMode = "remove";
     state.currencyRecipientMenuOpen = false;
@@ -4705,14 +4738,7 @@ function bindEvents() {
     state.currencyPendingAction = null;
     state._currencyModalScrollSnap = snap;
     render();
-    requestAnimationFrame(() => {
-      const main = document.querySelector("#app main.tab-content");
-      if (main) main.scrollTop = snap.prevMainTop;
-      const se = document.scrollingElement || document.documentElement;
-      if (se) se.scrollTop = snap.prevPageTop;
-      try { window.scrollTo(0, snap.prevWinY); } catch (_) {}
-      if (app) app.scrollTop = snap.prevAppTop;
-    });
+    restoreCurrencyScroll(snap);
   });
 
   // Currency: modal recipient dropdown
@@ -4784,24 +4810,12 @@ function bindEvents() {
       applyLocalMutation((sheet) => { sheet.currency = next; });
       storage.updateCurrency(state.roomId, state.activeSheetId, next).catch(console.error);
     }
-    state.currencyModalOpen = false;
-    state.currencyModalMode = "transfer";
-    state.currencyRecipientMenuOpen = false;
-    state.currencyRecipientSheetId = "";
-    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
-    state.currencyPendingAction = null;
-    render();
+    closeCurrencyModal();
   });
 
   // Currency: cancel / esc
   app.querySelector("#currency-cancel")?.addEventListener("click", () => {
-    state.currencyModalOpen = false;
-    state.currencyModalMode = "transfer";
-    state.currencyRecipientMenuOpen = false;
-    state.currencyRecipientSheetId = "";
-    state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
-    state.currencyPendingAction = null;
-    render();
+    closeCurrencyModal();
   });
   if (!app.dataset.currencyEscapeBound) {
     document.addEventListener("keydown", (e) => {
@@ -4844,8 +4858,7 @@ function bindEvents() {
       const next = addCoinsExact(cur, draft);
       applyLocalMutation((sheet) => { sheet.currency = next; });
       storage.updateCurrency(state.roomId, state.activeSheetId, next).catch(console.error);
-      state.currencyModalOpen = false;
-      render();
+        closeCurrencyModal();
       return;
     }
     if (mode === "remove") {
@@ -4862,8 +4875,7 @@ function bindEvents() {
       }
       applyLocalMutation((sheet) => { sheet.currency = next; });
       storage.updateCurrency(state.roomId, state.activeSheetId, next).catch(console.error);
-      state.currencyModalOpen = false;
-      render();
+      closeCurrencyModal();
     }
   });
 
@@ -4914,7 +4926,7 @@ function bindEvents() {
     state.currencyModalOpen = false;
     state.currencyModalMode = "transfer";
     state.currencyPendingAction = null;
-    render();
+    closeCurrencyModal();
   });
 
   app.querySelectorAll(".equip-select").forEach((el) => {

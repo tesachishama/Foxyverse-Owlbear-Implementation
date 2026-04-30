@@ -720,6 +720,11 @@ button:disabled {
   border: none !important;
   background: transparent !important;
 }
+.inv-currency-modal-content .inv-coin-pill button,
+.inv-currency-modal-content .inv-coin-pill .spell-cost-arrow-btn,
+.inv-currency-modal-content .inv-coin-pill input {
+  margin: 0 !important;
+}
 .inv-currency-modal-content .roll-modal-footer {
   flex-wrap: nowrap;
   justify-content: flex-end;
