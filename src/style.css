@@ -760,6 +760,7 @@ button:disabled {
 
 /* Inventory item list (reuses spell list primitives) */
 .inv-item-row { grid-template-columns: auto 1fr auto auto; }
+.inv-item-row .inv-qty-counter { margin-left: 0.18rem; }
 .inv-qty-counter { display: inline-flex; align-items: center; gap: 0.08rem; }
 .inv-qty-btn {
   width: 1.75rem;

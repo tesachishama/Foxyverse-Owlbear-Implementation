@@ -2700,11 +2700,12 @@ function renderInventoryTab() {
     return `<div class="spell-list inv-list" data-inv-list="${escapeAttr(sectionKey)}">${list}</div>`;
   };
 
-  const consumablesBlock = bubble(`${sectionHeader("consumables", t("consumables") || "Consumables", { allowTransfer: true })}${renderSectionList("consumables", s.consumables || [])}`, "inv-bubble--section");
-  const weaponsBlock = bubble(`${sectionHeader("weapons", t("weapons") || "Weapons", { allowTransfer: true })}${renderSectionList("weapons", s.weapons || [])}`, "inv-bubble--section");
-  const armorBlock = bubble(`${sectionHeader("armor", t("armor") || "Armor", { allowTransfer: true })}${renderSectionList("armor", s.armor || [])}`, "inv-bubble--section");
-  const othersBlock = bubble(`${sectionHeader("others", t("others") || "Others", { allowTransfer: true })}${renderSectionList("others", s.others || [])}`, "inv-bubble--section");
-  const bagsBlock = bubble(`${sectionHeader("bags", t("bags") || "Bags", { allowTransfer: true })}${renderSectionList("bags", s.bags || [])}`, "inv-bubble--section");
+  const wrapSection = (key, html) => `<div id="inv-sec-${escapeAttr(key)}">${html}</div>`;
+  const consumablesBlock = wrapSection("consumables", bubble(`${sectionHeader("consumables", t("consumables") || "Consumables", { allowTransfer: true })}${renderSectionList("consumables", s.consumables || [])}`, "inv-bubble--section"));
+  const weaponsBlock = wrapSection("weapons", bubble(`${sectionHeader("weapons", t("weapons") || "Weapons", { allowTransfer: true })}${renderSectionList("weapons", s.weapons || [])}`, "inv-bubble--section"));
+  const armorBlock = wrapSection("armor", bubble(`${sectionHeader("armor", t("armor") || "Armor", { allowTransfer: true })}${renderSectionList("armor", s.armor || [])}`, "inv-bubble--section"));
+  const othersBlock = wrapSection("others", bubble(`${sectionHeader("others", t("others") || "Others", { allowTransfer: true })}${renderSectionList("others", s.others || [])}`, "inv-bubble--section"));
+  const bagsBlock = wrapSection("bags", bubble(`${sectionHeader("bags", t("bags") || "Bags", { allowTransfer: true })}${renderSectionList("bags", s.bags || [])}`, "inv-bubble--section"));
 
   return `
     <div class="card inventory-tab-card inventory-template">
@@ -3393,6 +3394,42 @@ function render() {
     return did;
   };
 
+  const scrollToInvSectionNow = (sectionKey) => {
+    const key = String(sectionKey || "").trim();
+    if (!key) return false;
+    const targetEl = document.getElementById(`inv-sec-${key}`);
+    if (!targetEl) return false;
+    const containers = [
+      app.querySelector("main.tab-content"),
+      app,
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter(Boolean);
+    let did = false;
+    for (const c of containers) {
+      try {
+        const cRect = c.getBoundingClientRect ? c.getBoundingClientRect() : null;
+        const tRect = targetEl.getBoundingClientRect ? targetEl.getBoundingClientRect() : null;
+        if (!cRect || !tRect) continue;
+        const delta = tRect.top - cRect.top;
+        if (!Number.isFinite(delta)) continue;
+        if (typeof c.scrollTop === "number") {
+          c.scrollTop = Math.max(0, c.scrollTop + delta - 8);
+          did = true;
+        }
+      } catch (_) {}
+    }
+    try {
+      const tRect = targetEl.getBoundingClientRect();
+      if (tRect && Number.isFinite(tRect.top)) {
+        window.scrollTo(0, (window.scrollY || 0) + tRect.top - 60);
+        did = true;
+      }
+    } catch (_) {}
+    return did;
+  };
+
   const shouldScrollToTalents = state.activeTab === "stats" && state._scrollToTalents;
   if (shouldScrollToTalents) {
     state._scrollToTalents = false;
@@ -3430,12 +3467,23 @@ function render() {
       setTimeout(scrollToCurrencyBlockNow, 30);
     });
   }
+  const shouldScrollToInvSection = state.activeTab === "inventory" && !!state._scrollToInvSectionKey;
+  if (shouldScrollToInvSection) {
+    const key = String(state._scrollToInvSectionKey || "");
+    state._scrollToInvSectionKey = "";
+    requestAnimationFrame(() => {
+      scrollToInvSectionNow(key);
+      requestAnimationFrame(() => scrollToInvSectionNow(key));
+      setTimeout(() => scrollToInvSectionNow(key), 0);
+      setTimeout(() => scrollToInvSectionNow(key), 30);
+    });
+  }
   if (state.activeTab !== "chat") {
     if (shouldScrollToTalents) return;
     // If we explicitly requested a scroll-to-item, don't restore the previous scroll position
     // on this render; that restoration can race and undo the scroll, making it feel like a
     // "double click" is required.
-    if (shouldScrollToInvItem || shouldScrollToCurrency) return;
+    if (shouldScrollToInvItem || shouldScrollToCurrency || shouldScrollToInvSection) return;
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
@@ -5031,25 +5079,31 @@ function bindEvents() {
   // Inventory items: open/close
   app.querySelectorAll("[data-inv-toggle]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      // Any non-edit action should close+save current edit.
-      if (state._editingItemId && state._itemEditDraft) {
-        const id0 = String(state._editingItemId);
-        const draft0 = state._itemEditDraft;
-        const next0 = applyLocalMutation((sheet) => {
-          const it0 = findItemById(sheet, id0);
-          if (!it0) return;
-          it0.name = draft0.name || "";
-          it0.description = draft0.description || "";
-        });
-        if (state.roomId && state.activeSheetId && next0) {
-          const it0 = findItemById(next0, id0);
-          if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
-        }
-        state._editingItemId = null;
-        state._itemEditDraft = null;
-      }
       const id = btn.getAttribute("data-inv-toggle") || "";
       if (!id) return;
+      const editingId = state._editingItemId ? String(state._editingItemId) : "";
+      const isEditingThis = editingId && editingId === String(id);
+      const isEditingOther = editingId && editingId !== String(id);
+      const isCurrentlyOpen = !!state._openItems?.[id];
+      // Rule: toggling another item exits edit mode; toggling the edited item only exits on collapse.
+      if (isEditingOther || (isEditingThis && isCurrentlyOpen)) {
+        const id0 = editingId;
+        const draft0 = state._itemEditDraft;
+        if (id0 && draft0) {
+          const next0 = applyLocalMutation((sheet) => {
+            const it0 = findItemById(sheet, id0);
+            if (!it0) return;
+            it0.name = draft0.name || "";
+            it0.description = draft0.description || "";
+          });
+          if (state.roomId && state.activeSheetId && next0) {
+            const it0 = findItemById(next0, id0);
+            if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
+          }
+          state._editingItemId = null;
+          state._itemEditDraft = null;
+        }
+      }
       state._openItems[id] = !state._openItems[id];
       render();
     });
@@ -5244,6 +5298,23 @@ function bindEvents() {
     app.querySelector(`#btn-${sec}-add`)?.addEventListener("click", () => {
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
+      // Save+close any active item edit before mutating lists.
+      if (state._editingItemId && state._itemEditDraft) {
+        const id0 = String(state._editingItemId);
+        const draft0 = state._itemEditDraft;
+        const next0 = applyLocalMutation((sheet) => {
+          const it0 = findItemById(sheet, id0);
+          if (!it0) return;
+          it0.name = draft0.name || "";
+          it0.description = draft0.description || "";
+        });
+        if (state.roomId && state.activeSheetId && next0) {
+          const it0 = findItemById(next0, id0);
+          if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
+        }
+        state._editingItemId = null;
+        state._itemEditDraft = null;
+      }
       const id = crypto.randomUUID();
       const type = sec === "weapons" ? "weapon" : sec === "armor" ? "armor" : sec === "consumables" ? "consumable" : sec === "bags" ? "bag" : "other";
       const next = applyLocalMutation((sheet) => {
@@ -5276,6 +5347,23 @@ function bindEvents() {
     });
     app.querySelector(`#btn-${sec}-remove`)?.addEventListener("click", () => {
       if (!canEdit(state.activeSheetId)) return;
+      // Save+close any active item edit before opening modals.
+      if (state._editingItemId && state._itemEditDraft) {
+        const id0 = String(state._editingItemId);
+        const draft0 = state._itemEditDraft;
+        const next0 = applyLocalMutation((sheet) => {
+          const it0 = findItemById(sheet, id0);
+          if (!it0) return;
+          it0.name = draft0.name || "";
+          it0.description = draft0.description || "";
+        });
+        if (state.roomId && state.activeSheetId && next0) {
+          const it0 = findItemById(next0, id0);
+          if (it0) storage.updateItemFields(state.roomId, state.activeSheetId, id0, { name: it0.name || "", description: it0.description || "" }).catch(console.error);
+        }
+        state._editingItemId = null;
+        state._itemEditDraft = null;
+      }
       state.itemRemoveModalOpen = true;
       state.itemRemoveMenuOpen = false;
       state.itemRemoveSection = sec;
@@ -5352,6 +5440,7 @@ function bindEvents() {
     render();
   });
   app.querySelector("#cons-xfer-cancel")?.addEventListener("click", () => {
+    const secKey = String(state.consumableTransferSection || "consumables");
     state.consumableTransferOpen = false;
     state.consumableTransferMode = "draft";
     state.consumableTransferRecipientMenuOpen = false;
@@ -5360,6 +5449,7 @@ function bindEvents() {
     state.consumableTransferItemId = "";
     state.consumableTransferQty = 1;
     state.consumableTransferPending = null;
+    state._scrollToInvSectionKey = secKey;
     render();
   });
   app.querySelector("#cons-xfer-send")?.addEventListener("click", () => {
@@ -5476,6 +5566,7 @@ function bindEvents() {
       console.error(err);
     }
 
+    const secKey = String(state.consumableTransferSection || "consumables");
     state.consumableTransferOpen = false;
     state.consumableTransferMode = "draft";
     state.consumableTransferRecipientMenuOpen = false;
@@ -5484,6 +5575,7 @@ function bindEvents() {
     state.consumableTransferItemId = "";
     state.consumableTransferQty = 1;
     state.consumableTransferPending = null;
+    state._scrollToInvSectionKey = secKey;
     render();
   });
 
@@ -5500,10 +5592,12 @@ function bindEvents() {
     });
   });
   app.querySelector("#item-remove-cancel")?.addEventListener("click", () => {
+    const secKey = String(state.itemRemoveSection || "");
     state.itemRemoveModalOpen = false;
     state.itemRemoveMenuOpen = false;
     state.itemRemoveSection = "";
     state.itemRemoveSelectedId = "";
+    if (secKey) state._scrollToInvSectionKey = secKey;
     render();
   });
   app.querySelector("#item-remove-confirm")?.addEventListener("click", () => {
@@ -5527,8 +5621,44 @@ function bindEvents() {
     state.itemRemoveMenuOpen = false;
     state.itemRemoveSection = "";
     state.itemRemoveSelectedId = "";
+    state._scrollToInvSectionKey = sec;
     render();
   });
+
+  // ESC closes item remove / item transfer modals
+  if (!app.dataset.invModalEscapeBound) {
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const rm = document.getElementById("item-remove-modal");
+      const tr = document.getElementById("consumable-transfer-modal");
+      if (rm && state.itemRemoveModalOpen) {
+        e.preventDefault();
+        const secKey = String(state.itemRemoveSection || "");
+        state.itemRemoveModalOpen = false;
+        state.itemRemoveMenuOpen = false;
+        state.itemRemoveSection = "";
+        state.itemRemoveSelectedId = "";
+        if (secKey) state._scrollToInvSectionKey = secKey;
+        render();
+        return;
+      }
+      if (tr && state.consumableTransferOpen) {
+        e.preventDefault();
+        const secKey = String(state.consumableTransferSection || "consumables");
+        state.consumableTransferOpen = false;
+        state.consumableTransferMode = "draft";
+        state.consumableTransferRecipientMenuOpen = false;
+        state.consumableTransferItemMenuOpen = false;
+        state.consumableTransferRecipientSheetId = "";
+        state.consumableTransferItemId = "";
+        state.consumableTransferQty = 1;
+        state.consumableTransferPending = null;
+        if (secKey) state._scrollToInvSectionKey = secKey;
+        render();
+      }
+    });
+    app.dataset.invModalEscapeBound = "1";
+  }
 
   app.querySelectorAll("[data-toggle-item]").forEach((el) => {
     el.addEventListener("click", () => {
