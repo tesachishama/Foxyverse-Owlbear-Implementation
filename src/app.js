@@ -1987,9 +1987,8 @@ function renderCurrencyModals() {
     : `
       <div class="roll-modal-footer">
         ${mode === "add" || mode === "remove" ? `<button type="button" id="currency-simplify" class="btn-sm">${t("simplify") || "Simplify"}</button>` : ""}
-        <div style="flex:1"></div>
-        <button type="button" id="currency-save" class="btn-sm">${mode === "transfer" ? (t("send") || "Send") : (t("save") || "Save")}</button>
         <button type="button" id="currency-cancel" class="btn-sm">${t("cancel")}</button>
+        <button type="button" id="currency-save" class="btn-sm">${mode === "transfer" ? (t("send") || "Send") : (t("save") || "Save")}</button>
       </div>
     `;
 
@@ -4731,7 +4730,9 @@ function bindEvents() {
         draft[kind] = v;
         state.currencyDraft = draft;
       }
-      render();
+      // Important: re-rendering synchronously on blur can replace the clicked button and
+      // make the user click twice (blur -> change -> render eats the click). Defer it.
+      setTimeout(() => render(), 0);
     });
   });
 

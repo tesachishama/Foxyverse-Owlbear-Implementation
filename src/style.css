@@ -687,7 +687,16 @@ button:disabled {
   gap: 0.12rem;
 }
 .inv-currency-row--modal .inv-coin-pill { min-height: 2.05rem; }
-.inv-coin-pill.spell-cost-pill { padding: 0.06rem 0.32rem; }
+.inv-coin-pill.spell-cost-pill {
+  border: 3px solid var(--border);
+  border-radius: 999px;
+  padding: 0.08rem 0.38rem;
+  justify-content: space-between;
+}
+.inv-coin-arrows.spell-cost-arrows { margin-left: 0; gap: 0.05rem; }
+.inv-coin-arrows .spell-cost-arrow-btn { width: 1.55rem; height: 1.45rem; }
+.inv-coin-arrows .spell-cost-arrow-svg { width: 1.25rem; height: 0.9rem; }
+.inv-coin-value { padding: 0.05rem 0.1rem; }
 .inv-coin-value {
   width: 100%;
   min-width: 0;
@@ -711,9 +720,9 @@ button:disabled {
   background: transparent !important;
 }
 .inv-currency-modal-content .roll-modal-footer {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 .inv-currency-modal-content .roll-modal-footer .btn-sm {
   margin-right: 0 !important;
