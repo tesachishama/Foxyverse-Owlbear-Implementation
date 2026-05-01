@@ -751,7 +751,7 @@ button:disabled {
 .inv-currency-modal-content .roll-modal-footer .btn-sm {
   margin-right: 0 !important;
 }
-.inv-currency-confirm-text { margin: 0.35rem 0 0.2rem; margin-right: -0.5rem; }
+.inv-currency-confirm-text { margin: 0.35rem 0 0.2rem;}
 
 /* Section placeholder (real list comes later) */
 .inv-section-placeholder {
@@ -760,7 +760,7 @@ button:disabled {
 
 /* Inventory item list (reuses spell list primitives) */
 .inv-item-row { grid-template-columns: auto 1fr auto auto; }
-.inv-item-row .inv-qty-counter { margin-left: 0rem; }
+.inv-item-row .inv-qty-counter { margin-left: 0rem;  margin-right: -0.5rem; }
 .inv-qty-counter { display: inline-flex; align-items: center; gap: 0.08rem; }
 .inv-qty-btn {
   width: 1.75rem;
