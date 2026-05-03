@@ -67,7 +67,7 @@ import {
   getSheetDefense,
   getSheetMagicalDefense,
 } from "./data/schema.js";
-import { evalEquipSlotsExpr } from "./data/equipSlots.js";
+import { evalEquipSlotsExpr, canonizeSlotToken } from "./data/equipSlots.js";
 import * as storage from "./data/storage.js";
 import {
   executeRoll,
@@ -338,6 +338,44 @@ function computeUsedSlots(sheet, item) {
   if (equippedSlots.length) out.equippedSlots = equippedSlots;
   if (item.weaponSlots != null) out.weaponSlots = item.weaponSlots;
   return Object.keys(out).length ? out : null;
+}
+
+/** DB shape for `used_slots` from current item fields (equippedSlots + optional weaponSlots). */
+function packItemUsedSlotsForDb(item) {
+  const out = {};
+  const arr = item?.usedSlots?.equippedSlots;
+  if (Array.isArray(arr) && arr.length) out.equippedSlots = arr;
+  if (item?.weaponSlots != null) out.weaponSlots = item.weaponSlots;
+  return Object.keys(out).length ? out : null;
+}
+
+/** Rebuild `sheet.equipped` from all items' `usedSlots.equippedSlots` (single source of truth). */
+function rebuildSheetEquippedFromUsedSlots(sheet) {
+  if (!sheet) return;
+  const eq = {};
+  const all = [
+    ...(sheet.consumables || []),
+    ...(sheet.weapons || []),
+    ...(sheet.armor || []),
+    ...(sheet.others || []),
+    ...(sheet.bags || []),
+  ];
+  all.forEach((it) => {
+    const xs = it?.usedSlots?.equippedSlots;
+    if (!Array.isArray(xs)) return;
+    xs.forEach((slotId) => {
+      if (slotId == null || String(slotId) === "") return;
+      const c = canonizeSlotToken(slotId);
+      const key = c || String(slotId);
+      if (c === "other") {
+        eq.other = it.id;
+        return;
+      }
+      if (c) eq[c] = it.id;
+      else eq[String(slotId)] = it.id;
+    });
+  });
+  sheet.equipped = eq;
 }
 
 function computeUsableSlots(item) {
@@ -2401,7 +2439,7 @@ function renderInventoryTab() {
       const slots = it?.usedSlots?.equippedSlots;
       if (!id || !Array.isArray(slots) || !slots.length) return;
       slots.forEach((raw) => {
-        const canon = SLOT_LEGACY_TO_CANON[raw] || String(raw || "").toLowerCase();
+        const canon = canonizeSlotToken(raw) || SLOT_LEGACY_TO_CANON[raw] || String(raw || "").toLowerCase();
         if (!canon || canon === "other") return;
         canonToItem[canon] = id;
       });
@@ -2409,7 +2447,7 @@ function renderInventoryTab() {
     // Backward-compat fallback: legacy cache
     const eq = s.equipped || {};
     Object.entries(eq).forEach(([legacySlot, itemId]) => {
-      const canon = SLOT_LEGACY_TO_CANON[legacySlot] || null;
+      const canon = canonizeSlotToken(legacySlot) || SLOT_LEGACY_TO_CANON[legacySlot] || null;
       if (!canon || !itemId) return;
       if (!canonToItem[canon]) canonToItem[canon] = itemId;
     });
@@ -2588,13 +2626,21 @@ function renderInventoryTab() {
       const v = clampInt(n);
       return v > 0 ? `+${v}` : String(v);
     };
-    const invMiniStepper = (field, value, { minWidth = "2.4rem" } = {}) => {
-      const v = clampInt(value);
+    const invItemStatKey = (itemId, field) => `invitem|${itemId}|${field}`;
+    const invItemStatStepper = (field, value) => {
+      const k = invItemStatKey(id, field);
+      const v = clampInt(value ?? 0);
+      const dis = editable ? "" : " disabled";
+      const ro = editable ? "" : " readonly";
+      const up = inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)");
+      const down = inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)");
       return `
-        <div class="inv-mini-stepper" data-inv-mini-stepper="${escapeAttr(id)}:${escapeAttr(field)}">
-          <button type="button" class="inv-mini-btn" data-inv-mini-delta="${escapeAttr(id)}" data-field="${escapeAttr(field)}" data-delta="-1" aria-label="${escapeAttr(t("remove"))}">−</button>
-          <div class="inv-mini-pill" style="min-width:${escapeAttr(minWidth)}">${escapeAttr(signed(v))}</div>
-          <button type="button" class="inv-mini-btn" data-inv-mini-delta="${escapeAttr(id)}" data-field="${escapeAttr(field)}" data-delta="1" aria-label="${escapeAttr(t("add"))}">+</button>
+        <div class="stats-pill-stepper inv-item-stat-stepper" data-inv-item-stat-wrap="${escapeAttr(k)}" data-signed="1" data-allow-negative="1">
+          <input type="text" class="stats-pill-input" inputmode="numeric" data-inv-item-stat-input="${escapeAttr(k)}" value="${escapeAttr(signed(v))}"${ro} spellcheck="false" aria-label="${escapeAttr(field)}" />
+          <div class="stats-pill-arrows">
+            <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${up}</button>
+            <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="-1"${dis} aria-label="${escapeAttr(t("remove"))}">${down}</button>
+          </div>
         </div>
       `;
     };
@@ -2611,7 +2657,7 @@ function renderInventoryTab() {
             return `
               <div class="inv-item-strip-col">
                 <div class="inv-item-strip-lbl">${escapeAttr(statAbbr[idx])}</div>
-                ${editing ? invMiniStepper(k, val) : `<div class="inv-mini-pill inv-mini-pill--ro">${escapeAttr(signed(val))}</div>`}
+                ${invItemStatStepper(k, val)}
               </div>
             `;
           }).join("")}
@@ -2622,11 +2668,11 @@ function renderInventoryTab() {
         <div class="inv-armor-def-row">
           <div class="inv-armor-def-col">
             <div class="inv-armor-def-lbl">${escapeAttr(t("physicalDefense") || "Physical Defense")}</div>
-            ${editing ? invMiniStepper("physical_defense", clampInt(it.defense ?? 0), { minWidth: "3.2rem" }) : `<div class="inv-mini-pill inv-mini-pill--ro" style="min-width:3.2rem">${escapeAttr(signed(clampInt(it.defense ?? 0)))}</div>`}
+            ${invItemStatStepper("physical_defense", clampInt(it.defense ?? 0))}
           </div>
           <div class="inv-armor-def-col">
             <div class="inv-armor-def-lbl">${escapeAttr(t("magicDefense") || "Magical Defense")}</div>
-            ${editing ? invMiniStepper("magical_defense", clampInt(it.magicalDefense ?? 0), { minWidth: "3.2rem" }) : `<div class="inv-mini-pill inv-mini-pill--ro" style="min-width:3.2rem">${escapeAttr(signed(clampInt(it.magicalDefense ?? 0)))}</div>`}
+            ${invItemStatStepper("magical_defense", clampInt(it.magicalDefense ?? 0))}
           </div>
         </div>
       ` : "";
@@ -2634,10 +2680,28 @@ function renderInventoryTab() {
       const exprText = String(it.equippableExpr || "").trim();
       const usable = exprText ? exprText : "";
       const { options } = usable ? evalEquipSlotsExpr(usable) : { options: [] };
-      const canonEq = Object.entries((s.equipped || {}))
-        .map(([k, v]) => ({ slot: SLOT_LEGACY_TO_CANON[k], itemId: v }))
-        .filter((x) => x.slot && x.itemId);
-      const occupied = new Set(canonEq.filter((x) => String(x.itemId) !== String(id)).map((x) => x.slot).filter((x) => x && x !== "other"));
+      const occupied = new Set();
+      const occItems = [
+        ...(s.consumables || []),
+        ...(s.weapons || []),
+        ...(s.armor || []),
+        ...(s.others || []),
+        ...(s.bags || []),
+      ];
+      occItems.forEach((oit) => {
+        if (!oit || String(oit.id) === String(id)) return;
+        const arr = oit?.usedSlots?.equippedSlots;
+        if (!Array.isArray(arr) || !arr.length) return;
+        arr.forEach((raw) => {
+          const c = canonizeSlotToken(raw) || SLOT_LEGACY_TO_CANON[raw] || String(raw || "").toLowerCase();
+          if (c && c !== "other") occupied.add(c);
+        });
+      });
+      Object.entries(s.equipped || {}).forEach(([legacyKey, itemId]) => {
+        if (!itemId || String(itemId) === String(id)) return;
+        const c = canonizeSlotToken(legacyKey) || SLOT_LEGACY_TO_CANON[legacyKey] || null;
+        if (c && c !== "other") occupied.add(c);
+      });
       const choices = [
         { key: "unequipped", label: t("unequipped") || "Unequipped", slots: [] },
         ...options.map((slots) => ({ key: slots.join("+"), label: slots.join(" + "), slots })),
@@ -2647,7 +2711,10 @@ function renderInventoryTab() {
       const selectedKey = selectedSlots.length ? selectedSlots.join("+") : "unequipped";
 
       const menuItems = choices.map((c) => {
-        const disabled = c.slots.some((sl) => sl !== "other" && occupied.has(sl));
+        const disabled = c.slots.some((sl) => {
+          const cc = canonizeSlotToken(sl) || SLOT_LEGACY_TO_CANON[sl] || String(sl || "").toLowerCase();
+          return cc && cc !== "other" && occupied.has(cc);
+        });
         return { ...c, disabled };
       }).sort((a, b) => Number(!!a.disabled) - Number(!!b.disabled));
 
@@ -5218,35 +5285,97 @@ function bindEvents() {
     });
   });
 
-  // Inventory items: weapon/armor mini steppers (stats + defenses)
-  app.querySelectorAll("[data-inv-mini-delta]").forEach((btn) => {
+  // Inventory items: weapon/armor stat steppers (same control pattern as Stats tab)
+  app.querySelectorAll("[data-inv-item-stat-delta]").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
-      const id = btn.getAttribute("data-inv-mini-delta") || "";
-      const field = btn.getAttribute("data-field") || "";
-      const delta = Number(btn.getAttribute("data-delta")) || 0;
-      if (!id || !field) return;
+      if (btn.disabled) return;
+      const key = btn.getAttribute("data-inv-item-stat-delta") || "";
+      const delta = Number(btn.getAttribute("data-delta"));
+      if (!key || !Number.isFinite(delta) || delta === 0) return;
+      const wrap = app.querySelector(`[data-inv-item-stat-wrap="${CSS.escape(key)}"]`);
+      if (!wrap) return;
+      const m = key.match(/^invitem\|([^|]+)\|(.+)$/);
+      if (!m) return;
+      const itemId = m[1];
+      const field = m[2];
+      const applyClamp = (v) => clampIntForStepperWrap(v, wrap);
       const next = applyLocalMutation((sheet) => {
-        const it = findItemById(sheet, id);
+        const it = findItemById(sheet, itemId);
         if (!it) return;
-        if (field === "physical_defense") it.defense = clampInt((it.defense ?? 0) + delta);
-        else if (field === "magical_defense") it.magicalDefense = clampInt((it.magicalDefense ?? 0) + delta);
-        else it[field] = clampInt((it[field] ?? 0) + delta);
+        if (field === "physical_defense") it.defense = applyClamp((it.defense ?? 0) + delta);
+        else if (field === "magical_defense") it.magicalDefense = applyClamp((it.magicalDefense ?? 0) + delta);
+        else it[field] = applyClamp((it[field] ?? 0) + delta);
       });
       if (next) {
-        const it = findItemById(next, id);
+        const it = findItemById(next, itemId);
         if (it) {
           const patch = {};
           if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
           else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
           else patch[field] = clampInt(it[field] ?? 0);
-          storage.updateItemFields(state.roomId, state.activeSheetId, id, patch).catch(console.error);
+          storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
         }
       }
       render();
     });
   });
+
+  if (!app.dataset.invItemStatBlurBound) {
+    app.addEventListener("focusout", (e) => {
+      const inp = e.target;
+      if (!inp || inp.tagName !== "INPUT" || !inp.getAttribute("data-inv-item-stat-input")) return;
+      if (!app.contains(inp)) return;
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      if (inp.readOnly || inp.disabled) return;
+      const key = inp.getAttribute("data-inv-item-stat-input") || "";
+      const wrap = inp.closest("[data-inv-item-stat-wrap]");
+      if (!key || !wrap) return;
+      const m = key.match(/^invitem\|([^|]+)\|(.+)$/);
+      if (!m) return;
+      const itemId = m[1];
+      const field = m[2];
+      const parsed = parseStatsStepperRawInput(inp.value, wrap);
+      if (parsed === null) {
+        render();
+        return;
+      }
+      const nxt = clampIntForStepperWrap(parsed, wrap);
+      const curIt = findItemById(state.sheet, itemId);
+      if (!curIt) return;
+      const cur =
+        field === "physical_defense"
+          ? Number(curIt.defense) || 0
+          : field === "magical_defense"
+            ? Number(curIt.magicalDefense) || 0
+            : Number(curIt[field]) || 0;
+      if (nxt === cur) {
+        render();
+        return;
+      }
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, itemId);
+        if (!it) return;
+        if (field === "physical_defense") it.defense = nxt;
+        else if (field === "magical_defense") it.magicalDefense = nxt;
+        else it[field] = nxt;
+      });
+      if (next) {
+        const it = findItemById(next, itemId);
+        if (it) {
+          const patch = {};
+          if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
+          else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
+          else patch[field] = clampInt(it[field] ?? 0);
+          storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
+        }
+      }
+      render();
+    });
+    app.dataset.invItemStatBlurBound = "1";
+  }
 
   // Inventory items: slots dropdown/menu
   app.querySelectorAll("[data-inv-slot-menu]").forEach((btn) => {
@@ -5261,17 +5390,51 @@ function bindEvents() {
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
       if (btn.disabled) return;
-      const id = btn.getAttribute("data-inv-slot-pick") || "";
+      const ownerId = btn.getAttribute("data-inv-slot-pick") || "";
       const slotsJson = btn.getAttribute("data-slot-json") || "[]";
-      let slots = [];
-      try { slots = JSON.parse(slotsJson); } catch (_) { slots = []; }
-      const used = slots && slots.length ? { equippedSlots: slots } : null;
+      let chosenSlots = [];
+      try { chosenSlots = JSON.parse(slotsJson); } catch (_) { chosenSlots = []; }
+      if (!Array.isArray(chosenSlots)) chosenSlots = [];
+      const chosenCanon = new Set(
+        chosenSlots.map((sl) => canonizeSlotToken(sl) || "").filter(Boolean).filter((c) => c !== "other"),
+      );
+      const dirtyIds = new Set();
       const next = applyLocalMutation((sheet) => {
-        const it = findItemById(sheet, id);
+        if (!findItemById(sheet, ownerId)) return;
+        const all = [
+          ...(sheet.consumables || []),
+          ...(sheet.weapons || []),
+          ...(sheet.armor || []),
+          ...(sheet.others || []),
+          ...(sheet.bags || []),
+        ];
+        all.forEach((oit) => {
+          if (!oit || String(oit.id) === String(ownerId)) return;
+          const arr = oit?.usedSlots?.equippedSlots;
+          if (!Array.isArray(arr) || !arr.length) return;
+          const filtered = arr.filter((raw) => {
+            const c = canonizeSlotToken(raw);
+            if (!c) return true;
+            if (c === "other") return true;
+            return !chosenCanon.has(c);
+          });
+          if (filtered.length === arr.length) return;
+          oit.usedSlots = filtered.length ? { equippedSlots: filtered } : null;
+          dirtyIds.add(oit.id);
+        });
+        const it = findItemById(sheet, ownerId);
         if (!it) return;
-        it.usedSlots = used;
+        it.usedSlots = chosenSlots.length ? { equippedSlots: chosenSlots } : null;
+        dirtyIds.add(ownerId);
+        rebuildSheetEquippedFromUsedSlots(sheet);
       });
-      storage.updateItemFields(state.roomId, state.activeSheetId, id, { used_slots: used }).catch(console.error);
+      if (next) {
+        dirtyIds.forEach((iid) => {
+          const it = findItemById(next, iid);
+          if (!it) return;
+          storage.updateItemFields(state.roomId, state.activeSheetId, iid, { used_slots: packItemUsedSlotsForDb(it) }).catch(console.error);
+        });
+      }
       state.invSlotMenuOpenFor = "";
       render();
     });

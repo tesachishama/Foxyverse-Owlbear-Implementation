@@ -80,6 +80,15 @@ export const SLOT_ALIASES = Object.freeze({
   other: "other", autre: "other",
 });
 
+/** Resolve a slot token (alias, FR/EN, legacy PascalCase, or canonical id) to a canonical slot id. */
+export function canonizeSlotToken(raw) {
+  const k = normKey(raw);
+  if (!k) return null;
+  if (SLOT_ALIASES[k]) return SLOT_ALIASES[k];
+  if (CANONICAL_SLOTS.includes(k)) return k;
+  return null;
+}
+
 const GROUP_SLOTS = Object.freeze({
   weapons: ["weapon1", "weapon2", "weapon3"],
   head: ["hat", "face"],
