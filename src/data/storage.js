@@ -491,9 +491,14 @@ export async function deleteItem(roomId, sheetId, itemId) {
 export async function setItemPositions(roomId, sheetId, orderedIds) {
   await ensureRoom(roomId);
   if (!Array.isArray(orderedIds) || !orderedIds.length) return;
-  const rows = orderedIds.map((id, position) => ({ id, sheet_id: sheetId, position }));
-  const { error } = await supabase.from("item").upsert(rows, { onConflict: "id" });
-  if (error) throw error;
+  // IMPORTANT: item.type (and other columns) are NOT NULL. Upserting partial rows
+  // (only id/sheet_id/position) violates constraints. Reordering must only update position.
+  const updates = orderedIds.map((id, position) =>
+    supabase.from("item").update({ position }).eq("sheet_id", sheetId).eq("id", id)
+  );
+  const results = await Promise.all(updates);
+  const firstErr = results.find((r) => r?.error)?.error;
+  if (firstErr) throw firstErr;
 }
 
 async function persistRows(roomId, sheet) {
