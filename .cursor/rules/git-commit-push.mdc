@@ -1,0 +1,15 @@
+---
+description: After implementing changes, commit and push unless the user says not to
+alwaysApply: true
+---
+
+# Git: commit and push by default
+
+When you finish a coding task that changes the repo (features, fixes, refactors the user asked for):
+
+1. **Commit** the relevant changes with a clear message.
+2. **Push** to `origin` on the current branch.
+
+Treat this as **part of the same task** as the implementation. Do **not** wait for a separate "please push" unless the user has **explicitly** asked you to skip push (e.g. local-only experiment, WIP they want to keep private).
+
+If push fails (auth, network), report the error and leave the commit locally. The user prefers being able to revert on the remote if something is wrong.
