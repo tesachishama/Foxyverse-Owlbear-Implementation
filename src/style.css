@@ -830,53 +830,27 @@ button:disabled {
   height: 0.72rem !important;
 }
 
+/* View: signed bonus only (+2 / -1), no arrows — edit item to change */
 .inv-item-stat-stepper--view {
   display: flex;
   align-items: center;
-  gap: 0.06rem;
+  justify-content: center;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   min-height: 2.08rem;
   border: 3px solid var(--border);
   border-radius: 999px;
-  padding: 0.05rem 0.14rem 0.05rem 0.1rem;
+  padding: 0.06rem 0.28rem;
   background: transparent;
 }
-.inv-item-stat-stepper--view .inv-item-stat-lrbtn {
-  flex: 0 0 auto;
-  width: 1.35rem;
-  height: 1.35rem;
-  border: none;
-  border-radius: 999px;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  color: var(--accent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-.inv-item-stat-stepper--view .inv-item-stat-lr-ico {
-  width: 0.95rem;
-  height: 0.95rem;
-  display: block;
-}
-.inv-item-stat-stepper--view .inv-item-stat-view-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
+.inv-item-stat-stepper--view .inv-item-stat-signed {
   font-size: 0.88rem !important;
   font-weight: 900;
-  padding: 0.06rem 0.06rem;
-  margin: 0;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
   color: var(--text);
-}
-.inv-item-stat-stepper--view .inv-item-stat-view-input:focus {
-  outline: none;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .inv-armor-def-row {
