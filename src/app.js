@@ -2632,15 +2632,26 @@ function renderInventoryTab() {
       const v = clampInt(value ?? 0);
       const dis = editable ? "" : " disabled";
       const ro = editable ? "" : " readonly";
+      const addSvg = inlineSvg(addIcon, "inline-svg inv-item-stat-lr-ico", "var(--accent)");
+      const remSvg = inlineSvg(removeIcon, "inline-svg inv-item-stat-lr-ico", "var(--accent)");
       const up = inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)");
       const down = inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)");
-      return `
-        <div class="stats-pill-stepper inv-item-stat-stepper" data-inv-item-stat-wrap="${escapeAttr(k)}" data-signed="1" data-allow-negative="1">
+      if (editing) {
+        return `
+        <div class="stats-pill-stepper inv-item-stat-stepper inv-item-stat-stepper--edit" data-inv-item-stat-wrap="${escapeAttr(k)}" data-signed="1" data-allow-negative="1">
           <input type="text" class="stats-pill-input" inputmode="numeric" data-inv-item-stat-input="${escapeAttr(k)}" value="${escapeAttr(signed(v))}"${ro} spellcheck="false" aria-label="${escapeAttr(field)}" />
           <div class="stats-pill-arrows">
             <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${up}</button>
             <button type="button" class="stats-pill-arrow stats-pill-arrow-down" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="-1"${dis} aria-label="${escapeAttr(t("remove"))}">${down}</button>
           </div>
+        </div>
+      `;
+      }
+      return `
+        <div class="inv-item-stat-stepper inv-item-stat-stepper--view" data-inv-item-stat-wrap="${escapeAttr(k)}" data-signed="1" data-allow-negative="1">
+          <button type="button" class="inv-item-stat-lrbtn" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="-1"${dis} aria-label="${escapeAttr(t("remove"))}">${remSvg}</button>
+          <button type="button" class="inv-item-stat-lrbtn" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${addSvg}</button>
+          <input type="text" class="stats-pill-input inv-item-stat-view-input" inputmode="numeric" data-inv-item-stat-input="${escapeAttr(k)}" value="${escapeAttr(signed(v))}"${ro} spellcheck="false" aria-label="${escapeAttr(field)}" />
         </div>
       `;
     };
@@ -5928,7 +5939,9 @@ function bindEvents() {
       const section = btn.dataset.section;
       const next = applyLocalMutation((sheet) => {
         if (!sheet[section]) sheet[section] = [];
-        sheet[section].push({ id: crypto.randomUUID(), type: section === "weapons" ? "weapon" : section === "armor" ? "armor" : section === "consumables" ? "consumable" : section === "bags" ? "bag" : "other", name: "", count: 1, description: "" });
+        const row = { id: crypto.randomUUID(), type: section === "weapons" ? "weapon" : section === "armor" ? "armor" : section === "consumables" ? "consumable" : section === "bags" ? "bag" : "other", name: "", count: 1, description: "" };
+        if (section === "weapons") row.equippableExpr = "[weapons]";
+        sheet[section].push(row);
       });
       if (state.roomId && state.activeSheetId && next?.[section]?.length) {
         const it = next[section][next[section].length - 1];
