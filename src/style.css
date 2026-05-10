@@ -823,7 +823,7 @@ button:disabled {
   transform: translateY(-0.1rem);
 }
 #app .inv-item-stat-stepper--edit .stats-pill-arrows {
-  transform: translateY(-0.12rem);
+  transform: translateY(-0.02rem);
 }
 #app .inv-item-stat-stepper--edit .stats-pill-arrow {
   width: 1.05rem;
