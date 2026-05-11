@@ -612,12 +612,12 @@ Total : ${T}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
         <div class="inv-item-stat-stepper inv-item-stat-stepper--view" data-inv-item-stat-wrap="${S(le)}">
           <span class="inv-item-stat-signed" aria-label="${S(pe)}">${S(pt(Ee))}</span>
         </div>
-      `},at=(()=>{var w;if(!(j==="weapons"||j==="armor"))return"";const pe=["constitution","strength","intelligence","perception","social","agility","focus"],he=["Con","Str","Int","Per","Soc","Agi","Foc"],le=`
+      `},at=(()=>{var w;if(!(j==="weapons"||j==="armor"))return"";const pe=["constitution","strength","intelligence","perception","social","agility","focus"],he=_=>{const R=String(m(`statAbbr_${_}`)||_).trim();return R?R.charAt(0).toUpperCase()+R.slice(1).toLowerCase():_},le=`
         <div class="inv-item-strip">
-          ${pe.map((_,R)=>{const I=ne((q==null?void 0:q[_])??0);return`
+          ${pe.map(_=>{const R=ne((q==null?void 0:q[_])??0);return`
               <div class="inv-item-strip-col">
-                <div class="inv-item-strip-lbl">${S(he[R])}</div>
-                ${gt(_,I)}
+                <div class="inv-item-strip-lbl">${S(he(_))}</div>
+                ${gt(_,R)}
               </div>
             `}).join("")}
         </div>
