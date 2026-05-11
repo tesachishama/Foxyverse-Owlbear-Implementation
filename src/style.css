@@ -900,7 +900,7 @@ button:disabled {
 }
 #app .inv-armor-def-col .inv-item-stat-stepper--view {
   width: auto;
-  min-width: 2.6rem;
+  min-width: 3rem;
   max-width: 100%;
   align-self: center;
   padding-left: 0.5rem;
