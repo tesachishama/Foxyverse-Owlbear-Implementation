@@ -820,6 +820,7 @@ button:disabled {
 #app .inv-item-stat-stepper--edit .stats-pill-input {
   font-size: 0.88rem !important;
   padding: 0 0;
+  min-width: 1.16rem;
   transform: translateY(-0.1rem);
 }
 #app .inv-item-stat-stepper--edit .stats-pill-arrows {
