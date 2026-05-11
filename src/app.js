@@ -5320,16 +5320,15 @@ function bindEvents() {
         else if (field === "magical_defense") it.magicalDefense = applyClamp((it.magicalDefense ?? 0) + delta);
         else it[field] = applyClamp((it[field] ?? 0) + delta);
       });
-      if (next) {
-        const it = findItemById(next, itemId);
-        if (it) {
-          const patch = {};
-          if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
-          else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
-          else patch[field] = clampInt(it[field] ?? 0);
-          storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
-        }
-      }
+      scheduleDebouncedSave(`inv_item_${itemId}_${field}`, 450, () => {
+        const it = findItemById(state.sheet, itemId);
+        if (!it) return;
+        const patch = {};
+        if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
+        else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
+        else patch[field] = clampInt(it[field] ?? 0);
+        storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
+      });
       render();
     });
   });
@@ -5367,23 +5366,22 @@ function bindEvents() {
         render();
         return;
       }
-      const next = applyLocalMutation((sheet) => {
+      applyLocalMutation((sheet) => {
         const it = findItemById(sheet, itemId);
         if (!it) return;
         if (field === "physical_defense") it.defense = nxt;
         else if (field === "magical_defense") it.magicalDefense = nxt;
         else it[field] = nxt;
       });
-      if (next) {
-        const it = findItemById(next, itemId);
-        if (it) {
-          const patch = {};
-          if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
-          else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
-          else patch[field] = clampInt(it[field] ?? 0);
-          storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
-        }
-      }
+      scheduleDebouncedSave(`inv_item_${itemId}_${field}`, 450, () => {
+        const it = findItemById(state.sheet, itemId);
+        if (!it) return;
+        const patch = {};
+        if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
+        else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
+        else patch[field] = clampInt(it[field] ?? 0);
+        storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
+      });
       render();
     });
     app.dataset.invItemStatBlurBound = "1";
