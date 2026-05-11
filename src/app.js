@@ -657,7 +657,13 @@ function normalizeImportedSheet(raw, options = {}) {
       next[section] = next[section].map((entry) => {
         const nextId = crypto.randomUUID();
         itemIdMap.set(entry.id, nextId);
-        return { ...entry, id: nextId };
+        const cloned = { ...entry, id: nextId };
+        // Item-bound talents must also get a fresh id so they don't collide with
+        // the source sheet's talent rows when both exist in the same DB.
+        if (cloned.talent && (section === "weapons" || section === "armor")) {
+          cloned.talent = { ...cloned.talent, id: crypto.randomUUID() };
+        }
+        return cloned;
       });
     });
     next.equipped = Object.fromEntries(
@@ -1273,7 +1279,22 @@ function renderStatsTab() {
   const actions = getActionCount(s);
   const editable = canEdit(s.id);
 
-  const talents = s.knowledge || [];
+  // Item-bound talents: appended at the end of the talent grid for each equipped
+  // weapon/armor that has a `.talent` attached. They carry a __itemId marker so
+  // edit/save handlers know to route writes back to the item-talent helpers.
+  const itemBoundTalents = (() => {
+    const equippedSections = [...(s.weapons || []), ...(s.armor || [])];
+    const out = [];
+    equippedSections.forEach((it) => {
+      if (!it?.talent) return;
+      const slots = it?.usedSlots?.equippedSlots;
+      if (!Array.isArray(slots) || !slots.length) return;
+      const section = (s.weapons || []).some((w) => w.id === it.id) ? "weapons" : "armor";
+      out.push({ ...it.talent, __itemId: it.id, __itemName: it.name || "", __itemSection: section });
+    });
+    return out;
+  })();
+  const talents = [...(s.knowledge || []), ...itemBoundTalents];
 
   const insertSoftHyphens = (text) => {
     const raw = String(text || "").trim();
@@ -1413,12 +1434,20 @@ function renderStatsTab() {
         : legacyOverrideFromDescription(tl.description || "");
       const bonusTitle = rawOverride && rawOverride.length > 3 ? ` title="${escapeAttr(rawOverride)}"` : "";
       const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
+      const isItemBound = !!tl.__itemId;
+      const itemMarker = isItemBound
+        ? `<div class="talent-item-marker" title="${escapeAttr(tl.__itemName || "")}">${inlineSvg(tl.__itemSection === "armor" ? chestSlotIcon : weaponIcon, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`
+        : "";
+      const pillClass = `talent-pill${isItemBound ? " talent-pill--item-bound" : ""}`;
+      const talentIdStr = String(tl.id || idx);
+      const itemAttr = isItemBound ? ` data-talent-item-id="${escapeAttr(String(tl.__itemId))}"` : "";
       return `
-        <div class="talent-pill" data-talent-id="${escapeAttr(String(tl.id || idx))}">
+        <div class="${pillClass}" data-talent-id="${escapeAttr(talentIdStr)}"${itemAttr}>
+          ${itemMarker}
           <div class="talent-name">${escapeAttr(nameDisplay)}</div>
           <div class="talent-tier">${escapeAttr(tierLbl)}</div>
           <div class="${bonusClass}"${bonusTitle}>${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
-          ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(String(tl.id || idx))}" aria-label="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
+          ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(talentIdStr)}"${itemAttr} aria-label="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
         </div>
       `;
     })
@@ -2743,6 +2772,23 @@ function renderInventoryTab() {
           </div>
         `;
 
+      const itemTalent = it?.talent || null;
+      const talentTitle = escapeAttr(t("itemTalent") || "Item talent");
+      const talentName = escapeAttr(itemTalent?.name || (t("talentDefault") || "Talent"));
+      const talentBtns = editable
+        ? (itemTalent
+            ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>
+               <button type="button" class="inv-item-talent-btn" data-inv-item-talent-remove="${escapeAttr(id)}" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
+            : `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`)
+        : "";
+      const talentRow = `
+        <div class="inv-item-talent-row">
+          <div class="inv-item-talent-title">${talentTitle}</div>
+          <div class="inv-item-talent-name">${itemTalent ? talentName : `<span class="inv-item-talent-empty">${escapeAttr(t("none") || "—")}</span>`}</div>
+          <div class="inv-item-talent-actions">${talentBtns}</div>
+        </div>
+      `;
+
       return `
         ${strip}
         ${defRow}
@@ -2750,6 +2796,7 @@ function renderInventoryTab() {
           <div class="inv-slots-title">${escapeAttr(t("slots") || "Slots")}</div>
           ${slotsUI}
         </div>
+        ${talentRow}
       `;
     })();
 
@@ -4415,7 +4462,19 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const id = btn.dataset.talentEdit;
       if (!id || !state.sheet) return;
-      const tl = (state.sheet.knowledge || []).find((x) => String(x.id) === String(id));
+      const itemIdAttr = btn.getAttribute("data-talent-item-id") || "";
+      let tl = null;
+      let itemId = "";
+      if (itemIdAttr) {
+        const it = findItemById(state.sheet, itemIdAttr);
+        if (it?.talent && String(it.talent.id) === String(id)) {
+          tl = it.talent;
+          itemId = String(it.id);
+        }
+      }
+      if (!tl) {
+        tl = (state.sheet.knowledge || []).find((x) => String(x.id) === String(id));
+      }
       if (!tl) return;
       const descFull = String(tl.description || "");
       const idx = descFull.lastIndexOf("[[override]]");
@@ -4428,6 +4487,7 @@ function bindEvents() {
         description: desc,
         tier: Number(tl.tier) || 0,
         bonusOverride: (tl.bonusOverride == null ? "" : String(tl.bonusOverride)) || overrideFromDesc,
+        __itemId: itemId || null,
       };
       state.talentTierMenuOpen = false;
       render();
@@ -4449,6 +4509,7 @@ function bindEvents() {
   app.querySelector("#talent-save")?.addEventListener("click", async () => {
     if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;
     const id = String(state.talentDraft.id);
+    const itemId = state.talentDraft.__itemId ? String(state.talentDraft.__itemId) : "";
     const name = String(document.getElementById("talent-name-inp")?.value || "").trim() || t("talentDefault");
     const descriptionRaw = String(document.getElementById("talent-desc-inp")?.value || "");
     const ovRaw = String(document.getElementById("talent-override-inp")?.value || "").trim();
@@ -4456,6 +4517,31 @@ function bindEvents() {
     // bonus_override is now text: store any formula string as-is.
     const bonusOverride = ovRaw || null;
     const description = descriptionRaw;
+
+    if (itemId) {
+      const next = applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, itemId);
+        if (!it?.talent) return;
+        it.talent.name = name;
+        it.talent.description = description;
+        it.talent.tier = tier;
+        it.talent.bonusOverride = bonusOverride;
+      });
+      await storage.upsertItemTalent(state.roomId, itemId, {
+        id,
+        position: 0,
+        name,
+        description,
+        tier,
+        bonus_override: bonusOverride,
+        is_enabled: false,
+      }).catch(console.error);
+      // touch `next` to avoid unused-warning; it is implicitly persisted to localStorage by applyLocalMutation
+      void next;
+      closeTalentModal();
+      render();
+      return;
+    }
 
     const next = applyLocalMutation((sheet) => {
       const tl = (sheet.knowledge || []).find((x) => String(x.id) === id);
@@ -4507,7 +4593,18 @@ function bindEvents() {
   app.querySelector("#talent-delete")?.addEventListener("click", async () => {
     if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;
     const id = String(state.talentDraft.id);
+    const itemId = state.talentDraft.__itemId ? String(state.talentDraft.__itemId) : "";
     if (!confirm(t("confirmDelete") || "Delete?")) return;
+    if (itemId) {
+      applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, itemId);
+        if (it) it.talent = null;
+      });
+      await storage.deleteItemTalent(state.roomId, id).catch(console.error);
+      closeTalentModal();
+      render();
+      return;
+    }
     const next = applyLocalMutation((sheet) => {
       sheet.knowledge = (sheet.knowledge || []).filter((x) => String(x.id) !== id);
     });
@@ -5466,6 +5563,92 @@ function bindEvents() {
     });
   });
 
+  // Item-bound talent controls (weapon/armor expanded card)
+  app.querySelectorAll("[data-inv-item-talent-add]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const itemId = btn.getAttribute("data-inv-item-talent-add") || "";
+      if (!itemId) return;
+      const it = findItemById(state.sheet, itemId);
+      if (!it || it.talent) return;
+      const talentId = crypto.randomUUID();
+      const defaultName = t("talentDefault") || "Talent";
+      const draft = { id: talentId, name: defaultName, description: "", tier: 0, bonusOverride: null, enabled: false };
+      applyLocalMutation((sheet) => {
+        const x = findItemById(sheet, itemId);
+        if (!x) return;
+        x.talent = { ...draft };
+      });
+      await storage.upsertItemTalent(state.roomId, itemId, {
+        id: talentId,
+        position: 0,
+        name: defaultName,
+        description: "",
+        tier: 0,
+        bonus_override: null,
+        is_enabled: false,
+      }).catch(console.error);
+      // Open the modal immediately so the user can edit name/desc/tier.
+      state.talentModalOpen = true;
+      state.talentDraft = {
+        id: talentId,
+        name: defaultName,
+        description: "",
+        tier: 0,
+        bonusOverride: "",
+        __itemId: itemId,
+      };
+      state.talentTierMenuOpen = false;
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-inv-item-talent-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!state.sheet) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const itemId = btn.getAttribute("data-inv-item-talent-edit") || "";
+      if (!itemId) return;
+      const it = findItemById(state.sheet, itemId);
+      if (!it?.talent) return;
+      const descFull = String(it.talent.description || "");
+      const idxOv = descFull.lastIndexOf("[[override]]");
+      const desc = idxOv < 0 ? descFull : descFull.slice(0, idxOv).replace(/\s+$/, "");
+      const overrideFromDesc = idxOv < 0 ? "" : descFull.slice(idxOv + "[[override]]".length).trim();
+      state.talentModalOpen = true;
+      state.talentDraft = {
+        id: String(it.talent.id),
+        name: it.talent.name || "",
+        description: desc,
+        tier: Number(it.talent.tier) || 0,
+        bonusOverride: (it.talent.bonusOverride == null ? "" : String(it.talent.bonusOverride)) || overrideFromDesc,
+        __itemId: itemId,
+      };
+      state.talentTierMenuOpen = false;
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-inv-item-talent-remove]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const itemId = btn.getAttribute("data-inv-item-talent-remove") || "";
+      if (!itemId) return;
+      const it = findItemById(state.sheet, itemId);
+      if (!it?.talent) return;
+      if (!confirm(t("confirmDelete") || "Delete?")) return;
+      const tid = String(it.talent.id);
+      applyLocalMutation((sheet) => {
+        const x = findItemById(sheet, itemId);
+        if (x) x.talent = null;
+      });
+      await storage.deleteItemTalent(state.roomId, tid).catch(console.error);
+      render();
+    });
+  });
+
   // Inventory: add/remove per section
   ["consumables", "weapons", "armor", "others", "bags"].forEach((sec) => {
     app.querySelector(`#btn-${sec}-add`)?.addEventListener("click", () => {
@@ -5697,30 +5880,52 @@ function bindEvents() {
         String(it.equippableExpr || "") === String(senderItem.equippableExpr || "")
       );
       if (match) {
+        // Merge path: existing matching item keeps its own state (including its
+        // own talent, if any). We do NOT carry the sender's talent here.
         const cur = Math.max(0, clampInt(match.count ?? 0));
         storage.updateItemFields(state.roomId, recipId, match.id, { quantity: cur + qty }).catch(console.error);
       } else {
         const newId = crypto.randomUUID();
         const type = sec === "weapons" ? "weapon" : sec === "armor" ? "armor" : sec === "bags" ? "bag" : sec === "others" ? "other" : "consumable";
-        storage.upsertItem(state.roomId, recipId, {
+        const usableForRow = senderItem.equippableExpr
+          ? { expr: senderItem.equippableExpr }
+          : (Array.isArray(senderItem.equippableSlots) && senderItem.equippableSlots.length
+              ? { slots: senderItem.equippableSlots }
+              : null);
+        await storage.upsertItem(state.roomId, recipId, {
           id: newId,
           type,
           position: recipItems.length,
           name: senderItem.name || "",
           description: senderItem.description || "",
           quantity: qty,
-          physical_defense: 0,
-          magical_defense: 0,
-          constitution: 0,
-          strength: 0,
-          intelligence: 0,
-          perception: 0,
-          social: 0,
-          agility: 0,
-          focus: 0,
-          usable_slots: senderItem.equippableExpr ? { expr: senderItem.equippableExpr } : null,
+          physical_defense: Number(senderItem.defense) || 0,
+          magical_defense: Number(senderItem.magicalDefense) || 0,
+          constitution: Number(senderItem.constitution) || 0,
+          strength: Number(senderItem.strength) || 0,
+          intelligence: Number(senderItem.intelligence) || 0,
+          perception: Number(senderItem.perception) || 0,
+          social: Number(senderItem.social) || 0,
+          agility: Number(senderItem.agility) || 0,
+          focus: Number(senderItem.focus) || 0,
+          usable_slots: usableForRow,
           used_slots: null,
         }).catch(console.error);
+        // Carry the talent (if any) onto the recipient's brand-new item. The
+        // sender's talent row cascades away when the source item is deleted
+        // (qty -> 0). We always assign a fresh talent id to avoid PK collisions.
+        if (senderItem.talent && (sec === "weapons" || sec === "armor")) {
+          const newTalentId = crypto.randomUUID();
+          await storage.upsertItemTalent(state.roomId, newId, {
+            id: newTalentId,
+            position: 0,
+            name: senderItem.talent.name || "",
+            description: senderItem.talent.description || "",
+            tier: senderItem.talent.tier ?? 0,
+            bonus_override: senderItem.talent.bonusOverride ?? null,
+            is_enabled: !!senderItem.talent.enabled,
+          }).catch(console.error);
+        }
       }
     } catch (err) {
       console.error(err);

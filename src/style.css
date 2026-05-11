@@ -914,6 +914,36 @@ button:disabled {
   gap: 0.35rem;
   align-items: center;
 }
+
+.inv-item-talent-row {
+  margin-top: 0.35rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+.inv-item-talent-title { font-weight: 900; opacity: 0.95; }
+.inv-item-talent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.inv-item-talent-empty { opacity: 0.6; }
+.inv-item-talent-actions { display: inline-flex; gap: 0.2rem; }
+.inv-item-talent-btn {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+.inv-item-talent-icon { width: 1.1rem; height: 1.1rem; display: block; }
 .inv-slots-title { font-weight: 900; opacity: 0.95; }
 .inv-slot-picker { min-height: 2.15rem; }
 .inv-slot-expr-inp {
@@ -1317,6 +1347,19 @@ button:disabled {
   min-height: 3.05rem; /* fixed height allowing 2 lines */
   box-sizing: border-box;
 }
+.talent-pill.talent-pill--item-bound {
+  grid-template-columns: auto 1fr auto auto auto;
+  padding-left: 0.4rem;
+}
+.talent-item-marker {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+}
+.talent-item-marker-svg { width: 0.85rem; height: 0.85rem; }
 .talent-name {
   min-width: 0;
   overflow: hidden;

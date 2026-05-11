@@ -138,14 +138,29 @@ async function fetchSheetRows(roomId, sheetId) {
   if (fatalSingleErrors.length) throw fatalSingleErrors[0];
   if (listErrors.length) throw listErrors[0];
 
+  const items = itemRes.data || [];
+  // Item-bound talents (sheet_id IS NULL, item_id IN sheet's items). Fetched after
+  // items are known because the FK chain is item -> sheet, not talent -> sheet.
+  let itemTalents = [];
+  if (items.length) {
+    const itemIds = items.map((it) => it.id);
+    const itemTalentRes = await supabase
+      .from("talent")
+      .select("*")
+      .in("item_id", itemIds);
+    if (itemTalentRes.error) throw itemTalentRes.error;
+    itemTalents = itemTalentRes.data || [];
+  }
+
   return {
     sheet: sheetRes.data,
     bio: bioRes.data,
     stats: statRes.data || [],
     talents: talentRes.data || [],
+    itemTalents,
     spells: spellRes.data || [],
     currency: currencyRes.data,
-    items: itemRes.data || [],
+    items,
   };
 }
 
@@ -211,6 +226,19 @@ function assembleSheet(sheetId, rows) {
     copper: rows.currency?.copper ?? 0,
   };
 
+  const itemTalentsByItemId = new Map();
+  (rows.itemTalents || []).forEach((row) => {
+    if (!row?.item_id) return;
+    itemTalentsByItemId.set(String(row.item_id), {
+      id: row.id,
+      name: row.name || "",
+      description: row.description || "",
+      tier: row.tier ?? 1,
+      bonusOverride: row.bonus_override,
+      enabled: !!row.is_enabled,
+    });
+  });
+
   rows.items.forEach((row) => {
     const section = toSectionKey(row.type);
     const usedSlots = deserializeUsedSlots(row.used_slots);
@@ -237,6 +265,7 @@ function assembleSheet(sheetId, rows) {
       social: row.social ?? 0,
       agility: row.agility ?? 0,
       focus: row.focus ?? 0,
+      talent: itemTalentsByItemId.get(String(row.id)) || null,
     };
     base[section].push(item);
     usedSlots.equippedSlots.forEach((slotId) => {
@@ -352,7 +381,9 @@ export async function upsertTalent(roomId, sheetId, row) {
   if (error) throw error;
 }
 
-export async function updateTalentFields(roomId, sheetId, talentId, patch) {
+export async function updateTalentFields(roomId, _sheetId, talentId, patch) {
+  // sheetId kept in signature for backward compatibility; we look up by talent.id
+  // alone so this works for both sheet-bound and item-bound talents.
   await ensureRoom(roomId);
   const update = {};
   if ("position" in patch) update.position = Number(patch.position) || 0;
@@ -362,22 +393,56 @@ export async function updateTalentFields(roomId, sheetId, talentId, patch) {
   if ("bonus_override" in patch) update.bonus_override = patch.bonus_override == null ? null : String(patch.bonus_override);
   if ("is_enabled" in patch) update.is_enabled = !!patch.is_enabled;
   if (!Object.keys(update).length) return;
-  const { error } = await supabase.from("talent").update(update).eq("sheet_id", sheetId).eq("id", talentId);
+  const { error } = await supabase.from("talent").update(update).eq("id", talentId);
   if (error) throw error;
 }
 
-export async function deleteTalent(roomId, sheetId, talentId) {
+export async function deleteTalent(roomId, _sheetId, talentId) {
   await ensureRoom(roomId);
-  const { error } = await supabase.from("talent").delete().eq("sheet_id", sheetId).eq("id", talentId);
+  const { error } = await supabase.from("talent").delete().eq("id", talentId);
   if (error) throw error;
 }
 
 export async function setTalentPositions(roomId, sheetId, orderedIds) {
   await ensureRoom(roomId);
   if (!Array.isArray(orderedIds) || !orderedIds.length) return;
-  const rows = orderedIds.map((id, position) => ({ id, sheet_id: sheetId, position }));
-  const { error } = await supabase.from("talent").upsert(rows, { onConflict: "id" });
+  // Position-only updates by id. We do NOT upsert with sheet_id here because that
+  // would violate the talent_owner_xor check for item-bound talents that may be
+  // included in the order.
+  const updates = orderedIds.map((id, position) =>
+    supabase.from("talent").update({ position }).eq("id", id)
+  );
+  const results = await Promise.all(updates);
+  const firstErr = results.find((r) => r?.error)?.error;
+  if (firstErr) throw firstErr;
+}
+
+/** Insert/upsert a talent bound to a specific item (sheet_id NULL, item_id set). */
+export async function upsertItemTalent(roomId, itemId, row) {
+  await ensureRoom(roomId);
+  const payload = {
+    id: row.id,
+    sheet_id: null,
+    item_id: itemId,
+    position: Number(row.position) || 0,
+    name: row.name || "",
+    description: row.description || "",
+    tier: row.tier ?? 1,
+    bonus_override: row.bonus_override == null ? null : String(row.bonus_override),
+    is_enabled: !!row.is_enabled,
+  };
+  const { error } = await supabase.from("talent").upsert(payload);
   if (error) throw error;
+}
+
+/** Patch an item-bound talent. Same as updateTalentFields but kept named for clarity. */
+export async function updateItemTalentFields(roomId, talentId, patch) {
+  return updateTalentFields(roomId, null, talentId, patch);
+}
+
+/** Delete an item-bound talent by id. */
+export async function deleteItemTalent(roomId, talentId) {
+  return deleteTalent(roomId, null, talentId);
 }
 
 export async function upsertSpell(roomId, sheetId, row) {
@@ -621,6 +686,31 @@ async function persistRows(roomId, sheet) {
     const { error: itemError } = await supabase.from("item").insert(itemRows);
     if (itemError) throw itemError;
   }
+
+  // Re-insert item-bound talents. The DELETE on item cascades to talent rows
+  // referencing those items, so we have a clean slate. Walk weapons/armor and
+  // emit a row per attached talent.
+  const itemTalentRows = [];
+  ["weapons", "armor"].forEach((sectionKey) => {
+    (sheet[sectionKey] || []).forEach((item) => {
+      if (!item?.talent || !item.id) return;
+      itemTalentRows.push({
+        id: item.talent.id,
+        sheet_id: null,
+        item_id: item.id,
+        position: 0,
+        name: item.talent.name || "",
+        description: item.talent.description || "",
+        tier: item.talent.tier ?? 1,
+        bonus_override: item.talent.bonusOverride ?? null,
+        is_enabled: !!item.talent.enabled,
+      });
+    });
+  });
+  if (itemTalentRows.length) {
+    const { error: itemTalentError } = await supabase.from("talent").insert(itemTalentRows);
+    if (itemTalentError) throw itemTalentError;
+  }
 }
 
 export async function getRoomData() {
@@ -788,7 +878,20 @@ async function eventBelongsToRoom(roomId, payload) {
     const row = payload.new || payload.old;
     return row?.room_id === roomId;
   }
-  const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id;
+  let sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id;
+  if (!sheetId && table === "talent") {
+    // Item-bound talents have sheet_id NULL but reference an item. Resolve the
+    // item's owning sheet so this change still triggers a reload in the room.
+    const itemId = payload?.new?.item_id || payload?.old?.item_id;
+    if (itemId) {
+      const { data: itemRow, error: itemErr } = await supabase
+        .from("item")
+        .select("sheet_id")
+        .eq("id", itemId)
+        .maybeSingle();
+      if (!itemErr && itemRow?.sheet_id) sheetId = itemRow.sheet_id;
+    }
+  }
   if (!sheetId) return false;
   const { data, error } = await supabase.from("sheet").select("room_id").eq("id", sheetId).single();
   return !error && data?.room_id === roomId;
