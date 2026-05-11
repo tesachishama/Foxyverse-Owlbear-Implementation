@@ -861,13 +861,39 @@ button:disabled {
 
 .inv-armor-def-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.35rem;
   margin-top: 0.35rem;
   align-items: end;
 }
-.inv-armor-def-col { display: flex; flex-direction: column; align-items: center; gap: 0.12rem; }
-.inv-armor-def-lbl { font-size: 0.78rem !important; font-weight: 900; opacity: 0.95; text-align: center; }
+.inv-armor-def-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.inv-armor-def-lbl {
+  font-size: 0.78rem !important;
+  font-weight: 900;
+  opacity: 0.95;
+  text-align: center;
+  align-self: center;
+  max-width: 100%;
+  padding: 0 0.08rem;
+  box-sizing: border-box;
+  line-height: 1.15;
+}
+
+/* Armor defenses: narrow columns — pills must stay inside column */
+#app .inv-armor-def-col .inv-item-stat-stepper--edit.stats-pill-stepper {
+  min-width: 0;
+  max-width: 100%;
+}
+#app .inv-armor-def-col .inv-item-stat-stepper--edit .stats-pill-input {
+  min-width: 0;
+}
 
 .inv-slots-row {
   margin-top: 0.35rem;

@@ -2679,11 +2679,11 @@ function renderInventoryTab() {
       const defRow = sectionKey === "armor" ? `
         <div class="inv-armor-def-row">
           <div class="inv-armor-def-col">
-            <div class="inv-armor-def-lbl">${escapeAttr(t("physicalDefense") || "Physical Defense")}</div>
+            <div class="inv-armor-def-lbl">${escapeAttr(t("physicalDefense"))}</div>
             ${invItemStatStepper("physical_defense", clampInt(it.defense ?? 0))}
           </div>
           <div class="inv-armor-def-col">
-            <div class="inv-armor-def-lbl">${escapeAttr(t("magicDefense") || "Magical Defense")}</div>
+            <div class="inv-armor-def-lbl">${escapeAttr(t("magicalDefense"))}</div>
             ${invItemStatStepper("magical_defense", clampInt(it.magicalDefense ?? 0))}
           </div>
         </div>
