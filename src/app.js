@@ -2657,14 +2657,18 @@ function renderInventoryTab() {
       if (!(sectionKey === "weapons" || sectionKey === "armor")) return "";
 
       const statKeys = ["constitution", "strength", "intelligence", "perception", "social", "agility", "focus"];
-      const statAbbr = ["Con", "Str", "Int", "Per", "Soc", "Agi", "Foc"];
+      const statAbbrLabel = (statId) => {
+        const raw = String(t(`statAbbr_${statId}`) || statId).trim();
+        if (!raw) return statId;
+        return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+      };
       const strip = `
         <div class="inv-item-strip">
-          ${statKeys.map((k, idx) => {
+          ${statKeys.map((k) => {
             const val = clampInt(it?.[k] ?? 0);
             return `
               <div class="inv-item-strip-col">
-                <div class="inv-item-strip-lbl">${escapeAttr(statAbbr[idx])}</div>
+                <div class="inv-item-strip-lbl">${escapeAttr(statAbbrLabel(k))}</div>
                 ${invItemStatStepper(k, val)}
               </div>
             `;
