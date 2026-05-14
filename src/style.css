@@ -571,38 +571,6 @@ button:disabled {
   color: var(--text);
 }
 
-.inv-equip-tooltip {
-  position: absolute;
-  z-index: 50;
-  transform: none;
-  padding: 0.2rem 0.4rem;
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg) 85%, transparent);
-  color: var(--text);
-  font-size: 0.85rem;
-  line-height: 1.05;
-  white-space: normal;
-  overflow-wrap: normal;
-  word-break: normal;
-  max-width: calc(100% - 12px);
-  pointer-events: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.inv-equip-tip-slot {
-  font-weight: 900;
-  white-space: nowrap;
-}
-.inv-equip-tip-item {
-  font-weight: 800;
-  margin-top: 0.1rem;
-}
-.inv-equip-tip-item-line {
-  white-space: nowrap;
-}
-
 .inv-slot-btn {
   position: absolute;
   padding: 0;
@@ -1807,6 +1775,31 @@ input.inv-qty-pill.inv-qty-inp {
   z-index: 100;
 }
 .modal.hidden { display: none; }
+
+/* Floating plugin tooltip (body-mounted; follows pointer). Above .modal (z-index 100). */
+.fv-plugin-tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 12000;
+  max-width: min(22rem, calc(100vw - 12px));
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fv-plugin-tooltip.hidden {
+  display: none !important;
+}
+
 .modal-content {
   background: var(--surface);
   border: 3px solid var(--border);

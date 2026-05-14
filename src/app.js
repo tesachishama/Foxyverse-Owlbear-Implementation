@@ -926,11 +926,11 @@ function renderHeader() {
           </button>
           ${state.sheetMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
         </div>
-        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn" title="${t("newSheet")}">${inlineSvg(addIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--accent)")}</button>` : ""}
-        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--accent)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-new-sheet" class="header-icon-btn plain-icon-btn"${dataFvTipAttr(t("newSheet"))}>${inlineSvg(addIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--accent)")}</button>` : ""}
+        ${state.isGM ? `<button type="button" id="btn-delete-sheet" class="header-icon-btn plain-icon-btn"${dataFvTipAttr(t("remove"))}>${inlineSvg(removeIcon, "inline-svg header-icon-svg plus-minus-icon-svg", "var(--accent)")}</button>` : ""}
         <div class="lang-flags">
-          <button type="button" class="flag-icon-btn ${state.locale === "fr" ? "active" : ""}" data-lang="fr" title="Français" aria-label="Français"><img src="${frenchFlagIcon}" alt="Français" class="flag-img" /></button>
-          <button type="button" class="flag-icon-btn ${state.locale === "en" ? "active" : ""}" data-lang="en" title="English" aria-label="English"><img src="${englishFlagIcon}" alt="English" class="flag-img" /></button>
+          <button type="button" class="flag-icon-btn ${state.locale === "fr" ? "active" : ""}" data-lang="fr"${dataFvTipAttr("Français")} aria-label="Français"><img src="${frenchFlagIcon}" alt="Français" class="flag-img" /></button>
+          <button type="button" class="flag-icon-btn ${state.locale === "en" ? "active" : ""}" data-lang="en"${dataFvTipAttr("English")} aria-label="English"><img src="${englishFlagIcon}" alt="English" class="flag-img" /></button>
         </div>
       </div>
     </header>
@@ -940,7 +940,7 @@ function renderHeader() {
 function renderTabs() {
   const tabsHtml = TABS.map(
     (tab) =>
-      `<button type="button" class="tab-icon-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}" title="${TAB_META[tab].label}" aria-label="${TAB_META[tab].label}">
+      `<button type="button" class="tab-icon-btn ${state.activeTab === tab ? "active" : ""}" data-tab="${tab}"${dataFvTipAttr(TAB_META[tab].label)} aria-label="${TAB_META[tab].label}">
         ${inlineSvg(tabIcon, "inline-svg tab-bg-icon-svg", state.activeTab === tab ? "var(--text)" : "var(--accent)")}
         ${inlineSvg(TAB_META[tab].icon, `inline-svg tab-foreground-icon-svg ${tab === "stats" ? "tab-foreground-icon-stats" : ""}`, "var(--bg)")}
       </button>`
@@ -997,6 +997,131 @@ function escapeAttr(str) {
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;");
+}
+
+/** Renders ` data-fv-tip="..."` for the plugin mouse tooltip (never use native `title`). */
+function dataFvTipAttr(text) {
+  const s = String(text ?? "").trim();
+  if (!s) return "";
+  return ` data-fv-tip="${escapeAttr(s)}"`;
+}
+
+let _fvPluginTooltipHost = null;
+let _fvPluginTooltipMoveBound = false;
+
+function ensureFvPluginTooltipEl() {
+  if (typeof document === "undefined") return null;
+  let el = document.getElementById("fv-plugin-tooltip");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "fv-plugin-tooltip";
+  el.className = "fv-plugin-tooltip hidden";
+  el.setAttribute("role", "tooltip");
+  document.body.appendChild(el);
+  return el;
+}
+
+function hideFvPluginTooltip() {
+  _fvPluginTooltipHost = null;
+  const el = typeof document !== "undefined" ? document.getElementById("fv-plugin-tooltip") : null;
+  if (el) {
+    el.classList.add("hidden");
+    el.textContent = "";
+  }
+  if (_fvPluginTooltipMoveBound && typeof document !== "undefined") {
+    document.removeEventListener("pointermove", onFvPluginTooltipPointerMove, true);
+    _fvPluginTooltipMoveBound = false;
+  }
+}
+
+function positionFvPluginTooltip(clientX, clientY) {
+  const el = document.getElementById("fv-plugin-tooltip");
+  if (!el || el.classList.contains("hidden")) return;
+  const pad = 12;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 800;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 600;
+  let x = clientX + pad;
+  let y = clientY + pad;
+  el.classList.remove("hidden");
+  const w = el.offsetWidth || 120;
+  const h = el.offsetHeight || 40;
+  if (x + w > vw - 6) x = Math.max(6, clientX - pad - w);
+  if (y + h > vh - 6) y = Math.max(6, clientY - pad - h);
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+}
+
+function onFvPluginTooltipPointerMove(e) {
+  if (!_fvPluginTooltipHost) return;
+  positionFvPluginTooltip(e.clientX, e.clientY);
+}
+
+function showFvPluginTooltip(text, clientX, clientY, hostEl) {
+  const el = ensureFvPluginTooltipEl();
+  if (!el || !hostEl) return;
+  _fvPluginTooltipHost = hostEl;
+  el.textContent = String(text ?? "");
+  el.classList.remove("hidden");
+  positionFvPluginTooltip(clientX, clientY);
+  if (!_fvPluginTooltipMoveBound && typeof document !== "undefined") {
+    document.addEventListener("pointermove", onFvPluginTooltipPointerMove, true);
+    _fvPluginTooltipMoveBound = true;
+  }
+}
+
+function installFvPluginTooltipDelegationOnce() {
+  if (typeof document === "undefined") return;
+  if (document.documentElement.getAttribute("data-fv-plugin-tip")) return;
+  document.documentElement.setAttribute("data-fv-plugin-tip", "1");
+
+  const getApp = () => document.getElementById(ROOT_ID);
+
+  document.addEventListener(
+    "mouseover",
+    (e) => {
+      const app = getApp();
+      if (!app || !app.contains(e.target)) return;
+
+      const equipPart = e.target.closest("[data-equip-tip-slot]");
+      if (equipPart && app.querySelector(".inv-equip-wrap")?.contains(equipPart)) {
+        const slot = (equipPart.getAttribute("data-equip-tip-slot") || "").trim();
+        const item = (equipPart.getAttribute("data-equip-tip-item") || "").trim();
+        if (!slot) {
+          hideFvPluginTooltip();
+          return;
+        }
+        const wrap = equipPart.closest(".inv-equip-wrap");
+        const body = item ? `${slot}\n${item}` : slot;
+        showFvPluginTooltip(body, e.clientX, e.clientY, wrap || equipPart);
+        return;
+      }
+
+      const tipEl = e.target.closest("[data-fv-tip]");
+      if (!tipEl || !app.contains(tipEl)) {
+        hideFvPluginTooltip();
+        return;
+      }
+      const raw = tipEl.getAttribute("data-fv-tip");
+      if (!raw || !String(raw).trim()) {
+        hideFvPluginTooltip();
+        return;
+      }
+      showFvPluginTooltip(raw, e.clientX, e.clientY, tipEl);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "mouseout",
+    (e) => {
+      if (!_fvPluginTooltipHost) return;
+      const rel = e.relatedTarget;
+      if (rel && (_fvPluginTooltipHost === rel || _fvPluginTooltipHost.contains(rel))) return;
+      if (!_fvPluginTooltipHost.contains(e.target)) return;
+      hideFvPluginTooltip();
+    },
+    true
+  );
 }
 
 function wrapWordsByLen(str, maxLen) {
@@ -1647,7 +1772,7 @@ function renderStatsTab() {
   const statRollButtonsRow = renderChatBody(statRollBracketLine);
   const statAbbrCells = STAT_IDS.map((statId) => {
     const abbr = escapeAttr(t(`statAbbr_${statId}`));
-    return `<div class="stats-strip-abbr-cell" title="${escapeAttr(t(statId))}">${abbr}</div>`;
+    return `<div class="stats-strip-abbr-cell"${dataFvTipAttr(t(statId))}>${abbr}</div>`;
   }).join("");
 
   // Backward-compatible: older builds stored formula overrides in description with a [[override]] marker.
@@ -1680,11 +1805,11 @@ function renderStatsTab() {
       const rawOverride = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
         ? String(tl.bonusOverride).trim()
         : legacyOverrideFromDescription(tl.description || "");
-      const bonusTitle = rawOverride && rawOverride.length > 3 ? ` title="${escapeAttr(rawOverride)}"` : "";
+      const bonusTipAttr = rawOverride && rawOverride.length > 3 ? dataFvTipAttr(rawOverride) : "";
       const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
       const isItemBound = !!tl.__itemId;
       const itemMarker = isItemBound
-        ? `<div class="talent-item-marker" title="${escapeAttr(tl.__itemName || "")}">${inlineSvg(tl.__itemSection === "armor" ? chestSlotIcon : weaponIcon, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`
+        ? `<div class="talent-item-marker"${dataFvTipAttr(tl.__itemName || "")}>${inlineSvg(tl.__itemSection === "armor" ? chestSlotIcon : weaponIcon, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`
         : "";
       const itemUnequipped = isItemBound && !tl.__itemEquipped;
       const pillClass = `talent-pill${isItemBound ? " talent-pill--item-bound" : ""}${itemUnequipped ? " talent-pill--item-unequipped" : ""}`;
@@ -1695,8 +1820,8 @@ function renderStatsTab() {
           ${itemMarker}
           <div class="talent-name">${escapeAttr(nameDisplay)}</div>
           <div class="talent-tier">${escapeAttr(tierLbl)}</div>
-          <div class="${bonusClass}"${bonusTitle}>${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
-          ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(talentIdStr)}"${itemAttr} aria-label="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
+          <div class="${bonusClass}"${bonusTipAttr}>${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
+          ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(talentIdStr)}"${itemAttr} aria-label="${escapeAttr(t("edit"))}"${dataFvTipAttr(t("edit"))}>${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
         </div>
       `;
     })
@@ -1991,7 +2116,7 @@ function renderStatsTab() {
       <div class="stats-bubble" id="stats-talents-block">
         <div class="stats-bubble-title-row">
           <div class="stats-bubble-title">${t("talentsBlock")}</div>
-          ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--accent)")}</button>` : ""}
+          ${editable ? `<button type="button" class="stats-add-icon" id="btn-add-talent" aria-label="${escapeAttr(t("add"))}"${dataFvTipAttr(t("add"))}>${inlineSvg(addIcon, "inline-svg stats-add-svg", "var(--accent)")}</button>` : ""}
         </div>
         <div class="talents-grid">${talentsGrid}</div>
       </div>
@@ -2040,7 +2165,7 @@ function renderRollModals() {
         <p id="roll-result-text"></p>
         <div id="roll-apply-buttons" class="roll-apply-buttons hidden"></div>
         <div class="roll-modal-footer">
-          <button type="button" id="roll-reroll-btn" class="roll-modal-reroll-btn" disabled title="${escapeAttr(t("rerollCost"))}">${t("reroll")}</button>
+          <button type="button" id="roll-reroll-btn" class="roll-modal-reroll-btn" disabled${dataFvTipAttr(t("rerollCost"))}>${t("reroll")}</button>
           <button type="button" id="roll-close-btn" class="roll-modal-close-btn">${t("close")}</button>
         </div>
       </div>
@@ -2497,7 +2622,7 @@ function renderTalentModal() {
   const tier = Math.max(0, Math.min(4, Number(d.tier) || 0));
   const bonusText = d.bonusOverride == null || d.bonusOverride === "" ? "" : String(d.bonusOverride);
   const desc = String(d.description || "");
-  const descTitle = desc.trim() ? escapeAttr(t("talentDescTooltip")) : "";
+  const descTipAttr = desc.trim() ? dataFvTipAttr(t("talentDescTooltip")) : "";
   const tierLabel = `T${tier}`;
   const tierMenuItems = [0, 1, 2, 3, 4]
     .map((n) => `<button type="button" class="sheet-menu-item ${tier === n ? "active" : ""}" data-talent-tier-pick="${n}">T${n}</button>`)
@@ -2508,7 +2633,7 @@ function renderTalentModal() {
         <div class="talent-modal-scroll">
           <div class="talent-modal-fields">
             <input type="text" id="talent-name-inp" class="talent-modal-full" value="${escapeAttr(d.name || "")}" placeholder="${escapeAttr(t("talentDefault"))}" />
-            <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${escapeAttr(t("talentDescPlaceholder"))}" title="${descTitle}">${escapeAttr(desc)}</textarea>
+            <textarea id="talent-desc-inp" class="talent-modal-full" rows="5" placeholder="${escapeAttr(t("talentDescPlaceholder"))}"${descTipAttr}>${escapeAttr(desc)}</textarea>
           </div>
         </div>
         <div class="talent-modal-row">
@@ -2560,7 +2685,7 @@ function renderSpellsTab() {
       const viewDetails = `
         <div class="spell-effect-row">
           <div class="spell-effect-text">${viewEffectHtml}</div>
-          ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
+          ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}"${dataFvTipAttr(t("edit"))}>${edit}</button>` : ""}
         </div>
         <div class="spell-meta-row spell-meta-row--cost">
           <div class="spell-meta-cost-leading">
@@ -2584,7 +2709,7 @@ function renderSpellsTab() {
             <div class="spell-effect-edit-row">
               <textarea class="spell-effect-inp" data-spell-effect="${escapeAttr(id)}" placeholder="${escapeAttr(enterField("spellEffect"))}" rows="3">${escapeAttr(draft ? draft.effect : (sp.effect || ""))}</textarea>
             </div>
-            ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
+            ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}"${dataFvTipAttr(t("edit"))}>${edit}</button>` : ""}
           </div>
           <div class="spell-edit-meta">
             <div class="spell-edit-meta-row spell-edit-meta-row--cost">
@@ -2620,7 +2745,7 @@ function renderSpellsTab() {
       return `
         <div class="spell-item-wrap ${open ? "open" : "wrapped"}" data-spell-id="${escapeAttr(id)}" draggable="false">
           <div class="spell-row">
-            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
+            <button type="button" class="spell-handle-btn" data-spell-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}"${dataFvTipAttr(t("reorder"))} aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
             ${nameCell}
             <button type="button" class="spell-use-btn" data-spell-use="${escapeAttr(id)}">${t("use")}</button>
             <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-spell-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${arrow}</button>
@@ -2639,8 +2764,8 @@ function renderSpellsTab() {
     .join("");
   const titleBtns = editable
     ? `<div class="spells-title-btns">
-        <button type="button" class="spells-title-icon-btn" id="btn-add-spell" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg spells-title-icon", "var(--accent)")}</button>
-        <button type="button" class="spells-title-icon-btn" id="btn-remove-spell" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg spells-title-icon", "var(--accent)")}</button>
+        <button type="button" class="spells-title-icon-btn" id="btn-add-spell" aria-label="${escapeAttr(t("add"))}"${dataFvTipAttr(t("add"))}>${inlineSvg(addIcon, "inline-svg spells-title-icon", "var(--accent)")}</button>
+        <button type="button" class="spells-title-icon-btn" id="btn-remove-spell" aria-label="${escapeAttr(t("remove"))}"${dataFvTipAttr(t("remove"))}>${inlineSvg(removeIcon, "inline-svg spells-title-icon", "var(--accent)")}</button>
       </div>`
     : "";
   return `
@@ -2806,7 +2931,7 @@ function renderInventoryTab() {
     const svg = slotIconByCanon[canon];
     if (!svg) return "";
     const itemAttr = itemId ? ` data-equip-item="${escapeAttr(String(itemId))}"` : "";
-    return `<button type="button" class="inv-slot-btn ${extraClass} ${equipped ? "equipped" : ""}" data-equip-slot="${escapeAttr(canon)}"${itemAttr} title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">${inlineSvg(svg, "inline-svg inv-slot-svg", color)}</button>`;
+    return `<button type="button" class="inv-slot-btn ${extraClass} ${equipped ? "equipped" : ""}" data-equip-slot="${escapeAttr(canon)}"${itemAttr}${dataFvTipAttr(title)} aria-label="${escapeAttr(title)}">${inlineSvg(svg, "inline-svg inv-slot-svg", color)}</button>`;
   };
 
   const invBubbleTitleRow = (title, leftHtml, rightHtml, extraClass = "") => `
@@ -2818,7 +2943,7 @@ function renderInventoryTab() {
   `;
 
   const iconBtn = (id, svg, color, aria, extraClass = "") =>
-    `<button type="button" id="${escapeAttr(id)}" class="inv-icon-btn ${extraClass}" aria-label="${escapeAttr(aria)}" title="${escapeAttr(aria)}">${inlineSvg(svg, "inline-svg inv-icon-svg", color)}</button>`;
+    `<button type="button" id="${escapeAttr(id)}" class="inv-icon-btn ${extraClass}" aria-label="${escapeAttr(aria)}"${dataFvTipAttr(aria)}>${inlineSvg(svg, "inline-svg inv-icon-svg", color)}</button>`;
 
   const bubble = (inner, extraClass = "") => `<div class="stats-bubble inv-bubble ${extraClass}">${inner}</div>`;
 
@@ -2840,7 +2965,7 @@ function renderInventoryTab() {
         class="inv-weapon-btn ${equipped ? "equipped" : ""}"
         data-equip-slot="${escapeAttr(canon)}"${itemAttr}${tip}
         aria-label="${escapeAttr(title)}"
-        title="${escapeAttr(title)}">
+        ${dataFvTipAttr(title)}>
         ${inlineSvg(weaponIcon, "inline-svg inv-weapon-svg", color)}
       </button>
     `;
@@ -2861,7 +2986,7 @@ function renderInventoryTab() {
     </div>
   `;
   const equipBlock = bubble(
-    `<div class="inv-equip-wrap">${equipLeft}${equipRight}<div class="inv-equip-tooltip hidden" id="inv-equip-tooltip"></div></div>`,
+    `<div class="inv-equip-wrap">${equipLeft}${equipRight}</div>`,
     "inv-bubble--equip"
   );
 
@@ -3061,7 +3186,7 @@ function renderInventoryTab() {
         const tid = String(tal.id || "");
         const nm = String(tal.name || "").trim() || (t("talentDefault") || "Talent");
         const removeBtn = editable
-          ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-remove="${escapeAttr(id)}" data-inv-talent-id="${escapeAttr(tid)}" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
+          ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-remove="${escapeAttr(id)}" data-inv-talent-id="${escapeAttr(tid)}" aria-label="${escapeAttr(t("remove"))}"${dataFvTipAttr(t("remove"))}>${inlineSvg(removeIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
           : "";
         const nameCell = editing
           ? `<input type="text" class="inv-item-talent-name-inp" data-inv-item-talent-name="${escapeAttr(id)}" data-inv-talent-id="${escapeAttr(tid)}" value="${escapeAttr(nm)}" placeholder="${escapeAttr(t("talentDefault") || "")}" />`
@@ -3074,7 +3199,7 @@ function renderInventoryTab() {
         `;
       }).join("");
       const addHeaderBtn = editable
-        ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
+        ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}"${dataFvTipAttr(t("add"))}>${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
         : "";
       const talentsBlock = `
         <div class="inv-item-talents-block">
@@ -3100,7 +3225,7 @@ function renderInventoryTab() {
     return `
       <div class="spell-item-wrap ${open ? "open" : "wrapped"} inv-item-wrap" id="inv-item-${escapeAttr(id)}" data-inv-item-id="${escapeAttr(id)}" data-inv-section="${escapeAttr(sectionKey)}" draggable="false">
         <div class="spell-row inv-item-row">
-          <button type="button" class="spell-handle-btn" data-inv-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}" title="${escapeAttr(t("reorder"))}" aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
+          <button type="button" class="spell-handle-btn" data-inv-handle="${escapeAttr(id)}" draggable="${editable ? "true" : "false"}"${dataFvTipAttr(t("reorder"))} aria-label="${escapeAttr(t("reorder"))}">${handle}</button>
           ${nameNode}
           ${renderQtyCounter(id, it.count ?? it.quantity ?? 1)}
           <button type="button" class="spell-toggle-btn ${open ? "open" : ""}" data-inv-toggle="${escapeAttr(id)}" aria-label="${escapeAttr(t("toggle"))}">${chevron}</button>
@@ -3109,7 +3234,7 @@ function renderInventoryTab() {
           <div class="spell-details inv-item-details">
             <div class="spell-effect-row">
               ${descNode}
-              ${editable ? `<button type="button" class="spell-edit-btn" data-inv-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${editSvg}</button>` : ""}
+              ${editable ? `<button type="button" class="spell-edit-btn" data-inv-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}"${dataFvTipAttr(t("edit"))}>${editSvg}</button>` : ""}
             </div>
             ${weaponArmorExtras}
           </div>
@@ -3152,7 +3277,7 @@ function renderChatTab() {
         const player = escapeAttr(resolvePlayerDisplayName(m.playerId));
         const deleteBtn =
           m.id && canDeleteChatMessage(m)
-            ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}" title="${t("remove")}">${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
+            ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}"${dataFvTipAttr(t("remove"))}>${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
             : "";
         const bubbleInner = `<div class="chat-body">${renderChatBody(m.body)}</div>`;
         return `
@@ -3175,11 +3300,11 @@ function renderChatTab() {
           <div class="chat-messages" id="chat-messages">${list}</div>
         </div>
         <div class="chat-scrollbar-col" aria-hidden="true">
-          <button type="button" class="chat-scroll-arrow chat-scroll-up" id="chat-scroll-up" tabindex="-1" title="${t("scrollUp")}">${inlineSvg(arrowIcon, "inline-svg chat-scroll-arrow-svg", "var(--text)")}</button>
+          <button type="button" class="chat-scroll-arrow chat-scroll-up" id="chat-scroll-up" tabindex="-1"${dataFvTipAttr(t("scrollUp"))}>${inlineSvg(arrowIcon, "inline-svg chat-scroll-arrow-svg", "var(--text)")}</button>
           <div class="chat-scroll-track-outer">
             <div class="chat-scroll-track" id="chat-scroll-track"><div class="chat-scroll-thumb" id="chat-scroll-thumb"></div></div>
           </div>
-          <button type="button" class="chat-scroll-arrow chat-scroll-down" id="chat-scroll-down" tabindex="-1" title="${t("scrollDown")}">${inlineSvg(arrowIcon, "inline-svg chat-scroll-arrow-svg", "var(--text)")}</button>
+          <button type="button" class="chat-scroll-arrow chat-scroll-down" id="chat-scroll-down" tabindex="-1"${dataFvTipAttr(t("scrollDown"))}>${inlineSvg(arrowIcon, "inline-svg chat-scroll-arrow-svg", "var(--text)")}</button>
         </div>
       </div>
       <div class="chat-input-row">
@@ -3556,7 +3681,7 @@ function renderNotesTab() {
   const viewing = !editable || !state.notesEditMode;
   const bodyHtml = viewing ? renderNotesBody(notes) : "";
   const editBtn = editable
-    ? `<button type="button" class="notes-edit-btn" id="notes-edit-toggle" aria-label="${escapeAttr(state.notesEditMode ? t("done") : t("edit"))}" title="${escapeAttr(state.notesEditMode ? t("done") : t("edit"))}">
+    ? `<button type="button" class="notes-edit-btn" id="notes-edit-toggle" aria-label="${escapeAttr(state.notesEditMode ? t("done") : t("edit"))}"${dataFvTipAttr(state.notesEditMode ? t("done") : t("edit"))}>
         ${inlineSvg(editIcon, "inline-svg notes-edit-icon", "var(--text)")}
       </button>`
     : "";
@@ -3566,7 +3691,7 @@ function renderNotesTab() {
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="italic"><em>I</em></button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="underline"><u>U</u></button>
         <span class="notes-tbar-sep" aria-hidden="true"></span>
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="hr" title="${escapeAttr(t("separator"))}" aria-label="${escapeAttr(t("separator"))}">─</button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="hr"${dataFvTipAttr(t("separator"))} aria-label="${escapeAttr(t("separator"))}">─</button>
         <span class="notes-tbar-sep" aria-hidden="true"></span>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h1">H1</button>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h2">H2</button>
@@ -3589,11 +3714,11 @@ function renderNotesTab() {
             }
           </div>
           <div class="notes-scrollbar-col" aria-hidden="true">
-            <button type="button" class="notes-scroll-arrow notes-scroll-up" id="notes-scroll-up" tabindex="-1" title="${t("scrollUp")}">${inlineSvg(arrowIcon, "inline-svg notes-scroll-arrow-svg", "var(--text)")}</button>
+            <button type="button" class="notes-scroll-arrow notes-scroll-up" id="notes-scroll-up" tabindex="-1"${dataFvTipAttr(t("scrollUp"))}>${inlineSvg(arrowIcon, "inline-svg notes-scroll-arrow-svg", "var(--text)")}</button>
             <div class="notes-scroll-track-outer">
               <div class="notes-scroll-track" id="notes-scroll-track"><div class="notes-scroll-thumb" id="notes-scroll-thumb"></div></div>
             </div>
-            <button type="button" class="notes-scroll-arrow notes-scroll-down" id="notes-scroll-down" tabindex="-1" title="${t("scrollDown")}">${inlineSvg(arrowIcon, "inline-svg notes-scroll-arrow-svg", "var(--text)")}</button>
+            <button type="button" class="notes-scroll-arrow notes-scroll-down" id="notes-scroll-down" tabindex="-1"${dataFvTipAttr(t("scrollDown"))}>${inlineSvg(arrowIcon, "inline-svg notes-scroll-arrow-svg", "var(--text)")}</button>
           </div>
         </div>
       </div>
@@ -3643,7 +3768,7 @@ function renderSettingsTab() {
         </div>
         ${
           editable
-            ? `<button type="button" id="btn-reset-theme-colors" class="settings-reset-theme-icon-btn${themeAtDefault ? " is-quiet" : ""}" title="${escapeAttr(t("resetColorsTooltip"))}" aria-label="${escapeAttr(t("resetColorsTooltip"))}">⟲</button>`
+            ? `<button type="button" id="btn-reset-theme-colors" class="settings-reset-theme-icon-btn${themeAtDefault ? " is-quiet" : ""}"${dataFvTipAttr(t("resetColorsTooltip"))} aria-label="${escapeAttr(t("resetColorsTooltip"))}">⟲</button>`
             : ""
         }
       </div>
@@ -3699,6 +3824,7 @@ function applyColors() {
 function render() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
+  hideFvPluginTooltip();
   // Expose locale for CSS-only layout tweaks (avoid locale-driven reflows).
   app.dataset.locale = String(state.locale || "en");
   if (state.startupError) {
@@ -5310,9 +5436,8 @@ function bindEvents() {
 
   // Spells reorder is handled via event delegation (bound once below).
 
-  // Inventory: equip-slot click + tooltip via delegation (SVGs can have nested shapes).
+  // Inventory: equip-slot click (SVGs can have nested shapes).
   const equipRoot = app.querySelector(".inv-equip-wrap");
-  const equipTip = document.getElementById("inv-equip-tooltip");
   if (equipRoot) {
     equipRoot.addEventListener("click", (e) => {
       const el = e.target?.closest?.("[data-equip-item]");
@@ -5322,51 +5447,6 @@ function bindEvents() {
       state._openItems[String(itemId)] = true;
       state._scrollToInventoryItemId = String(itemId);
       render();
-    });
-  }
-  if (equipRoot && equipTip) {
-    const hide = () => equipTip.classList.add("hidden");
-    equipRoot.addEventListener("mouseleave", hide);
-    equipRoot.addEventListener("mousemove", (e) => {
-      const part = e.target?.closest?.("[data-equip-tip-slot]");
-      if (!part || !equipRoot.contains(part)) {
-        hide();
-        return;
-      }
-      const slot = (part.getAttribute("data-equip-tip-slot") || "").trim();
-      const item = (part.getAttribute("data-equip-tip-item") || "").trim();
-      if (!slot) {
-        hide();
-        return;
-      }
-      const itemLines = item ? wrapWordsByLen(item, 20) : [];
-      const itemHtml = itemLines.length
-        ? `<div class="inv-equip-tip-item">${itemLines.map((ln) => `<div class="inv-equip-tip-item-line">${escapeAttr(ln)}</div>`).join("")}</div>`
-        : "";
-      equipTip.innerHTML = `<div class="inv-equip-tip-slot"><strong>${escapeAttr(slot)}</strong></div>${itemHtml}`;
-      equipTip.classList.remove("hidden");
-      const posRoot = equipTip.offsetParent || equipRoot;
-      const r = posRoot.getBoundingClientRect();
-      const x = (e.clientX - r.left) + 10;
-      const y = (e.clientY - r.top) + 10;
-      equipTip.style.left = `${Math.max(0, x)}px`;
-      equipTip.style.top = `${Math.max(0, y)}px`;
-      requestAnimationFrame(() => {
-        if (equipTip.classList.contains("hidden")) return;
-        const tr = equipTip.getBoundingClientRect();
-        // Prefer staying on the side with room instead of breaking words.
-        const rightSpace = r.width - x;
-        const leftSpace = x;
-        const need = tr.width + 8;
-        const preferLeft = rightSpace < need && leftSpace >= need;
-        const nextLeftRaw = preferLeft ? (x - tr.width - 8) : x;
-        const maxLeft = Math.max(0, r.width - tr.width - 6);
-        const maxTop = Math.max(0, r.height - tr.height - 6);
-        const nextLeft = Math.max(0, Math.min(maxLeft, nextLeftRaw));
-        const nextTop = Math.max(0, Math.min(maxTop, y));
-        equipTip.style.left = `${nextLeft}px`;
-        equipTip.style.top = `${nextTop}px`;
-      });
     });
   }
 
@@ -6985,6 +7065,8 @@ export async function initApp() {
       await loadSheet(state.activeSheetId);
     }
     render();
+    ensureFvPluginTooltipEl();
+    installFvPluginTooltipDelegationOnce();
 
     const realtimeState = {
       timer: null,
