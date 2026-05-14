@@ -4006,12 +4006,7 @@ function renderSettingsTab() {
   return `
     <div class="card settings-card">
       <h2 class="settings-title">${t("tabSettings")}</h2>
-      <div class="settings-auto-quick-row">
-        <span class="settings-pill-label">${t("autoQuickRoll")}</span>
-        <div class="settings-auto-quick-toggle">
-          <button type="button" class="spell-pill-toggle${autoQuick ? " active" : ""}" id="btn-toggle-auto-quick-roll" ${editable ? "" : "disabled"} aria-pressed="${autoQuick ? "true" : "false"}" aria-label="${escapeAttr(t("autoQuickRoll"))}">${t(autoQuick ? "autoQuickRollOn" : "autoQuickRollOff")}</button>
-        </div>
-      </div>
+      <button type="button" class="spell-pill-toggle settings-auto-quick-roll-btn${autoQuick ? " active" : ""}" id="btn-toggle-auto-quick-roll" ${editable ? "" : "disabled"} aria-pressed="${autoQuick ? "true" : "false"}" aria-label="${escapeAttr(t("autoQuickRoll"))}">${escapeAttr(t("autoQuickRoll"))}</button>
       <div class="settings-color-row">
         <span class="settings-pill-label">${t("uiColors")}</span>
         <div class="settings-color-strip">
