@@ -503,8 +503,8 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
           </div>
         </div>
         <div class="spell-meta-row spell-meta-row--flags">
-          <button type="button" class="spell-pill-toggle ${R?"active":""}" disabled>${m("continuous")}</button>
           <button type="button" class="spell-pill-toggle ${k?"active":""}" disabled>${m("spellArmed")}</button>
+          <button type="button" class="spell-pill-toggle ${R?"active":""}" disabled>${m("continuous")}</button>
         </div>
       `,L=`
         <div class="spell-edit-fields">
@@ -533,8 +533,8 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
             </div>
             <div class="spell-edit-meta-row spell-edit-meta-row--flags">
               <div class="spell-toggle-row">
-                <button type="button" class="spell-pill-toggle ${(u?u.isContinuous:R)?"active":""}" data-spell-cont="${w(l)}">${m("continuous")}</button>
                 <button type="button" class="spell-pill-toggle ${(u?u.isArmed:k)?"active":""}" data-spell-armed="${w(l)}">${m("spellArmed")}</button>
+                <button type="button" class="spell-pill-toggle ${(u?u.isContinuous:R)?"active":""}" data-spell-cont="${w(l)}">${m("continuous")}</button>
               </div>
             </div>
           </div>
