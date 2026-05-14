@@ -3401,20 +3401,16 @@ function renderSettingsTab() {
   return `
     <div class="card settings-card">
       <h2 class="settings-title">${t("tabSettings")}</h2>
-      <div class="settings-color-block">
-        <div class="settings-color-row">
-          <span class="settings-pill-label">${t("uiColors")}</span>
-          <div class="settings-color-strip">
-            <label class="settings-color-stop"><input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
-            <label class="settings-color-stop"><input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
-            <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
-          </div>
+      <div class="settings-color-row">
+        <span class="settings-pill-label">${t("uiColors")}</span>
+        <div class="settings-color-strip">
+          <label class="settings-color-stop"><input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
+          <label class="settings-color-stop"><input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
+          <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
         </div>
         ${
           editable
-            ? `<div class="settings-color-footer">
-            <button type="button" id="btn-reset-theme-colors" class="settings-reset-theme-btn${themeAtDefault ? " is-quiet" : ""}" aria-label="${escapeAttr(t("resetThemeColors"))}">${t("resetThemeColors")}</button>
-          </div>`
+            ? `<button type="button" id="btn-reset-theme-colors" class="settings-reset-theme-icon-btn${themeAtDefault ? " is-quiet" : ""}" title="${escapeAttr(t("resetColorsTooltip"))}" aria-label="${escapeAttr(t("resetColorsTooltip"))}">⟲</button>`
             : ""
         }
       </div>

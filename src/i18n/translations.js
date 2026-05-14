@@ -282,7 +282,7 @@ export const translations = {
     exportEverything: "Export everything",
     importEverything: "Import everything",
     importFile: "Import from file",
-    resetThemeColors: "Restore default colors",
+    resetColorsTooltip: "Reset colors",
 
     /** "Enter {field}..." — {field} is the lowercased label from t(key). */
     enterFieldTemplate: "Enter {field}...",
@@ -594,7 +594,7 @@ export const translations = {
     exportEverything: "Tout exporter",
     importEverything: "Tout importer",
     importFile: "Importer un fichier",
-    resetThemeColors: "Couleurs par défaut",
+    resetColorsTooltip: "Réinitialiser les couleurs",
 
     /** "Enter {field}..." — {field} is the lowercased label from t(key). */
     enterFieldTemplate: "Saisir {field}...",

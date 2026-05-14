@@ -2472,53 +2472,50 @@ input.inv-qty-pill.inv-qty-inp {
   font-size: 1.75rem;
 }
 
-.settings-color-block {
-  margin-bottom: 0.6rem;
-}
-
 .settings-color-row {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  margin-bottom: 0;
+  margin-bottom: 0.6rem;
   border: 3px solid var(--border);
   border-radius: 999px;
   padding: 0.24rem 0.28rem 0.24rem 0.24rem;
 }
 
-.settings-color-footer {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.38rem;
-  padding: 0 0.35rem;
-}
-
-.settings-reset-theme-btn {
+.settings-reset-theme-icon-btn {
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
   margin: 0;
-  padding: 0.12rem 0.35rem;
-  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--border);
+  border-radius: 999px;
   background: transparent;
-  color: color-mix(in srgb, var(--text) 78%, transparent);
+  color: var(--text);
   font: inherit;
-  font-size: 1.2rem;
-  line-height: 1.25;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-  text-decoration-thickness: from-font;
+  font-size: 1.15rem;
+  line-height: 1;
   cursor: pointer;
 }
 
-.settings-reset-theme-btn:hover {
-  color: var(--text);
+.settings-reset-theme-icon-btn:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
-.settings-reset-theme-btn.is-quiet {
+.settings-reset-theme-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.settings-reset-theme-icon-btn.is-quiet {
   opacity: 0.55;
 }
 
-.settings-reset-theme-btn.is-quiet:hover {
+.settings-reset-theme-icon-btn.is-quiet:hover {
   opacity: 0.85;
-  color: var(--text);
 }
 
 .settings-pill-label,
