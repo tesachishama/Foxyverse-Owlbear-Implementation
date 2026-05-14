@@ -454,6 +454,10 @@ button:disabled {
   background: transparent;
   margin-bottom: 0;
 }
+/* Bubbles sit inside wrappers (#inv-currency-block, #inv-sec-…), so .stats-bubble + .stats-bubble never applies between sections — space direct children instead. */
+.inventory-tab-card.inventory-template > * + * {
+  margin-top: 0.55rem;
+}
 
 .inv-bubble { padding: 0.55rem; }
 .inv-bubble-title-row {
