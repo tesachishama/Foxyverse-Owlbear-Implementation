@@ -2484,11 +2484,13 @@ input.inv-qty-pill.inv-qty-inp {
 
 .settings-color-row .settings-pill-label {
   line-height: 1;
+  align-self: center;
 }
 
 /* #app button sets font: inherit — override line-height so the ⟲ centers in the row. */
 #app button.settings-reset-theme-icon-btn {
   flex: 0 0 auto;
+  align-self: center;
   box-sizing: border-box;
   width: 2.25rem;
   height: 1.9rem;
@@ -2559,6 +2561,7 @@ input.inv-qty-pill.inv-qty-inp {
 
 .settings-color-strip {
   flex: 1;
+  align-self: center;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.28rem;
