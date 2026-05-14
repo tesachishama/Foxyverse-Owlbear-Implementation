@@ -954,6 +954,26 @@ export async function insertChatMessage(roomId, { playerId, sheetId, body }) {
   return row;
 }
 
+export async function updateChatMessageBody(roomId, messageId, body) {
+  await ensureRoom(roomId);
+  const patch = { [CHAT_BODY_COL]: body || "" };
+  const selectCols = `id, ${CHAT_TIME_COL}, player_id, sheet_id, ${CHAT_BODY_COL}`;
+  const { data, error } = await supabase
+    .from("chat")
+    .update(patch)
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .select(selectCols);
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    throw new Error(
+      'Chat update returned no row. Check RLS policies for "chat" (UPDATE must allow the client to update this row).'
+    );
+  }
+  return row;
+}
+
 export async function deleteChatMessage(roomId, messageId) {
   const { error } = await supabase.from("chat").delete().eq("id", messageId).eq("room_id", roomId);
   if (error) throw error;
@@ -995,8 +1015,38 @@ export async function broadcastChatMessageDeleted(roomId, messageId) {
   }
 }
 
-/** Subscribe to chat lines for a room (INSERT; postgres DELETE; broadcast delete). */
-export function subscribeToChat(roomId, onInsert, onDelete, onBroadcastDelete) {
+/**
+ * Notify subscribers that a message body changed (Realtime Broadcast).
+ * Use after a successful UPDATE when postgres UPDATE events may not reach every client.
+ */
+export async function broadcastChatMessageUpdated(roomId, { id, body }) {
+  const sendOn = async (ch) => {
+    const { error } = await ch.send({
+      type: "broadcast",
+      event: "chat_updated",
+      payload: { id, body },
+    });
+    if (error) console.warn("chat_updated broadcast failed", error);
+  };
+
+  if (chatRealtimeChannel && chatRealtimeRoomId === roomId) {
+    await sendOn(chatRealtimeChannel);
+    return;
+  }
+
+  const temp = supabase.channel(`foxyverse-chat-${roomId}`);
+  try {
+    await temp.subscribe();
+    await sendOn(temp);
+  } finally {
+    try {
+      supabase.removeChannel(temp);
+    } catch (_) {}
+  }
+}
+
+/** Subscribe to chat lines for a room (INSERT; postgres DELETE/UPDATE; broadcast delete/update). */
+export function subscribeToChat(roomId, onInsert, onDelete, onBroadcastDelete, onChatBodyUpdate) {
   const channel = supabase.channel(`foxyverse-chat-${roomId}`);
   chatRealtimeChannel = channel;
   chatRealtimeRoomId = roomId;
@@ -1018,8 +1068,24 @@ export function subscribeToChat(roomId, onInsert, onDelete, onBroadcastDelete) {
     .on("broadcast", { event: "chat_deleted" }, (payload) => {
       const id = payload?.payload?.id;
       if (id != null && typeof onBroadcastDelete === "function") onBroadcastDelete(id);
-    })
-    .subscribe();
+    });
+  if (typeof onChatBodyUpdate === "function") {
+    channel
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "chat", filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          onChatBodyUpdate({ id: row.id, body: getChatMessageText(row) });
+        }
+      )
+      .on("broadcast", { event: "chat_updated" }, (payload) => {
+        const p = payload?.payload;
+        if (p?.id != null && typeof p.body === "string") onChatBodyUpdate({ id: p.id, body: p.body });
+      });
+  }
+  channel.subscribe();
   return () => {
     if (chatRealtimeChannel === channel) {
       chatRealtimeChannel = null;

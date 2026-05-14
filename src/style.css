@@ -2255,6 +2255,15 @@ input.inv-qty-pill.inv-qty-inp {
   line-height: 1.1;
 }
 
+#chat-messages .chat-roll-wrap--superseded {
+  opacity: 0.52;
+  filter: grayscale(0.35);
+}
+
+#chat-messages .chat-roll-wrap--superseded .chat-roll-apply-row {
+  display: none;
+}
+
 #chat-messages .chat-roll-row {
   width: 100%;
   margin: 0;
@@ -3109,6 +3118,15 @@ input.inv-qty-pill.inv-qty-inp {
   gap: 0.08rem !important;
   row-gap: 0.08rem !important;
   line-height: 1 !important;
+}
+
+#app main.tab-content #chat-messages .chat-roll-wrap--superseded {
+  opacity: 0.5 !important;
+  filter: grayscale(0.4) !important;
+}
+
+#app main.tab-content #chat-messages .chat-roll-wrap--superseded .chat-roll-apply-row {
+  display: none !important;
 }
 
 #app main.tab-content #chat-messages .chat-roll-wrap .chat-roll-row,

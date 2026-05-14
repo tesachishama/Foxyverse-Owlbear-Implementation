@@ -135,6 +135,8 @@ const state = {
   rollModalOpen: false,
   lastRoll: null,
   lastRollPayload: null,
+  /** Chat message id of the last `[[roll]]` line posted for this client (favor reroll supersedes it). */
+  lastRollChatMessageId: null,
   /** Roll prep modal: choose talents + extra formula before rolling. */
   rollPrepOpen: false,
   rollPrepBase: null, // { kind, stat?, formula, count, typeLabelKey?, typeLabel? }
@@ -266,6 +268,7 @@ async function loadSheet(sheetId, options = {}) {
     state.rollModalOpen = false;
     state.lastRoll = null;
     state.lastRollPayload = null;
+    state.lastRollChatMessageId = null;
     state.sheet = null;
     state.activeSheetId = sheetId;
     state.pendingSheetId = null;
@@ -300,6 +303,7 @@ async function loadSheet(sheetId, options = {}) {
     state.rollModalOpen = false;
     state.lastRoll = null;
     state.lastRollPayload = null;
+    state.lastRollChatMessageId = null;
   }
   state.sheet = sheet;
   state.activeSheetId = sheetId;
@@ -1026,12 +1030,59 @@ function handleChatMessageRemoved(messageId) {
   const sid = String(messageId);
   if (!state.chatMessages.some((m) => String(m.id) === sid)) return;
   state.chatMessages = state.chatMessages.filter((m) => String(m.id) !== sid);
+  if (state.lastRollChatMessageId != null && String(state.lastRollChatMessageId) === sid) {
+    state.lastRollChatMessageId = null;
+  }
   const root = document.getElementById("chat-messages");
   if (!root) return;
   const safe = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(sid) : sid;
   root.querySelector(`.chat-msg[data-chat-id="${safe}"]`)?.remove();
   setupChatScrollbar();
   // Notes scrollbar is initialized from render() when the notes tab is active.
+}
+
+/** Returns new `[[roll]]…` body with supersededByFavorReroll, or null if not applicable. */
+function withRollSupersededInBody(rawBody) {
+  const s = String(rawBody || "").trim();
+  if (!s.startsWith("[[roll]]")) return null;
+  try {
+    const payload = JSON.parse(s.slice("[[roll]]".length));
+    if (payload.supersededByFavorReroll) return null;
+    payload.supersededByFavorReroll = true;
+    return `[[roll]]${JSON.stringify(payload)}`;
+  } catch (_) {
+    return null;
+  }
+}
+
+function patchChatMessageBody(messageId, newBody) {
+  const sid = String(messageId);
+  const idx = state.chatMessages.findIndex((m) => String(m.id) === sid);
+  if (idx === -1) return false;
+  if (state.chatMessages[idx].body === newBody) return false;
+  state.chatMessages[idx] = { ...state.chatMessages[idx], body: newBody };
+  return true;
+}
+
+function setLastRollChatMessageIdFromRow(row) {
+  const b = storage.getChatMessageText(row);
+  if (String(b || "").trim().startsWith("[[roll]]")) state.lastRollChatMessageId = row.id;
+}
+
+async function supersedeChatRollMessageForFavorReroll(messageId) {
+  if (!state.roomId || messageId == null) return;
+  const sid = String(messageId);
+  const prevMsg = state.chatMessages.find((m) => String(m.id) === sid);
+  if (!prevMsg) return;
+  const newBody = withRollSupersededInBody(prevMsg.body);
+  if (!newBody) return;
+  try {
+    await storage.updateChatMessageBody(state.roomId, sid, newBody);
+    patchChatMessageBody(sid, newBody);
+    await storage.broadcastChatMessageUpdated(state.roomId, { id: sid, body: newBody });
+  } catch (err) {
+    console.warn("Could not mark prior roll as superseded", err);
+  }
 }
 
 function getLockOwner(lockId) {
@@ -1734,6 +1785,7 @@ async function finalizeRollToChat(result, rolledPayload, formatOpts = {}) {
       body: formatRollChatLine(result, formatOpts),
     });
     appendChatMessageIfNew(row);
+    setLastRollChatMessageIdFromRow(row);
     if (state.activeTab !== "chat") {
       const sheetName = resolveCharacterDisplayName(row?.sheet_id);
       const body = storage.getChatMessageText(row);
@@ -3601,6 +3653,7 @@ function renderChatBody(body) {
   if (bodyTrim.startsWith("[[roll]]")) {
     try {
       const payload = JSON.parse(bodyTrim.slice("[[roll]]".length));
+      const superseded = !!payload.supersededByFavorReroll;
       const rawType = rollTypeLabelFromPayload(payload);
       const typeSeg = rawType ? ` ${rawType}` : "";
       const cnt = Math.max(1, Number(payload.count) || 1);
@@ -3638,7 +3691,7 @@ function renderChatBody(body) {
       const rk = String(payload.kind || "");
       const v = Number(payload.value);
       let applyBlock = "";
-      if (CHAT_APPLY_ROLL_KINDS.has(rk) && (isMulti || Number.isFinite(v))) {
+      if (CHAT_APPLY_ROLL_KINDS.has(rk) && !superseded && (isMulti || Number.isFinite(v))) {
         const canUse = !!(state.sheet && state.activeSheetId && canEdit(state.activeSheetId));
         const lbl = escapeAttr(chatRollApplyButtonLabel(rk));
         const dis = canUse ? "" : " disabled";
@@ -3647,7 +3700,8 @@ function renderChatBody(body) {
         const valsAttr = isMulti ? ` data-apply-values="${vals}"` : "";
         applyBlock = `<div class="chat-roll-apply-row"><button type="button" class="chat-roll-apply-btn btn-sm"${dis} data-apply-kind="${escapeAttr(rk)}"${valAttr}${valsAttr}>${lbl}</button></div>`;
       }
-      return `<div class="chat-roll-wrap">${line}${applyBlock}</div>`;
+      const wrapClass = superseded ? "chat-roll-wrap chat-roll-wrap--superseded" : "chat-roll-wrap";
+      return `<div class="${wrapClass}">${line}${applyBlock}</div>`;
     } catch (_) {
       // fall through to normal escaping
     }
@@ -5408,6 +5462,7 @@ function bindEvents() {
     if (rr?.disabled) return;
     if (!state.sheet || state.sheet.currentFavor < 1) return;
     if (!state.lastRollPayload || !state.roomId) return;
+    const prevRollChatId = state.lastRollChatMessageId;
     state.sheet.currentFavor--;
     saveSheet();
     if (state.roomId && state.activeSheetId) {
@@ -5426,6 +5481,8 @@ function bindEvents() {
         body: formatRollChatLine(result, { favorReroll: true, typeLabelKey, typeLabel }),
       });
       appendChatMessageIfNew(row);
+      setLastRollChatMessageIdFromRow(row);
+      if (prevRollChatId != null) await supersedeChatRollMessageForFavorReroll(prevRollChatId);
     } catch (err) {
       console.error(err);
     }
@@ -7124,6 +7181,7 @@ function bindEvents() {
         body: bodyToSend,
       });
       appendChatMessageIfNew(row);
+      if (rollResultToShow) setLastRollChatMessageIdFromRow(row);
       const hist = state._chatSendHistory;
       const last = hist[hist.length - 1];
       if (last !== line) {
@@ -7358,6 +7416,9 @@ export async function initApp() {
       },
       (id) => {
         handleChatMessageRemoved(id);
+      },
+      ({ id, body }) => {
+        if (patchChatMessageBody(id, body)) render();
       }
     );
     if (state.sheetIds.length && !state.activeSheetId) {
