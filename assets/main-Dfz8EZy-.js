@@ -351,7 +351,7 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
       </div>
       <div class="inv-cons-xfer-qty inv-qty-counter">
         <button type="button" class="inv-qty-btn" id="cons-xfer-qty-minus" aria-label="${S(g("remove"))}">${R}</button>
-        <div class="inv-qty-pill" id="cons-xfer-qty-val">${S(String(f))}</div>
+        <div class="inv-qty-pill inv-qty-pill--readout" id="cons-xfer-qty-val">${S(String(f))}</div>
         <button type="button" class="inv-qty-btn" id="cons-xfer-qty-plus" aria-label="${S(g("add"))}">${A}</button>
       </div>
     </div>
