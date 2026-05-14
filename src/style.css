@@ -2484,19 +2484,21 @@ input.inv-qty-pill.inv-qty-inp {
 
 .settings-reset-theme-icon-btn {
   flex: 0 0 auto;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: auto;
+  height: auto;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
   margin: 0;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid var(--border);
+  border: none;
   border-radius: 999px;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 1.15rem;
+  font-size: 2.25rem;
   line-height: 1;
   cursor: pointer;
 }
