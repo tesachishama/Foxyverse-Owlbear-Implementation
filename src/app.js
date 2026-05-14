@@ -434,6 +434,7 @@ function collectRollPrepTalentRows(sheet) {
     if (!arr.length) return;
     const section = (sheet.weapons || []).some((w) => w.id === it.id) ? "weapons" : "armor";
     const equipped = itemHasEquippedSlots(it);
+    if (!equipped) return;
     arr.forEach((tal) => {
       const tid = String(tal.id ?? "");
       if (!tid) return;
@@ -442,7 +443,7 @@ function collectRollPrepTalentRows(sheet) {
         tl: { ...tal },
         isItemBound: true,
         itemSection: section,
-        itemEquipped: equipped,
+        itemEquipped: true,
         itemName: String(it.name || "").trim(),
       });
     });
@@ -2362,19 +2363,16 @@ function renderRollPrepModal() {
       const desc = talentDescForTooltip(tl);
       const nameTipAttr = desc ? dataFvTipAttr(desc) : "";
       let itemMarker = "";
-      let pillSuffix = "";
       if (row.isItemBound) {
         const ico = row.itemSection === "armor" ? chestSlotIcon : weaponIcon;
-        itemMarker = `<div class="talent-item-marker"${dataFvTipAttr(row.itemName || "")}>${inlineSvg(ico, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`;
-        pillSuffix = ` talent-pill--item-bound${row.itemEquipped ? "" : " talent-pill--item-unequipped"}`;
+        itemMarker = `<span class="talent-item-marker"${dataFvTipAttr(row.itemName || "")}>${inlineSvg(ico, "inline-svg talent-item-marker-svg", "var(--text)")}</span>`;
       }
-      const onClass = active ? " talent-pill--roll-prep-on" : "";
+      const activeClass = active ? " active" : "";
       return `
-        <button type="button" class="talent-pill talent-pill--roll-prep${pillSuffix}${onClass}" data-roll-prep-talent="${escapeAttr(row.key)}">
+        <button type="button" class="spell-pill-toggle roll-prep-talent-toggle${activeClass}" data-roll-prep-talent="${escapeAttr(row.key)}">
           ${itemMarker}
-          <div class="talent-name"${nameTipAttr}>${nameDisplay}</div>
-          <div class="talent-tier">${tierLbl}</div>
-          <div class="${bonusClass}"${bonusTipAttr}>${inner}</div>
+          <span class="roll-prep-talent-name"${nameTipAttr}>${nameDisplay}</span>
+          <span class="roll-prep-talent-meta"><span class="roll-prep-talent-tier">${tierLbl}</span> <span class="${bonusClass}"${bonusTipAttr}>${inner}</span></span>
         </button>`;
     })
     .join("");
@@ -2382,7 +2380,7 @@ function renderRollPrepModal() {
     <div id="roll-prep-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="roll-prep-title">
       <div class="modal-content roll-prep-modal-content">
         <h3 id="roll-prep-title">${escapeAttr(t("rollPrepTitle"))}</h3>
-        <div class="roll-prep-talent-list talents-grid">${talentsHtml || `<span class="muted">${escapeAttr(t("rollPrepNoTalents"))}</span>`}</div>
+        <div class="roll-prep-talent-list">${talentsHtml || `<span class="muted">${escapeAttr(t("rollPrepNoTalents"))}</span>`}</div>
         <label class="roll-prep-extra-label" for="roll-prep-extra">${escapeAttr(t("rollPrepModifiers"))}</label>
         <textarea id="roll-prep-extra" class="roll-prep-extra" rows="2" spellcheck="false" placeholder="${escapeAttr(t("rollPrepExtraPlaceholder"))}">${escapeAttr(state.rollPrepExtra || "")}</textarea>
         <div class="roll-prep-formula-block">

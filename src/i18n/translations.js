@@ -301,7 +301,7 @@ export const translations = {
     rollPrepTitle: "Roll",
     rollPrepNoTalents: "No talents on this sheet.",
     rollPrepModifiers: "Modifiers",
-    rollPrepExtraPlaceholder: "Same syntax as chat or inline rolls (e.g. +3, 2d6, +str…)",
+    rollPrepExtraPlaceholder: "Manual modifier",
     rollPrepFinalFormula: "Final formula",
     rollPrepInvalidFormula: "That formula is not valid. Check your modifiers.",
 
@@ -634,7 +634,7 @@ export const translations = {
     rollPrepTitle: "Jet",
     rollPrepNoTalents: "Aucun talent sur cette fiche.",
     rollPrepModifiers: "Modificateurs",
-    rollPrepExtraPlaceholder: "Même syntaxe que le chat ou les jets inline (ex. +3, 2d6, +str…)",
+    rollPrepExtraPlaceholder: "Modificateurs manuels",
     rollPrepFinalFormula: "Formule finale",
     rollPrepInvalidFormula: "Formule invalide. Vérifiez vos modificateurs.",
 
