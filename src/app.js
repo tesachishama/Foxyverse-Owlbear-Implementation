@@ -3073,19 +3073,16 @@ function renderInventoryTab() {
           </div>
         `;
       }).join("");
-      const addBtnRow = editable
-        ? `<div class="inv-item-talent-add-row"><button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button></div>`
+      const addHeaderBtn = editable
+        ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
         : "";
-      const talentsBlock =
-        !itemTalentsList.length && !editable
-          ? ""
-          : !itemTalentsList.length && editable
-            ? `<div class="inv-item-talents-block inv-item-talents-block--minimal">${addBtnRow}</div>`
-            : `
+      const talentsBlock = `
         <div class="inv-item-talents-block">
-          <div class="inv-item-talents-title">${talentTitle}</div>
+          <div class="inv-item-talent-line inv-item-talents-header-row">
+            <div class="inv-item-talents-title">${talentTitle}</div>
+            <div class="inv-item-talent-actions">${addHeaderBtn}</div>
+          </div>
           ${talentRows}
-          ${addBtnRow}
         </div>
       `;
 

@@ -952,13 +952,17 @@ input.inv-qty-pill.inv-qty-inp {
 .inv-item-talents-block {
   margin-top: 0.35rem;
 }
-.inv-item-talents-block--minimal .inv-item-talent-add-row {
+.inv-item-talents-header-row {
   margin-top: 0;
+}
+.inv-item-talents-header-row .inv-item-talents-title {
+  margin-bottom: 0;
 }
 .inv-item-talents-title {
   font-weight: 900;
   opacity: 0.95;
   margin-bottom: 0.12rem;
+  min-width: 0;
 }
 .inv-item-talent-line {
   display: grid;
@@ -966,9 +970,6 @@ input.inv-qty-pill.inv-qty-inp {
   gap: 0.35rem;
   align-items: center;
   margin-top: 0.15rem;
-}
-.inv-item-talent-line--empty {
-  opacity: 0.65;
 }
 .inv-item-talent-name-cell {
   min-width: 0;
@@ -998,9 +999,6 @@ input.inv-qty-pill.inv-qty-inp {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.inv-item-talent-add-row {
-  margin-top: 0.22rem;
 }
 .inv-item-talent-empty { opacity: 0.6; }
 .inv-item-talent-actions { display: inline-flex; gap: 0.2rem; }
