@@ -952,6 +952,9 @@ input.inv-qty-pill.inv-qty-inp {
 .inv-item-talents-block {
   margin-top: 0.35rem;
 }
+.inv-item-talents-block--minimal .inv-item-talent-add-row {
+  margin-top: 0;
+}
 .inv-item-talents-title {
   font-weight: 900;
   opacity: 0.95;

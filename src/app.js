@@ -155,8 +155,10 @@ const state = {
     bodyParams: {},
     resolve: null,
   },
-  /** Scroll snapshot taken when the in-app confirm modal opens; restored on close. */
+  /** Scroll snapshot taken when the in-app confirm modal opens; merged into render() on close. */
   _confirmModalScrollSnap: null,
+  /** One-shot: use this snapshot instead of DOM scroll when closing the confirm modal (avoids rAF races). */
+  _pendingModalCloseScrollSnap: null,
   colors: {
     bg: DEFAULT_SHEET_THEME.bg,
     ui: DEFAULT_SHEET_THEME.ui,
@@ -1091,6 +1093,7 @@ const EMPTY_CONFIRM_MODAL = { open: false, titleKey: "", bodyKey: "", bodyParams
 function closeConfirmModal(result) {
   const snap = state._confirmModalScrollSnap;
   state._confirmModalScrollSnap = null;
+  if (snap) state._pendingModalCloseScrollSnap = snap;
   const cb = state.confirmModal?.resolve;
   state.confirmModal = { ...EMPTY_CONFIRM_MODAL };
   try {
@@ -1098,9 +1101,6 @@ function closeConfirmModal(result) {
   } catch (_) {}
   queueMicrotask(() => {
     if (typeof cb === "function") cb(!!result);
-    queueMicrotask(() => {
-      restoreScrollSnapshot(snap);
-    });
   });
 }
 
@@ -2639,8 +2639,8 @@ function renderSpellsTab() {
     .join("");
   const titleBtns = editable
     ? `<div class="spells-title-btns">
-        <button type="button" class="spells-title-icon-btn" id="btn-add-spell" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg spells-title-icon", "var(--text)")}</button>
-        <button type="button" class="spells-title-icon-btn" id="btn-remove-spell" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg spells-title-icon", "var(--text)")}</button>
+        <button type="button" class="spells-title-icon-btn" id="btn-add-spell" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg spells-title-icon", "var(--accent)")}</button>
+        <button type="button" class="spells-title-icon-btn" id="btn-remove-spell" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg spells-title-icon", "var(--accent)")}</button>
       </div>`
     : "";
   return `
@@ -3073,16 +3073,18 @@ function renderInventoryTab() {
           </div>
         `;
       }).join("");
-      const emptyTalentHint = !itemTalentsList.length
-        ? `<div class="inv-item-talent-line inv-item-talent-line--empty"><span class="inv-item-talent-empty">${escapeAttr(t("none") || "—")}</span></div>`
-        : "";
       const addBtnRow = editable
         ? `<div class="inv-item-talent-add-row"><button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button></div>`
         : "";
-      const talentsBlock = `
+      const talentsBlock =
+        !itemTalentsList.length && !editable
+          ? ""
+          : !itemTalentsList.length && editable
+            ? `<div class="inv-item-talents-block inv-item-talents-block--minimal">${addBtnRow}</div>`
+            : `
         <div class="inv-item-talents-block">
           <div class="inv-item-talents-title">${talentTitle}</div>
-          ${emptyTalentHint}${talentRows}
+          ${talentRows}
           ${addBtnRow}
         </div>
       `;
@@ -3711,11 +3713,20 @@ function render() {
   // In Owlbear the scroll container can be the document scrollingElement (most common),
   // not `main.tab-content`, so we track both.
   const scrollingEl = document.scrollingElement || document.documentElement;
-  const prevPageTop = scrollingEl ? scrollingEl.scrollTop : 0;
-  const prevWinY = typeof window !== "undefined" ? (window.scrollY || 0) : 0;
-  const prevAppTop = app.scrollTop || 0;
   const prevMain = app.querySelector("main.tab-content");
-  const prevMainTop = prevMain ? prevMain.scrollTop : 0;
+  let prevPageTop = scrollingEl ? scrollingEl.scrollTop : 0;
+  let prevWinY = typeof window !== "undefined" ? (window.scrollY || 0) : 0;
+  let prevAppTop = app.scrollTop || 0;
+  let prevMainTop = prevMain ? prevMain.scrollTop : 0;
+  const pendingClose = state._pendingModalCloseScrollSnap;
+  const consumedPendingModalScrollSnap = !!pendingClose;
+  if (pendingClose) {
+    state._pendingModalCloseScrollSnap = null;
+    prevPageTop = pendingClose.prevPageTop;
+    prevWinY = pendingClose.prevWinY;
+    prevAppTop = pendingClose.prevAppTop;
+    prevMainTop = pendingClose.prevMainTop;
+  }
   state._tabScrollTop[state.activeTab] = prevMainTop;
   state._pageScrollTop = prevPageTop;
 
@@ -3926,12 +3937,29 @@ function render() {
       setTimeout(() => scrollToInvSectionNow(key), 30);
     });
   }
+  const applySavedTabScroll = () => {
+    const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
+    const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
+    const nextMain = app.querySelector("main.tab-content");
+    if (nextMain) nextMain.scrollTop = target;
+    const se = document.scrollingElement || document.documentElement;
+    if (se) se.scrollTop = pageTarget;
+    app.scrollTop = prevAppTop;
+    try { window.scrollTo(0, prevWinY); } catch (_) {}
+  };
+
   if (state.activeTab !== "chat") {
-    if (shouldScrollToTalents) return;
+    if (shouldScrollToTalents) {
+      if (consumedPendingModalScrollSnap) applySavedTabScroll();
+      return;
+    }
     // If we explicitly requested a scroll-to-item, don't restore the previous scroll position
     // on this render; that restoration can race and undo the scroll, making it feel like a
     // "double click" is required.
-    if (shouldScrollToInvItem || shouldScrollToCurrency || shouldScrollToInvSection) return;
+    if (shouldScrollToInvItem || shouldScrollToCurrency || shouldScrollToInvSection) {
+      if (consumedPendingModalScrollSnap) applySavedTabScroll();
+      return;
+    }
     const target = Math.max(0, Number(state._tabScrollTop[state.activeTab]) || 0);
     const pageTarget = Math.max(0, Number(state._pageScrollTop) || 0);
     const restore = () => {
@@ -3943,6 +3971,9 @@ function render() {
       // Some embeds only honor window scrolling.
       try { window.scrollTo(0, prevWinY); } catch (_) {}
     };
+    // Run once synchronously so any `render()` queued in a microtask (e.g. after confirm)
+    // reads the correct scroll from the DOM instead of 0 from a not-yet-restored layout.
+    restore();
     requestAnimationFrame(() => {
       restore();
       requestAnimationFrame(restore);
