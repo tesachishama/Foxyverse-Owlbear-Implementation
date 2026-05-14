@@ -3,7 +3,7 @@
  * State-driven UI with tab navigation and translation.
  */
 import OBR from "@owlbear-rodeo/sdk";
-import { t, setLocale, enterField } from "./i18n/translations.js";
+import { t, setLocale, enterField, getLocale } from "./i18n/translations.js";
 import addIcon from "./data/icons/Icons_add.svg?raw";
 import removeIcon from "./data/icons/Icons_remove.svg?raw";
 import arrowIcon from "./data/icons/Icons_arrow.svg?raw";
@@ -133,6 +133,8 @@ const state = {
   _lastChatToastAt: 0,
   _chatStickToBottom: true,
   rollModalOpen: false,
+  /** Count of favor rerolls since the last fresh roll (drives roll modal title). */
+  rollModalFavorRerollDepth: 0,
   lastRoll: null,
   lastRollPayload: null,
   /** Chat message id of the last `[[roll]]` line posted for this client (favor reroll supersedes it). */
@@ -266,6 +268,7 @@ async function loadSheet(sheetId, options = {}) {
   const { forceRefresh = false } = options;
   if (!sheetId || !state.roomId) {
     state.rollModalOpen = false;
+    state.rollModalFavorRerollDepth = 0;
     state.lastRoll = null;
     state.lastRollPayload = null;
     state.lastRollChatMessageId = null;
@@ -301,6 +304,7 @@ async function loadSheet(sheetId, options = {}) {
   }
   if (state.activeSheetId && state.activeSheetId !== sheetId) {
     state.rollModalOpen = false;
+    state.rollModalFavorRerollDepth = 0;
     state.lastRoll = null;
     state.lastRollPayload = null;
     state.lastRollChatMessageId = null;
@@ -1550,6 +1554,7 @@ function installGlobalEscapeModalCloserOnce() {
       if (state.rollModalOpen && rollModal && !rollModal.classList.contains("hidden")) {
         e.preventDefault();
         state.rollModalOpen = false;
+        state.rollModalFavorRerollDepth = 0;
         rollModal.classList.add("hidden");
         return;
       }
@@ -1776,6 +1781,7 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
 
 async function finalizeRollToChat(result, rolledPayload, formatOpts = {}) {
   if (!state.roomId) return false;
+  state.rollModalFavorRerollDepth = 0;
   state.lastRoll = result;
   state.lastRollPayload = rolledPayload;
   try {
@@ -1806,6 +1812,28 @@ async function finalizeRollToChat(result, rolledPayload, formatOpts = {}) {
   }
 }
 
+/** Ordinal for favor-reroll modal title (1st / 1er …). */
+function favorRerollOrdinalLabel(n) {
+  const k = Math.max(1, Math.floor(Number(n) || 1));
+  if (getLocale() === "fr") {
+    if (k === 1) return "1er";
+    return `${k}e`;
+  }
+  const j = k % 10;
+  const h = k % 100;
+  if (j === 1 && h !== 11) return `${k}st`;
+  if (j === 2 && h !== 12) return `${k}nd`;
+  if (j === 3 && h !== 13) return `${k}rd`;
+  return `${k}th`;
+}
+
+function rollResultModalTitle() {
+  const depth = Math.max(0, Number(state.rollModalFavorRerollDepth) || 0);
+  if (depth <= 0) return t("result");
+  const ord = favorRerollOrdinalLabel(depth);
+  return t("rollModalRerollTitle").replace("{ordinal}", ord);
+}
+
 function syncRollModalRerollState() {
   const modal = document.getElementById("roll-modal");
   const rerollBtn = document.getElementById("roll-reroll-btn");
@@ -1824,11 +1852,13 @@ function syncRollModalRerollState() {
 function showRollResult(result) {
   const modal = document.getElementById("roll-modal");
   const text = document.getElementById("roll-result-text");
+  const titleEl = document.getElementById("roll-result-title");
   const applyBox = document.getElementById("roll-apply-buttons");
   if (!modal || !text) return;
   state.lastRoll = result;
   state.rollModalOpen = true;
   modal.classList.remove("hidden");
+  if (titleEl) titleEl.textContent = rollResultModalTitle();
   const cnt = Math.max(1, Number(result.count) || 1);
   const cntSeg = cnt > 1 ? ` ×${cnt}` : "";
   if (Array.isArray(result.multi) && result.multi.length) {
@@ -5455,6 +5485,7 @@ function bindEvents() {
 
   app.querySelector("#roll-close-btn")?.addEventListener("click", () => {
     state.rollModalOpen = false;
+    state.rollModalFavorRerollDepth = 0;
     document.getElementById("roll-modal")?.classList.add("hidden");
   });
   app.querySelector("#roll-reroll-btn")?.addEventListener("click", async () => {
@@ -5470,6 +5501,7 @@ function bindEvents() {
     }
     const result = executeRoll(state.lastRollPayload, state.sheet);
     if (!result) return;
+    state.rollModalFavorRerollDepth = (Number(state.rollModalFavorRerollDepth) || 0) + 1;
     state.lastRoll = result;
     state.rollModalOpen = true;
     try {
@@ -7168,6 +7200,7 @@ function bindEvents() {
     if (cmd && state.sheet) {
       const result = executeRoll(cmd, state.sheet);
       if (result) {
+        state.rollModalFavorRerollDepth = 0;
         state.lastRoll = result;
         state.lastRollPayload = cmd;
         bodyToSend = formatRollChatLine(result);
