@@ -2497,6 +2497,7 @@ input.inv-qty-pill.inv-qty-inp {
   min-width: 2.25rem;
   min-height: 1.9rem;
   margin: 0;
+  margin-bottom: 0.25rem;
   padding: 0;
   display: inline-flex;
   align-items: center;
