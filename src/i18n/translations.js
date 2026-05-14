@@ -118,6 +118,10 @@ export const translations = {
     rollModalRerollTitle: "{ordinal} reroll result",
     reroll: "Reroll",
     rerollCost: "Uses 1 Favor",
+    /** Roll formula suffix `!<expr`: result cannot be below expr (shown when applied). */
+    rollClampFloorNote: "raised to minimum",
+    /** Roll formula suffix `!>expr`: result cannot be above expr (shown when applied). */
+    rollClampCeilNote: "capped at maximum",
     rollSpeed: "Roll Speed",
     linkTokenToSheet: "Link selected token",
     linkedTokens: "Linked tokens",
@@ -452,6 +456,8 @@ export const translations = {
     rollModalRerollTitle: "{ordinal} relancement — résultat",
     reroll: "Relancer",
     rerollCost: "Coûte 1 Faveur",
+    rollClampFloorNote: "relevé au minimum",
+    rollClampCeilNote: "plafonné au maximum",
     rollSpeed: "Lancer Vitesse",
     linkTokenToSheet: "Lier le token sélectionné",
     linkedTokens: "Tokens liés",

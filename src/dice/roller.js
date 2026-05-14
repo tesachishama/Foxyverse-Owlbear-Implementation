@@ -3,7 +3,12 @@
  *
  * Chat command syntax: /<type> <formula>
  * Inline button syntax: [<type> <formula>]
- * Not case sensitive. Old [type:expr] is intentionally not supported.
+ * Case insensitive. Old [type:expr] is intentionally not supported.
+ *
+ * Clamp suffixes (after the main formula, can be combined; rightmost is stripped first):
+ * - `!<expr` — result cannot be below `expr` (evaluated with the same variable context as the roll).
+ * - `!>expr` — result cannot be above `expr`.
+ * Example: `[r 1d20+2!<con]` or `/roll 1d8+1!>6`.
  */
 import { evaluateFormula, formulaHasDice } from "./parser.js";
 import {
@@ -201,6 +206,73 @@ export function getInlineButtons(text) {
   return out;
 }
 
+function clampRollInt(n) {
+  if (!Number.isFinite(n)) return 0;
+  return n < 0 ? Math.ceil(n) : Math.floor(n);
+}
+
+/**
+ * Strip one trailing clamp suffix using the rightmost `!<` or `!>` in the string.
+ * - `!<expr` — floor: final total cannot be below `expr` (evaluated with the same context as the roll).
+ * - `!>expr` — cap: final total cannot be above `expr`.
+ * Repeat until none remain (supports both min and max on the same roll).
+ */
+function stripOneTrailingClamp(formula) {
+  const f = String(formula || "");
+  const idxLt = f.lastIndexOf("!<");
+  const idxGt = f.lastIndexOf("!>");
+  if (idxLt < 0 && idxGt < 0) return null;
+  const useMax = idxGt >= idxLt && idxGt >= 0;
+  const idx = useMax ? idxGt : idxLt;
+  const expr = f.slice(idx + 2).trim();
+  if (!expr) return null;
+  return { next: f.slice(0, idx).trim(), kind: useMax ? "max" : "min", expr };
+}
+
+function stripAllTrailingClampModifiers(formula) {
+  let f = String(formula || "").trim();
+  let minExpr = null;
+  let maxExpr = null;
+  while (true) {
+    const one = stripOneTrailingClamp(f);
+    if (!one) break;
+    f = one.next;
+    if (one.kind === "min") minExpr = one.expr;
+    else maxExpr = one.expr;
+  }
+  return { core: f, minExpr, maxExpr };
+}
+
+function applyNumericClamps(rawValue, minExpr, maxExpr, ctx, rng) {
+  let v = clampRollInt(rawValue);
+  const rawBeforeClamp = v;
+  let clampFloor = false;
+  let clampCeil = false;
+
+  let minBound = null;
+  let maxBound = null;
+  if (minExpr) {
+    minBound = clampRollInt(evaluateFormula(minExpr, ctx, rng).value);
+  }
+  if (maxExpr) {
+    maxBound = clampRollInt(evaluateFormula(maxExpr, ctx, rng).value);
+  }
+  if (minBound != null && maxBound != null && minBound > maxBound) {
+    const t = minBound;
+    minBound = maxBound;
+    maxBound = t;
+  }
+  if (minBound != null && v < minBound) {
+    v = minBound;
+    clampFloor = true;
+  }
+  if (maxBound != null && v > maxBound) {
+    v = maxBound;
+    clampCeil = true;
+  }
+  return { value: v, rawBeforeClamp, clampFloor, clampCeil };
+}
+
 function buildFormulaContext(sheet) {
   const con = getStatTotal(sheet, "constitution");
   const str = getStatTotal(sheet, "strength");
@@ -370,19 +442,26 @@ export function executeRoll(payload, sheet, _unused = null) {
   if (payload.kind === "stat") {
     const statId = String(payload.stat || "").toLowerCase();
     const statTotal = getStatTotal(sheet, statId);
-    const effectiveFormula = normalizeStatFormula(payload.formula || "");
+    const normalizedFull = normalizeStatFormula(payload.formula || "");
+    const { core, minExpr, maxExpr } = stripAllTrailingClampModifiers(normalizedFull);
+    if (!core) return null;
+    const displayFormula = String(payload.formula || "").trim() || normalizedFull;
     if (repeat > 1) {
       const multi = [];
       const allDice = [];
       for (let i = 0; i < repeat; i++) {
-        const evalRes = evaluateFormula(effectiveFormula, ctx);
+        const evalRes = evaluateFormula(core, ctx);
+        const clamped = applyNumericClamps(evalRes.value, minExpr, maxExpr, ctx);
         const first = findFirstDie(evalRes.diceEvents);
-        const outcome = statOutcomeFromFirstDie(evalRes.value, statTotal, first);
+        const outcome = statOutcomeFromFirstDie(clamped.value, statTotal, first);
         multi.push({
-          value: evalRes.value,
+          value: clamped.value,
           diceResults: evalRes.diceResults,
+          translatedFormula: evalRes.translatedFormula,
           outcome,
           nat: first?.roll ?? null,
+          clampFloor: clamped.clampFloor,
+          clampCeil: clamped.clampCeil,
         });
         allDice.push(...(evalRes.diceResults || []));
       }
@@ -390,8 +469,8 @@ export function executeRoll(payload, sheet, _unused = null) {
         kind: "stat",
         stat: statId,
         statTotal,
-        formula: effectiveFormula,
-        translatedFormula: multi[0]?.diceResults ? effectiveFormula : effectiveFormula,
+        formula: displayFormula,
+        translatedFormula: multi[0]?.translatedFormula || "",
         diceResults: allDice,
         value: multi[multi.length - 1]?.value ?? 0,
         outcome: null,
@@ -400,52 +479,62 @@ export function executeRoll(payload, sheet, _unused = null) {
         nat: null,
         count: repeat,
         multi,
+        clampFloor: multi.some((r) => r.clampFloor),
+        clampCeil: multi.some((r) => r.clampCeil),
       };
     }
-    const evalRes = evaluateFormula(effectiveFormula, ctx);
+    const evalRes = evaluateFormula(core, ctx);
+    const clamped = applyNumericClamps(evalRes.value, minExpr, maxExpr, ctx);
     const first = findFirstDie(evalRes.diceEvents);
-    const outcome = statOutcomeFromFirstDie(evalRes.value, statTotal, first);
+    const outcome = statOutcomeFromFirstDie(clamped.value, statTotal, first);
     return {
       kind: "stat",
       stat: statId,
       statTotal,
-      formula: effectiveFormula,
+      formula: displayFormula,
       translatedFormula: evalRes.translatedFormula,
       diceResults: evalRes.diceResults,
-      value: evalRes.value,
+      value: clamped.value,
       outcome,
       comparison: null,
       canApply: false,
       nat: first?.roll ?? null,
       count: 1,
       multi: null,
+      clampFloor: clamped.clampFloor,
+      clampCeil: clamped.clampCeil,
     };
   }
 
-  const formula = String(payload.formula || "").trim();
+  const formulaFull = String(payload.formula || "").trim();
+  const { core, minExpr, maxExpr } = stripAllTrailingClampModifiers(formulaFull);
+  if (!core) return null;
   if (repeat > 1) {
     const multi = [];
     const allDice = [];
     for (let i = 0; i < repeat; i++) {
-      const evalRes = evaluateFormula(formula, ctx);
+      const evalRes = evaluateFormula(core, ctx);
       const comparison = evalRes.comparison || null;
+      const clamped = applyNumericClamps(evalRes.value, minExpr, maxExpr, ctx);
       let outcome = null;
       if (comparison && typeof comparison.success === "boolean") {
         const first = findFirstDie(evalRes.diceEvents);
         outcome = outcomeFromNatAdjustment(!!comparison.success, first?.roll ?? null, first?.faces ?? null, comparison.kind);
       }
       multi.push({
-        value: evalRes.value,
+        value: clamped.value,
         diceResults: evalRes.diceResults,
         translatedFormula: evalRes.translatedFormula,
         comparison,
         outcome,
+        clampFloor: clamped.clampFloor,
+        clampCeil: clamped.clampCeil,
       });
       allDice.push(...(evalRes.diceResults || []));
     }
     const base = {
       kind: payload.kind,
-      formula,
+      formula: formulaFull,
       translatedFormula: multi[0]?.translatedFormula || "",
       diceResults: allDice,
       value: multi.reduce((a, r) => a + (Number(r.value) || 0), 0),
@@ -453,6 +542,8 @@ export function executeRoll(payload, sheet, _unused = null) {
       outcome: null,
       count: repeat,
       multi,
+      clampFloor: multi.some((r) => r.clampFloor),
+      clampCeil: multi.some((r) => r.clampCeil),
     };
     if (payload.kind === "pdmg" || payload.kind === "mdmg" || payload.kind === "tdmg" || payload.kind === "heal" || payload.kind === "theal" || payload.kind === "mana") {
       return { ...base, canApply: true };
@@ -460,8 +551,9 @@ export function executeRoll(payload, sheet, _unused = null) {
     return { ...base, canApply: false };
   }
 
-  const evalRes = evaluateFormula(formula, ctx);
+  const evalRes = evaluateFormula(core, ctx);
   const comparison = evalRes.comparison || null;
+  const clamped = applyNumericClamps(evalRes.value, minExpr, maxExpr, ctx);
   let outcome = null;
   if (comparison && typeof comparison.success === "boolean") {
     const first = findFirstDie(evalRes.diceEvents);
@@ -470,14 +562,16 @@ export function executeRoll(payload, sheet, _unused = null) {
 
   const base = {
     kind: payload.kind,
-    formula,
+    formula: formulaFull,
     translatedFormula: evalRes.translatedFormula,
     diceResults: evalRes.diceResults,
-    value: evalRes.value,
+    value: clamped.value,
     comparison,
     outcome,
     count: 1,
     multi: null,
+    clampFloor: clamped.clampFloor,
+    clampCeil: clamped.clampCeil,
   };
 
   if (payload.kind === "pdmg" || payload.kind === "mdmg" || payload.kind === "tdmg" || payload.kind === "heal" || payload.kind === "theal" || payload.kind === "mana") {

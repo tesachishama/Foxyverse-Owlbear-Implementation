@@ -5,6 +5,7 @@
  * - Operators: + - * / (round), \\ (floor), % (ceil), ^ (power)
  * - Parentheses: ( ... )
  * - Comparators: < (<=) and > (>=) which produce a comparison result
+ * - Clamp suffixes (stripped before parse; evaluated after the main roll): `!<expr` (floor), `!>expr` (ceiling)
  * - Dice: XdY where X and Y are expressions; without parentheses, operands are the nearest atom
  * - Variables (case-insensitive): resolved from a provided context map
  *

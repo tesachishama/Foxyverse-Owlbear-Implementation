@@ -1661,15 +1661,27 @@ function rollTypeLabelFromPayload(payload) {
 }
 
 function rollWinFromPayload(payload) {
+  const parts = [];
   const o = payload?.outcome;
-  if (o === "critical_success") return t("criticalSuccess");
-  if (o === "success") return t("success");
-  if (o === "failure") return t("failure");
-  if (o === "critical_failure") return t("criticalFailure");
-  if (typeof payload?.cmpSuccess === "boolean") return t(payload.cmpSuccess ? "success" : "failure");
-  return String(payload?.win || "").trim();
+  if (o === "critical_success") parts.push(t("criticalSuccess"));
+  else if (o === "success") parts.push(t("success"));
+  else if (o === "failure") parts.push(t("failure"));
+  else if (o === "critical_failure") parts.push(t("criticalFailure"));
+  else if (typeof payload?.cmpSuccess === "boolean") parts.push(t(payload.cmpSuccess ? "success" : "failure"));
+  const w = String(payload?.win || "").trim();
+  if (w) parts.push(w);
+  if (payload?.clampFloor) parts.push(t("rollClampFloorNote"));
+  if (payload?.clampCeil) parts.push(t("rollClampCeilNote"));
+  return parts.filter(Boolean).join(" ");
 }
 
+function rollClampSuffixFromRoll(r) {
+  if (!r?.clampFloor && !r?.clampCeil) return "";
+  const bits = [];
+  if (r.clampFloor) bits.push(t("rollClampFloorNote"));
+  if (r.clampCeil) bits.push(t("rollClampCeilNote"));
+  return bits.length ? ` (${bits.join(" ")})` : "";
+}
 /**
  * Apply damage/heal/mana from a chat roll to the active sheet.
  * @returns {{ success: true, applyFx: object[] } | { success: false }}
@@ -1877,7 +1889,7 @@ function showRollResult(result) {
       const parts = result.multi.map((r) => {
         const o = r?.outcome;
         const tag = o ? t(o === "critical_success" ? "criticalSuccess" : o === "success" ? "success" : o === "failure" ? "failure" : "criticalFailure") : "";
-        return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
+        return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}${rollClampSuffixFromRoll(r)}`;
       });
       const totalLine = `${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`;
       text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : ${parts.join(" | ")}\nTotal : ${totalLine}`;
@@ -1890,7 +1902,7 @@ function showRollResult(result) {
             ? t(r.comparison.success ? "success" : "failure")
             : "";
         const tag = critTag || winTag;
-        return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}`;
+        return `${r?.value ?? 0}${tag ? " [" + tag + "]" : ""}${rollClampSuffixFromRoll(r)}`;
       });
       const totalLine = isSucceedableMulti
         ? `${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`
@@ -1899,7 +1911,7 @@ function showRollResult(result) {
     }
   } else if (result.kind === "stat") {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
-    text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]`;
+    text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula} : [${dice}] ${result.value} [${t(result.outcome === "critical_success" ? "criticalSuccess" : result.outcome === "success" ? "success" : result.outcome === "failure" ? "failure" : "criticalFailure")}]${rollClampSuffixFromRoll(result)}`;
   } else {
     const dice = Array.isArray(result.diceResults) ? result.diceResults.join(", ") : "";
     const o = result?.outcome;
@@ -1909,7 +1921,7 @@ function showRollResult(result) {
         ? t(result.comparison.success ? "success" : "failure")
         : "";
     const tag = critTag || winTag;
-    const suffix = tag ? ` [${tag}]` : "";
+    const suffix = (tag ? ` [${tag}]` : "") + rollClampSuffixFromRoll(result);
     text.textContent = `${t("rolled")}${cntSeg} ${result.translatedFormula || result.formula || ""} : [${dice}] ${result.value}${suffix}`;
   }
   syncRollModalRerollState();
@@ -3713,7 +3725,20 @@ function renderChatBody(body) {
       const succ = hasOutcomeList ? payload.outcomes.filter((o) => o === "success").length : (isComparatorMulti ? payload.cmpList.filter((b) => b === true).length : 0);
       const fail = hasOutcomeList ? payload.outcomes.filter((o) => o === "failure").length : (isComparatorMulti ? payload.cmpList.filter((b) => b === false).length : 0);
       const resultText = escapeAttr(
-        isMulti ? payload.values.map((v) => String(v ?? 0)).join(", ") : String(payload.value ?? 0)
+        isMulti
+          ? payload.values
+              .map((v, i) => {
+                let s = String(v ?? 0);
+                const f = Array.isArray(payload.clampFloors) ? !!payload.clampFloors[i] : false;
+                const c = Array.isArray(payload.clampCeils) ? !!payload.clampCeils[i] : false;
+                const bits = [];
+                if (f) bits.push(t("rollClampFloorNote"));
+                if (c) bits.push(t("rollClampCeilNote"));
+                if (bits.length) s += ` (${bits.join(" ")})`;
+                return s;
+              })
+              .join(", ")
+          : String(payload.value ?? 0)
       );
       const winStr = rollWinFromPayload(payload);
       const winText = winStr ? `<em class="chat-roll-win">${escapeAttr(winStr)}</em>` : "";
@@ -3765,7 +3790,7 @@ function renderChatBody(body) {
 }
 
 function formatRollChatLine(result, options = {}) {
-  const formula = (result?.translatedFormula || result?.formula || "").toString();
+  const formula = (result?.formula || result?.translatedFormula || "").toString();
   const dice =
     Array.isArray(result?.multi) && result.multi.length
       ? result.multi.map((r) => (Array.isArray(r?.diceResults) ? r.diceResults.join(", ") : "")).join(" | ")
@@ -3790,12 +3815,16 @@ function formatRollChatLine(result, options = {}) {
     payload.diceList = result.multi.map((r) => Array.isArray(r?.diceResults) ? r.diceResults.join(", ") : "");
     payload.outcomes = result.multi.map((r) => r?.outcome || "");
     payload.cmpList = result.multi.map((r) => (r?.comparison && typeof r.comparison.success === "boolean") ? !!r.comparison.success : null);
+    payload.clampFloors = result.multi.map((r) => !!r.clampFloor);
+    payload.clampCeils = result.multi.map((r) => !!r.clampCeil);
   }
   if (result?.kind === "stat" && result.stat) payload.stat = String(result.stat).toLowerCase();
   if (result?.outcome) payload.outcome = result.outcome;
   else if (result?.comparison && typeof result.comparison.success === "boolean") {
     payload.cmpSuccess = result.comparison.success;
   }
+  if (result?.clampFloor) payload.clampFloor = true;
+  if (result?.clampCeil) payload.clampCeil = true;
   if (options.favorReroll) payload.isFavorReroll = true;
   return `[[roll]]${JSON.stringify(payload)}`;
 }
