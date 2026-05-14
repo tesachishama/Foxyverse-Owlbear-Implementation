@@ -995,7 +995,7 @@ input.inv-qty-pill.inv-qty-inp {
   display: block;
   max-width: 100%;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 1.125rem !important;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
