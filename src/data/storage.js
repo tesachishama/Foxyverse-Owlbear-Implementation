@@ -217,6 +217,7 @@ function assembleSheet(sheetId, rows) {
     cost: row.cost ?? 0,
     costType: row.is_hp ? "hp" : "mp",
     isContinuous: !!row.is_continuous,
+    isArmed: !!row.is_armed,
     useCounter: row.use_counter ?? 0,
   }));
 
@@ -461,6 +462,7 @@ export async function upsertSpell(roomId, sheetId, row) {
     cost: Number(row.cost) || 0,
     is_hp: !!row.is_hp,
     is_continuous: !!row.is_continuous,
+    is_armed: !!row.is_armed,
     use_counter: Number(row.use_counter) || 0,
   };
   const { error } = await supabase.from("spell").upsert(payload);
@@ -476,6 +478,7 @@ export async function updateSpellFields(roomId, sheetId, spellId, patch) {
   if ("cost" in patch) update.cost = Number(patch.cost) || 0;
   if ("is_hp" in patch) update.is_hp = !!patch.is_hp;
   if ("is_continuous" in patch) update.is_continuous = !!patch.is_continuous;
+  if ("is_armed" in patch) update.is_armed = !!patch.is_armed;
   if ("use_counter" in patch) update.use_counter = Number(patch.use_counter) || 0;
   if (!Object.keys(update).length) return;
   const { error } = await supabase.from("spell").update(update).eq("sheet_id", sheetId).eq("id", spellId);
@@ -640,6 +643,7 @@ async function persistRows(roomId, sheet) {
     cost: Number(spell.cost) || 0,
     is_hp: (spell.costType || "mp") === "hp",
     is_continuous: !!spell.isContinuous,
+    is_armed: !!spell.isArmed,
     use_counter: Number(spell.useCounter) || 0,
   }));
   const { error: deleteSpellError } = await supabase.from("spell").delete().eq("sheet_id", sheet.id);

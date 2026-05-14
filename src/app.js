@@ -135,7 +135,7 @@ const state = {
   /** Spells UI state (session-only) */
   _openSpells: {}, // spellId -> boolean
   _editingSpellId: null,
-  _spellEditDraft: null, // { id, name, effect, element, cost, costType, isContinuous }
+  _spellEditDraft: null, // { id, name, effect, element, cost, costType, isContinuous, isArmed }
   sheetMenuOpen: false,
   /** Remove-spell modal: header-style dropdown */
   spellRemoveModalOpen: false,
@@ -728,6 +728,7 @@ function startSpellEditDraft(spellId) {
     cost: Math.max(0, Number(sp.cost) || 0),
     costType: (sp.costType || "mp") === "hp" ? "hp" : "mp",
     isContinuous: !!sp.isContinuous,
+    isArmed: !!sp.isArmed,
   };
 }
 
@@ -746,6 +747,7 @@ function finalizeSpellEditIfOpen() {
     sp.cost = Math.max(0, Number(d.cost) || 0);
     sp.costType = d.costType === "hp" ? "hp" : "mp";
     sp.isContinuous = !!d.isContinuous;
+    sp.isArmed = !!d.isArmed;
   });
   const sp = next?.spells?.find((x) => String(x.id) === id);
   if (sp && state.roomId && state.activeSheetId) {
@@ -760,6 +762,7 @@ function finalizeSpellEditIfOpen() {
       cost: sp.cost ?? 0,
       is_hp: (sp.costType || "mp") === "hp",
       is_continuous: !!sp.isContinuous,
+      is_armed: !!sp.isArmed,
       use_counter: sp.useCounter ?? 0,
     }).catch((err) => {
       console.error(err);
@@ -2314,6 +2317,7 @@ function renderSpellsTab() {
       const cost = Math.max(0, Number(sp.cost) || 0);
       const costType = (sp.costType || "mp") === "hp" ? "hp" : "mp";
       const cont = !!sp.isContinuous;
+      const armed = !!sp.isArmed;
       const arrow = inlineSvg(arrowIcon, "inline-svg spell-chevron-svg", "var(--text)");
       const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--text)");
       const edit = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--text)");
@@ -2326,12 +2330,15 @@ function renderSpellsTab() {
           <div class="spell-effect-text">${viewEffectHtml}</div>
           ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
         </div>
-        <div class="spell-meta-row">
+        <div class="spell-meta-row spell-meta-row--cost">
           <span class="spell-cost-label">${t("cost")}</span>
           <span class="spell-cost-pill">${escapeAttr(String(cost))}</span>
           <button type="button" class="spell-pill-toggle ${costType === "mp" ? "active" : ""}" disabled>MP</button>
           <button type="button" class="spell-pill-toggle ${costType === "hp" ? "active" : ""}" disabled>HP</button>
+        </div>
+        <div class="spell-meta-row spell-meta-row--flags">
           <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" disabled>${t("continuous")}</button>
+          <button type="button" class="spell-pill-toggle ${armed ? "active" : ""}" disabled>${t("spellArmed")}</button>
         </div>
       `;
 
@@ -2344,20 +2351,27 @@ function renderSpellsTab() {
             ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
           </div>
           <div class="spell-edit-meta">
-            <div class="spell-cost-pill-control" data-spell-cost-pill="${escapeAttr(id)}">
-              <span class="spell-cost-label">${t("cost")}</span>
-              <div class="spell-cost-pill">
-                <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(draft ? draft.cost : cost))}</span>
-                <div class="spell-cost-arrows">
-                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="1" aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--text)")}</button>
-                  <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="-1" aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--text)")}</button>
+            <div class="spell-edit-meta-row spell-edit-meta-row--cost">
+              <div class="spell-cost-pill-control" data-spell-cost-pill="${escapeAttr(id)}">
+                <span class="spell-cost-label">${t("cost")}</span>
+                <div class="spell-cost-pill">
+                  <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(draft ? draft.cost : cost))}</span>
+                  <div class="spell-cost-arrows">
+                    <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="1" aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--text)")}</button>
+                    <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="-1" aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--text)")}</button>
+                  </div>
                 </div>
               </div>
+              <div class="spell-toggle-row">
+                <button type="button" class="spell-pill-toggle ${(draft ? draft.costType : costType) === "mp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="mp">MP</button>
+                <button type="button" class="spell-pill-toggle ${(draft ? draft.costType : costType) === "hp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="hp">HP</button>
+              </div>
             </div>
-            <div class="spell-toggle-row">
-              <button type="button" class="spell-pill-toggle ${(draft ? draft.costType : costType) === "mp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="mp">MP</button>
-              <button type="button" class="spell-pill-toggle ${(draft ? draft.costType : costType) === "hp" ? "active" : ""}" data-spell-cost-type="${escapeAttr(id)}" data-cost-type="hp">HP</button>
-              <button type="button" class="spell-pill-toggle ${(draft ? draft.isContinuous : cont) ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
+            <div class="spell-edit-meta-row spell-edit-meta-row--flags">
+              <div class="spell-toggle-row">
+                <button type="button" class="spell-pill-toggle ${(draft ? draft.isContinuous : cont) ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
+                <button type="button" class="spell-pill-toggle ${(draft ? draft.isArmed : armed) ? "active" : ""}" data-spell-armed="${escapeAttr(id)}">${t("spellArmed")}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -4733,7 +4747,7 @@ function bindEvents() {
     const next = applyLocalMutation((sheet) => {
       if (!sheet.spells) sheet.spells = [];
       // spell.name is NOT NULL in DB; use a safe default.
-      sheet.spells.push({ id: crypto.randomUUID(), name: t("spellName"), effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, useCounter: 0 });
+      sheet.spells.push({ id: crypto.randomUUID(), name: t("spellName"), effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, isArmed: false, useCounter: 0 });
     });
     if (state.roomId && state.activeSheetId && next) {
       const idx = next.spells.length - 1;
@@ -4746,6 +4760,7 @@ function bindEvents() {
         cost: sp.cost ?? 0,
         is_hp: (sp.costType || "mp") === "hp",
         is_continuous: !!sp.isContinuous,
+        is_armed: !!sp.isArmed,
         use_counter: sp.useCounter ?? 0,
       }).catch((err) => {
         console.error(err);
@@ -4886,6 +4901,17 @@ function bindEvents() {
       if (!id) return;
       if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
       state._spellEditDraft.isContinuous = !state._spellEditDraft.isContinuous;
+      render();
+    });
+  });
+
+  // Armed (display-only) toggle
+  app.querySelectorAll("[data-spell-armed]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.spellArmed;
+      if (!id) return;
+      if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      state._spellEditDraft.isArmed = !state._spellEditDraft.isArmed;
       render();
     });
   });

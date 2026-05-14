@@ -88,7 +88,7 @@ export function createEmptySheet(id = crypto.randomUUID()) {
     // Back-compat (older fields); avoid using in new UI.
     actionModifier: "",
     speedModifier: "",
-    spells: [], // { id, name, effect, cost, costType: 'hp'|'mp', element?: string }
+    spells: [], // { id, name, effect, cost, costType: 'hp'|'mp', isContinuous, isArmed, useCounter }
     equipped: {}, // slotId -> itemId
     consumables: [], // { id, type, name, count, description, ... }
     others: [],

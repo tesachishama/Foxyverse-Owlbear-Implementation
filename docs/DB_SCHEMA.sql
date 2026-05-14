@@ -100,6 +100,7 @@ CREATE TABLE public.spell (
   cost integer NOT NULL DEFAULT 0,
   is_hp boolean NOT NULL DEFAULT false,
   is_continuous boolean NOT NULL DEFAULT false,
+  is_armed boolean NOT NULL DEFAULT false,
   use_counter integer NOT NULL DEFAULT 0,
   CONSTRAINT spell_pkey PRIMARY KEY (id),
   CONSTRAINT spell_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheet(id)
