@@ -992,7 +992,43 @@ button:disabled {
   align-items: center;
 }
 .inv-cons-xfer-item-picker { min-height: 2.15rem; }
-.inv-cons-xfer-qty { display: inline-flex; align-items: center; gap: 0.08rem; }
+/* Reuse inventory qty alignment (SVG +/- buttons) */
+.inv-cons-xfer-qty.inv-qty-counter {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Transfer modal: dropdown stacks above footer so action buttons never overlap the menu */
+#consumable-transfer-modal .inv-transfer-xfer-body {
+  position: relative;
+  z-index: 2;
+}
+#consumable-transfer-modal .roll-modal-footer {
+  position: relative;
+  z-index: 1;
+}
+#consumable-transfer-modal .sheet-menu {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  max-height: min(50vh, 14rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+#consumable-transfer-modal .sheet-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
+  hyphens: auto;
+}
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble--strip { padding-left: 0.05rem; padding-right: 0.05rem; }

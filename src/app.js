@@ -1860,17 +1860,26 @@ function renderConsumableTransferModal() {
             : (s.consumables || []);
   const itemId = String(state.consumableTransferItemId || "") || (items[0]?.id ? String(items[0].id) : "");
   const item = itemId ? (items || []).find((x) => String(x.id) === itemId) : null;
-  const itemName = item?.name || (t("itemName") || "Item");
+  const xferItemDisplayLabel = (raw) =>
+    String(raw || "")
+      .replace(/\[[^\]]+\]/g, "")
+      .trim() || (t("itemName") || "Item");
+  const itemNameRaw = item?.name || (t("itemName") || "Item");
+  const itemNameShown = xferItemDisplayLabel(itemNameRaw);
   const qty = Math.max(1, clampInt(state.consumableTransferQty || 1));
 
   const recipMenu = vis
     .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-cons-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || "Name Surname")}</button>`)
     .join("");
   const itemMenu = items
-    .map((it) => `<button type="button" class="sheet-menu-item ${String(it.id) === itemId ? "active" : ""}" data-cons-xfer-item-pick="${escapeAttr(String(it.id))}">${escapeAttr(String(it.name || t("itemName") || "Item").replace(/\[[^\]]+\]/g, "").trim())}</button>`)
+    .map((it) => `<button type="button" class="sheet-menu-item ${String(it.id) === itemId ? "active" : ""}" data-cons-xfer-item-pick="${escapeAttr(String(it.id))}">${escapeAttr(xferItemDisplayLabel(it.name))}</button>`)
     .join("");
 
+  const addXferQtySvg = inlineSvg(addIcon, "inline-svg inv-qty-ico", "var(--accent)");
+  const remXferQtySvg = inlineSvg(removeIcon, "inline-svg inv-qty-ico", "var(--accent)");
+
   const pickerRow = `
+    <div class="inv-transfer-xfer-body">
     <label class="label">${escapeAttr(t("recipient") || "Recipient")}</label>
     <div class="sheet-picker inv-currency-recipient-picker">
       <div class="sheet-title">${escapeAttr(recipName)}</div>
@@ -1882,22 +1891,23 @@ function renderConsumableTransferModal() {
     <label class="label" style="margin-top:0.35rem">${escapeAttr(t("item") || "Item")}</label>
     <div class="inv-cons-xfer-item-row">
       <div class="sheet-picker inv-cons-xfer-item-picker">
-        <div class="sheet-title">${escapeAttr(itemName)}</div>
+        <div class="sheet-title">${escapeAttr(itemNameShown)}</div>
         <button type="button" id="btn-cons-xfer-item-menu" class="header-icon-btn sheet-arrow-btn ${state.consumableTransferItemMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("item") || "Item")}">
           ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
         </button>
         ${state.consumableTransferItemMenuOpen ? `<div class="sheet-menu">${itemMenu}</div>` : ""}
       </div>
-      <div class="inv-cons-xfer-qty">
-        <button type="button" class="inv-qty-btn" id="cons-xfer-qty-minus" aria-label="${escapeAttr(t("remove"))}">−</button>
+      <div class="inv-cons-xfer-qty inv-qty-counter">
+        <button type="button" class="inv-qty-btn" id="cons-xfer-qty-minus" aria-label="${escapeAttr(t("remove"))}">${remXferQtySvg}</button>
         <div class="inv-qty-pill" id="cons-xfer-qty-val">${escapeAttr(String(qty))}</div>
-        <button type="button" class="inv-qty-btn" id="cons-xfer-qty-plus" aria-label="${escapeAttr(t("add"))}">+</button>
+        <button type="button" class="inv-qty-btn" id="cons-xfer-qty-plus" aria-label="${escapeAttr(t("add"))}">${addXferQtySvg}</button>
       </div>
+    </div>
     </div>
   `;
 
   const confirmText = state.consumableTransferMode === "confirm" && state.consumableTransferPending
-    ? `${t("confirmSending") || "Confirm sending"} ${qty} ${itemName} ${t("to") || "to"} ${recipName}`
+    ? `${t("confirmSending") || "Confirm sending"} ${qty} ${itemNameShown} ${t("to") || "to"} ${recipName}`
     : "";
 
   return `
