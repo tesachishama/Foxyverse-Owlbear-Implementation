@@ -3645,7 +3645,7 @@ function renderChatTab() {
       </div>
       <div class="chat-input-row">
         <div class="chat-input-pill">
-          <input type="text" id="chat-input" placeholder="${t("chatWritePlaceholder")}" autocomplete="off" />
+          <textarea id="chat-input" rows="1" placeholder="${t("chatWritePlaceholder")}" autocomplete="off"></textarea>
           <button type="button" id="chat-send" class="chat-send-btn" aria-label="${t("send")}">${sendIcon}</button>
         </div>
       </div>
@@ -3923,6 +3923,25 @@ function setupChatScrollbar() {
 
   updateThumb();
   updateStick();
+}
+
+const CHAT_INPUT_MAX_VISIBLE_LINES = 3;
+
+/** Autosize chat textarea: grow up to 3 lines of text, then scroll vertically. */
+function syncChatInputHeight(el) {
+  if (!el || el.tagName !== "TEXTAREA" || el.id !== "chat-input") return;
+  const cs = getComputedStyle(el);
+  const fontSize = parseFloat(cs.fontSize) || 16;
+  const lhRaw = cs.lineHeight;
+  const lineHeight = lhRaw === "normal" ? fontSize * 1.25 : parseFloat(lhRaw) || fontSize * 1.25;
+  const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  const maxH = lineHeight * CHAT_INPUT_MAX_VISIBLE_LINES + padY;
+  const minH = lineHeight + padY;
+  el.style.height = "auto";
+  const sh = el.scrollHeight;
+  const next = Math.min(Math.max(sh, minH), maxH);
+  el.style.height = `${next}px`;
+  el.style.overflowY = sh > maxH ? "auto" : "hidden";
 }
 
 function setupNotesScrollbar() {
@@ -7152,6 +7171,7 @@ function bindEvents() {
   chatInput?.addEventListener("input", () => {
     state._chatHistoryIndex = null;
     state._chatHistoryDraft = "";
+    syncChatInputHeight(chatInput);
   });
   chatInput?.addEventListener("keydown", (e) => {
     const hist = state._chatSendHistory;
@@ -7164,6 +7184,7 @@ function bindEvents() {
         state._chatHistoryIndex -= 1;
       }
       chatInput.value = hist[state._chatHistoryIndex] ?? "";
+      syncChatInputHeight(chatInput);
       return;
     }
     if (e.key === "ArrowDown" && hist.length && state._chatHistoryIndex != null) {
@@ -7176,9 +7197,13 @@ function bindEvents() {
         chatInput.value = state._chatHistoryDraft;
         state._chatHistoryDraft = "";
       }
+      syncChatInputHeight(chatInput);
       return;
     }
-    if (e.key === "Enter") sendChat();
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      sendChat();
+    }
   });
   app.querySelectorAll(".chat-msg-delete-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
@@ -7203,7 +7228,7 @@ function bindEvents() {
   async function sendChat() {
     const line = chatInput?.value?.trim();
     if (!line || !state.roomId) return;
-    const cmd = parseChatCommand(line);
+    const cmd = /\r\n|\r|\n/.test(line) ? null : parseChatCommand(line);
     let bodyToSend = line;
     let rollResultToShow = null;
     if (cmd && state.sheet) {
@@ -7233,10 +7258,13 @@ function bindEvents() {
       state._chatHistoryIndex = null;
       state._chatHistoryDraft = "";
       chatInput.value = "";
+      syncChatInputHeight(chatInput);
       render();
       requestAnimationFrame(() => {
         if (rollResultToShow) showRollResult(rollResultToShow);
-        document.getElementById("chat-input")?.focus();
+        const ci = document.getElementById("chat-input");
+        ci?.focus();
+        syncChatInputHeight(ci);
       });
     } catch (err) {
       console.error(err);
@@ -7244,6 +7272,8 @@ function bindEvents() {
       OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
     }
   }
+
+  requestAnimationFrame(() => syncChatInputHeight(chatInput));
 
   setupChatScrollbar();
 
