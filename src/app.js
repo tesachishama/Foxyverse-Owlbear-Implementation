@@ -1028,6 +1028,11 @@ function canDeleteChatMessage(m) {
   return String(m.playerId || "") === String(state.playerId);
 }
 
+function isOwnChatMessage(m) {
+  if (!state.playerId) return false;
+  return String(m.playerId || "") === String(state.playerId);
+}
+
 /** Remove one message from state and the chat list DOM without full render (live delete + broadcast). */
 function handleChatMessageRemoved(messageId) {
   if (messageId == null) return;
@@ -3602,15 +3607,19 @@ function renderChatTab() {
       (m) => {
         const char = escapeAttr(resolveCharacterDisplayName(m.sheetId));
         const player = escapeAttr(resolvePlayerDisplayName(m.playerId));
+        const own = isOwnChatMessage(m);
         const deleteBtn =
           m.id && canDeleteChatMessage(m)
             ? `<button type="button" class="chat-msg-delete-btn" data-chat-id="${escapeAttr(m.id)}" aria-label="${t("remove")}"${dataFvTipAttr(t("remove"))}>${inlineSvg(removeIcon, "inline-svg chat-msg-delete-icon", "var(--text)")}</button>`
             : "";
         const bubbleInner = `<div class="chat-body">${renderChatBody(m.body)}</div>`;
+        const headerText = own
+          ? `<div class="chat-msg-header-text"><span class="chat-player-name">(${player})</span> <strong class="chat-char-name">${char}</strong></div>`
+          : `<div class="chat-msg-header-text"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>`;
         return `
-        <div class="chat-msg" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
+        <div class="chat-msg${own ? " chat-msg--own" : ""}" ${m.id ? `data-chat-id="${escapeAttr(m.id)}"` : ""}>
           <div class="chat-msg-header">
-            <div class="chat-msg-header-text"><strong class="chat-char-name">${char}</strong> <span class="chat-player-name">(${player})</span></div>
+            ${headerText}
             ${deleteBtn}
           </div>
           <div class="chat-msg-bubble">${bubbleInner}</div>
