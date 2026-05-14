@@ -2341,8 +2341,8 @@ function renderSpellsTab() {
           </div>
         </div>
         <div class="spell-meta-row spell-meta-row--flags">
-          <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" disabled>${t("continuous")}</button>
           <button type="button" class="spell-pill-toggle ${armed ? "active" : ""}" disabled>${t("spellArmed")}</button>
+          <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" disabled>${t("continuous")}</button>
         </div>
       `;
 
@@ -2373,8 +2373,8 @@ function renderSpellsTab() {
             </div>
             <div class="spell-edit-meta-row spell-edit-meta-row--flags">
               <div class="spell-toggle-row">
-                <button type="button" class="spell-pill-toggle ${(draft ? draft.isContinuous : cont) ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
                 <button type="button" class="spell-pill-toggle ${(draft ? draft.isArmed : armed) ? "active" : ""}" data-spell-armed="${escapeAttr(id)}">${t("spellArmed")}</button>
+                <button type="button" class="spell-pill-toggle ${(draft ? draft.isContinuous : cont) ? "active" : ""}" data-spell-cont="${escapeAttr(id)}">${t("continuous")}</button>
               </div>
             </div>
           </div>
