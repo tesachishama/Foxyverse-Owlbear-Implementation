@@ -332,9 +332,11 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
         <div class="roll-prep-talent-list talents-grid">${r||`<span class="muted">${S(m("rollPrepNoTalents"))}</span>`}</div>
         <label class="roll-prep-extra-label" for="roll-prep-extra">${S(m("rollPrepModifiers"))}</label>
         <textarea id="roll-prep-extra" class="roll-prep-extra" rows="2" spellcheck="false" placeholder="${S(m("rollPrepExtraPlaceholder"))}">${S(o.rollPrepExtra||"")}</textarea>
-        <div class="roll-prep-formula-block">
+        <div class="roll-prep-formula-section">
           <div class="roll-prep-formula-label">${S(m("rollPrepFinalFormula"))}</div>
-          <code id="roll-prep-formula-preview" class="roll-prep-formula-code">${S(s)}</code>
+          <div class="roll-prep-formula-pill">
+            <code id="roll-prep-formula-preview" class="roll-prep-formula-code">${S(s)}</code>
+          </div>
         </div>
         <div class="roll-modal-footer roll-prep-footer">
           <button type="button" id="roll-prep-do-roll" class="btn-sm">${S(m("roll"))}</button>
