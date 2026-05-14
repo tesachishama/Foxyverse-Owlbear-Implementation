@@ -50,7 +50,17 @@ export const SLOT_IDS = [
 export const ITEM_TYPES = ["weapon", "armor", "consumable", "bag", "other"];
 
 export const KNOWLEDGE_TIERS = [1, 2, 3, 4];
-export const KNOWLEDGE_TIER_BONUS = { 1: 1, 2: 3, 3: 5, 4: 10 };
+/** Numeric modifier per tier (tiers apply maluses: negative = bonus in roll terms). */
+export const KNOWLEDGE_TIER_BONUS = { 1: -1, 2: -3, 3: -5, 4: -10 };
+
+/** Default modifier string for rolls/UI (tier 0 → "+0"). */
+export function formatKnowledgeTierModifier(tier) {
+  const t = Math.max(0, Math.min(4, Number(tier) || 0));
+  if (t === 0) return "+0";
+  const n = KNOWLEDGE_TIER_BONUS[t];
+  if (n == null || n === 0) return "+0";
+  return n > 0 ? `+${n}` : String(n);
+}
 
 function zeroStat() {
   return { base: 0, xpBonus: 0, itemBonus: 0, passiveBonus: 0 };

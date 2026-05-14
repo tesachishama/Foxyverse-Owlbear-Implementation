@@ -66,6 +66,7 @@ import {
   findItemById,
   getSheetDefense,
   getSheetMagicalDefense,
+  formatKnowledgeTierModifier,
 } from "./data/schema.js";
 import { evalEquipSlotsExpr, canonizeSlotToken } from "./data/equipSlots.js";
 import * as storage from "./data/storage.js";
@@ -377,12 +378,11 @@ function legacyTalentOverrideFromDescription(raw) {
 function talentModifierFormulaForRoll(tl) {
   if (!tl) return "";
   const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
-  const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
   const override = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
     ? String(tl.bonusOverride).trim()
     : legacyTalentOverrideFromDescription(tl.description || "");
   if (override) return override;
-  return tierMap[tier] || "+0";
+  return formatKnowledgeTierModifier(tier);
 }
 
 function talentDescForTooltip(tl) {
@@ -395,13 +395,12 @@ function talentDescForTooltip(tl) {
 /** Same bonus cell logic as the stats talent grid (label + optional raw tip). */
 function talentBonusPartsForPill(tl) {
   const tier = Math.max(0, Math.min(4, Number(tl?.tier) || 0));
-  const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
   const rawOverride = (tl?.bonusOverride != null && String(tl.bonusOverride).trim())
     ? String(tl.bonusOverride).trim()
     : legacyTalentOverrideFromDescription(tl?.description || "");
   const override = rawOverride || null;
   const bonusLbl = !override
-    ? escapeAttr(tierMap[tier] || "+0")
+    ? escapeAttr(formatKnowledgeTierModifier(tier))
     : (() => {
         const raw = String(override).trim();
         const condensed = raw.length > 3 ? "±X" : raw;
@@ -1974,11 +1973,10 @@ function renderStatsTab() {
 
   const talentBonusText = (tl) => {
     const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
-    const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
     const override = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
       ? String(tl.bonusOverride)
       : legacyTalentOverrideFromDescription(tl.description || "");
-    if (!override) return tierMap[tier] || "+0";
+    if (!override) return escapeAttr(formatKnowledgeTierModifier(tier));
     const raw = String(override).trim();
     const condensed = raw.length > 3 ? "±X" : raw;
     return escapeAttr(condensed);
