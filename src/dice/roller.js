@@ -599,11 +599,10 @@ export function applyPhysicalDamage(sheet, value) {
 }
 
 /**
- * Elemental: temp HP then current HP absorb damage like normal; overflow reduces MP.
+ * Elemental: only temp HP absorbs damage; overflow reduces MP. Current HP is unchanged.
  */
 function applyElementalDamageToBufferThenMana(sheet, amount) {
   let temp = Math.max(0, Number(sheet.tempHP) || 0);
-  let current = Math.max(0, Number(sheet.currentHP) || 0);
   let mp = Math.max(0, Number(sheet.currentMP) || 0);
   let remaining = Math.max(0, Math.floor(Number(amount) || 0));
   if (remaining > 0 && temp > 0) {
@@ -611,15 +610,10 @@ function applyElementalDamageToBufferThenMana(sheet, amount) {
     temp -= fromTemp;
     remaining -= fromTemp;
   }
-  if (remaining > 0 && current > 0) {
-    const fromCur = Math.min(current, remaining);
-    current -= fromCur;
-    remaining -= fromCur;
-  }
   if (remaining > 0) {
     mp = Math.max(0, mp - remaining);
   }
-  return { tempHP: temp, currentHP: current, currentMP: mp };
+  return { tempHP: temp, currentMP: mp };
 }
 
 /** Apply magic damage: value - Magical Defense. */
