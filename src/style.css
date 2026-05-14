@@ -2533,46 +2533,30 @@ input.inv-qty-pill.inv-qty-inp {
   text-align: center;
 }
 
-.roll-prep-hint {
-  font-size: 0.88rem;
+/* Match stats talent pills; no edit column — same 3-column grid as sheet talents without edit. */
+#app button.talent-pill.talent-pill--roll-prep {
+  appearance: none;
   margin: 0;
-  text-align: center;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  align-self: stretch;
+  grid-template-columns: 1fr auto auto;
 }
 
-.roll-prep-talent-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: center;
-  align-items: stretch;
+#app button.talent-pill.talent-pill--roll-prep.talent-pill--item-bound {
+  grid-template-columns: auto 1fr auto auto;
 }
 
-.roll-prep-talent-btn {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.12rem;
-  text-align: center;
-  min-width: 5.5rem;
-  max-width: 10rem;
+.talent-pill.talent-pill--roll-prep.talent-pill--roll-prep-on {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.roll-prep-talent-name {
-  font-weight: 600;
-  line-height: 1.15;
-  word-break: break-word;
-}
-
-.roll-prep-talent-item {
-  font-size: 0.78rem;
-  opacity: 0.85;
-  line-height: 1.1;
-  word-break: break-word;
-}
-
-.roll-prep-talent-mod {
-  font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
+.roll-prep-talent-list.talents-grid {
+  width: 100%;
 }
 
 .roll-prep-extra-label {
@@ -2599,6 +2583,7 @@ input.inv-qty-pill.inv-qty-inp {
   border-radius: 0.5rem;
   padding: 0.35rem 0.45rem;
   background: color-mix(in srgb, var(--bg) 88%, var(--accent));
+  text-align: center;
 }
 
 .roll-prep-formula-label {
@@ -2607,6 +2592,7 @@ input.inv-qty-pill.inv-qty-inp {
   letter-spacing: 0.04em;
   opacity: 0.9;
   margin-bottom: 0.2rem;
+  text-align: center;
 }
 
 .roll-prep-formula-code {
@@ -2614,6 +2600,7 @@ input.inv-qty-pill.inv-qty-inp {
   font-size: 0.88rem;
   word-break: break-word;
   white-space: pre-wrap;
+  text-align: center;
 }
 
 .roll-prep-footer {

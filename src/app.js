@@ -139,6 +139,8 @@ const state = {
   rollPrepBase: null, // { kind, stat?, formula, count, typeLabelKey?, typeLabel? }
   rollPrepTalentOrder: [], // keys: k:<talentId> | i:<itemId>:<talentId>
   rollPrepExtra: "",
+  /** Scroll position when roll prep modal opened (restore on close). */
+  _rollPrepScrollSnap: null,
   /** Session-only: lines the user sent from chat (oldest → newest). */
   _chatSendHistory: [],
   _chatHistoryIndex: null,
@@ -383,6 +385,34 @@ function talentModifierFormulaForRoll(tl) {
   return tierMap[tier] || "+0";
 }
 
+function talentDescForTooltip(tl) {
+  const descFull = String(tl?.description || "");
+  const idx = descFull.lastIndexOf("[[override]]");
+  const desc = idx < 0 ? descFull : descFull.slice(0, idx).replace(/\s+$/, "");
+  return desc.trim();
+}
+
+/** Same bonus cell logic as the stats talent grid (label + optional raw tip). */
+function talentBonusPartsForPill(tl) {
+  const tier = Math.max(0, Math.min(4, Number(tl?.tier) || 0));
+  const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
+  const rawOverride = (tl?.bonusOverride != null && String(tl.bonusOverride).trim())
+    ? String(tl.bonusOverride).trim()
+    : legacyTalentOverrideFromDescription(tl?.description || "");
+  const override = rawOverride || null;
+  const bonusLbl = !override
+    ? escapeAttr(tierMap[tier] || "+0")
+    : (() => {
+        const raw = String(override).trim();
+        const condensed = raw.length > 3 ? "±X" : raw;
+        return escapeAttr(condensed);
+      })();
+  const inner = bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl);
+  const bonusTipAttr = rawOverride && rawOverride.length > 3 ? dataFvTipAttr(rawOverride) : "";
+  const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
+  return { inner, bonusTipAttr, bonusClass };
+}
+
 function rollPrepTalentKeyForSheetTalent(id) {
   return `k:${String(id || "")}`;
 }
@@ -397,26 +427,23 @@ function collectRollPrepTalentRows(sheet) {
   (sheet.knowledge || []).forEach((tl) => {
     const id = String(tl.id ?? "");
     if (!id) return;
-    rows.push({
-      key: rollPrepTalentKeyForSheetTalent(id),
-      name: String(tl.name || "").trim() || t("talentDefault"),
-      fragment: talentModifierFormulaForRoll(tl),
-      itemHint: "",
-    });
+    rows.push({ key: rollPrepTalentKeyForSheetTalent(id), tl: { ...tl }, isItemBound: false });
   });
   [...(sheet.weapons || []), ...(sheet.armor || [])].forEach((it) => {
     const arr = getItemTalentsArray(it);
     if (!arr.length) return;
     const section = (sheet.weapons || []).some((w) => w.id === it.id) ? "weapons" : "armor";
-    arr.forEach((tl) => {
-      const tid = String(tl.id ?? "");
+    const equipped = itemHasEquippedSlots(it);
+    arr.forEach((tal) => {
+      const tid = String(tal.id ?? "");
       if (!tid) return;
       rows.push({
         key: rollPrepTalentKeyForItemTalent(it.id, tid),
-        name: String(tl.name || "").trim() || t("talentDefault"),
-        fragment: talentModifierFormulaForRoll(tl),
-        itemHint: String(it.name || "").trim(),
+        tl: { ...tal },
+        isItemBound: true,
         itemSection: section,
+        itemEquipped: equipped,
+        itemName: String(it.name || "").trim(),
       });
     });
   });
@@ -465,6 +492,9 @@ function rollPrepWantsModal(shiftKey) {
 }
 
 function closeRollPrepModal() {
+  const snap = state._rollPrepScrollSnap;
+  state._rollPrepScrollSnap = null;
+  if (snap) state._pendingModalCloseScrollSnap = snap;
   state.rollPrepOpen = false;
   state.rollPrepBase = null;
   state.rollPrepTalentOrder = [];
@@ -472,6 +502,8 @@ function closeRollPrepModal() {
 }
 
 function openRollPrepModal(basePayload) {
+  const appEl = typeof document !== "undefined" ? document.getElementById(ROOT_ID) : null;
+  state._rollPrepScrollSnap = getScrollSnapshot(appEl);
   state.rollPrepOpen = true;
   state.rollPrepBase = { ...basePayload };
   state.rollPrepTalentOrder = [];
@@ -2321,14 +2353,28 @@ function renderRollPrepModal() {
   const talentsHtml = opts
     .map((row) => {
       const active = order.includes(row.key);
-      const sub = row.itemHint
-        ? `<span class="roll-prep-talent-item">${escapeAttr(row.itemHint)}</span>`
-        : "";
+      const tl = row.tl;
+      const name = String(tl.name || "").trim() || t("talentDefault");
+      const nameDisplay = escapeAttr(name);
+      const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
+      const tierLbl = escapeAttr(`T${tier}`);
+      const { inner, bonusTipAttr, bonusClass } = talentBonusPartsForPill(tl);
+      const desc = talentDescForTooltip(tl);
+      const nameTipAttr = desc ? dataFvTipAttr(desc) : "";
+      let itemMarker = "";
+      let pillSuffix = "";
+      if (row.isItemBound) {
+        const ico = row.itemSection === "armor" ? chestSlotIcon : weaponIcon;
+        itemMarker = `<div class="talent-item-marker"${dataFvTipAttr(row.itemName || "")}>${inlineSvg(ico, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`;
+        pillSuffix = ` talent-pill--item-bound${row.itemEquipped ? "" : " talent-pill--item-unequipped"}`;
+      }
+      const onClass = active ? " talent-pill--roll-prep-on" : "";
       return `
-        <button type="button" class="roll-prep-talent-btn spell-pill-toggle${active ? " active" : ""}" data-roll-prep-talent="${escapeAttr(row.key)}">
-          <span class="roll-prep-talent-name">${escapeAttr(row.name)}</span>
-          ${sub}
-          <span class="roll-prep-talent-mod">${escapeAttr(row.fragment)}</span>
+        <button type="button" class="talent-pill talent-pill--roll-prep${pillSuffix}${onClass}" data-roll-prep-talent="${escapeAttr(row.key)}">
+          ${itemMarker}
+          <div class="talent-name"${nameTipAttr}>${nameDisplay}</div>
+          <div class="talent-tier">${tierLbl}</div>
+          <div class="${bonusClass}"${bonusTipAttr}>${inner}</div>
         </button>`;
     })
     .join("");
@@ -2336,16 +2382,15 @@ function renderRollPrepModal() {
     <div id="roll-prep-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="roll-prep-title">
       <div class="modal-content roll-prep-modal-content">
         <h3 id="roll-prep-title">${escapeAttr(t("rollPrepTitle"))}</h3>
-        <p class="roll-prep-hint muted">${escapeAttr(t("rollPrepHint"))}</p>
-        <div class="roll-prep-talent-list">${talentsHtml || `<span class="muted">${escapeAttr(t("rollPrepNoTalents"))}</span>`}</div>
-        <label class="roll-prep-extra-label" for="roll-prep-extra">${escapeAttr(t("rollPrepExtraLabel"))}</label>
+        <div class="roll-prep-talent-list talents-grid">${talentsHtml || `<span class="muted">${escapeAttr(t("rollPrepNoTalents"))}</span>`}</div>
+        <label class="roll-prep-extra-label" for="roll-prep-extra">${escapeAttr(t("rollPrepModifiers"))}</label>
         <textarea id="roll-prep-extra" class="roll-prep-extra" rows="2" spellcheck="false" placeholder="${escapeAttr(t("rollPrepExtraPlaceholder"))}">${escapeAttr(state.rollPrepExtra || "")}</textarea>
         <div class="roll-prep-formula-block">
           <div class="roll-prep-formula-label">${escapeAttr(t("rollPrepFinalFormula"))}</div>
           <code id="roll-prep-formula-preview" class="roll-prep-formula-code">${escapeAttr(preview)}</code>
         </div>
         <div class="roll-modal-footer roll-prep-footer">
-          <button type="button" id="roll-prep-save" class="btn-sm">${escapeAttr(t("save"))}</button>
+          <button type="button" id="roll-prep-do-roll" class="btn-sm">${escapeAttr(t("roll"))}</button>
           <button type="button" id="roll-prep-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>
         </div>
       </div>
@@ -4473,7 +4518,7 @@ function bindEvents() {
         render();
         return;
       }
-      if (e.target.closest("#roll-prep-save") && state.rollPrepOpen) {
+      if (e.target.closest("#roll-prep-do-roll") && state.rollPrepOpen) {
         e.preventDefault();
         const extraEl = document.getElementById("roll-prep-extra");
         if (extraEl) state.rollPrepExtra = extraEl.value;
