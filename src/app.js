@@ -2387,9 +2387,11 @@ function renderRollPrepModal() {
         <div class="roll-prep-talent-list talents-grid">${talentsHtml || `<span class="muted">${escapeAttr(t("rollPrepNoTalents"))}</span>`}</div>
         <label class="roll-prep-extra-label" for="roll-prep-extra">${escapeAttr(t("rollPrepModifiers"))}</label>
         <textarea id="roll-prep-extra" class="roll-prep-extra" rows="2" spellcheck="false" placeholder="${escapeAttr(t("rollPrepExtraPlaceholder"))}">${escapeAttr(state.rollPrepExtra || "")}</textarea>
-        <div class="roll-prep-formula-block">
+        <div class="roll-prep-formula-section">
           <div class="roll-prep-formula-label">${escapeAttr(t("rollPrepFinalFormula"))}</div>
-          <code id="roll-prep-formula-preview" class="roll-prep-formula-code">${escapeAttr(preview)}</code>
+          <div class="roll-prep-formula-pill">
+            <code id="roll-prep-formula-preview" class="roll-prep-formula-code">${escapeAttr(preview)}</code>
+          </div>
         </div>
         <div class="roll-modal-footer roll-prep-footer">
           <button type="button" id="roll-prep-do-roll" class="btn-sm">${escapeAttr(t("roll"))}</button>

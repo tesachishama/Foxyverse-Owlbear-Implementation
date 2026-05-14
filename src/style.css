@@ -2543,11 +2543,13 @@ input.inv-qty-pill.inv-qty-inp {
   margin: 0;
   width: 100%;
   font: inherit;
-  color: inherit;
   text-align: inherit;
   cursor: pointer;
   align-self: stretch;
   grid-template-columns: 1fr auto auto;
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 #app button.talent-pill.talent-pill--roll-prep.talent-pill--item-bound {
@@ -2558,6 +2560,17 @@ input.inv-qty-pill.inv-qty-inp {
   background: var(--accent);
   color: var(--bg);
   border-color: var(--accent);
+}
+
+#app button.talent-pill.talent-pill--roll-prep .talent-name,
+#app button.talent-pill.talent-pill--roll-prep .talent-tier,
+#app button.talent-pill.talent-pill--roll-prep .talent-bonus {
+  color: inherit;
+}
+
+#app button.talent-pill.talent-pill--roll-prep.talent-pill--roll-prep-active .talent-tier,
+#app button.talent-pill.talent-pill--roll-prep.talent-pill--roll-prep-active .talent-bonus {
+  opacity: 1;
 }
 
 .roll-prep-extra-label {
@@ -2579,12 +2592,22 @@ input.inv-qty-pill.inv-qty-inp {
   color: var(--text);
 }
 
-.roll-prep-formula-block {
-  border: 3px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.45rem;
-  background: transparent;
+.roll-prep-formula-section {
   text-align: center;
+}
+
+.roll-prep-formula-pill {
+  border: 3px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.45rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .roll-prep-formula-label {
@@ -2599,9 +2622,15 @@ input.inv-qty-pill.inv-qty-inp {
 .roll-prep-formula-code {
   display: block;
   font-size: 0.88rem;
+  font-family: inherit;
+  font-weight: 600;
   word-break: break-word;
   white-space: pre-wrap;
   text-align: center;
+  color: inherit;
+  background: transparent;
+  margin: 0;
+  padding: 0;
 }
 
 .roll-prep-footer {
