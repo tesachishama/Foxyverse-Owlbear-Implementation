@@ -2551,7 +2551,7 @@ function renderSpellsTab() {
       const cont = !!sp.isContinuous;
       const armed = !!sp.isArmed;
       const arrow = inlineSvg(arrowIcon, "inline-svg spell-chevron-svg", "var(--text)");
-      const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--text)");
+      const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--accent)");
       const edit = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--text)");
 
       const viewNameHtml = renderChatBody(displayName);
