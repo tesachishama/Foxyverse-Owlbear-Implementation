@@ -107,6 +107,13 @@ let spellReorderDrag = null;
 // Inventory reorder drag state (per section; event-delegated).
 let invReorderDrag = null;
 
+/** Default sheet UI theme (matches storage fallbacks / persisted defaults). */
+const DEFAULT_SHEET_THEME = Object.freeze({
+  bg: "#4b002c",
+  ui: "#ffdbff",
+  text: "#eba5ff",
+});
+
 const state = {
   locale: "en",
   roomId: null,
@@ -142,9 +149,9 @@ const state = {
   spellRemoveMenuOpen: false,
   spellRemoveSelectedId: "",
   colors: {
-    bg: "#4b002c",
-    ui: "#ffdbff",
-    text: "#eba5ff",
+    bg: DEFAULT_SHEET_THEME.bg,
+    ui: DEFAULT_SHEET_THEME.ui,
+    text: DEFAULT_SHEET_THEME.text,
   },
   playerDirectory: {},
   incomingSheets: {},
@@ -407,6 +414,15 @@ function getSheetTheme(sheet = state.sheet) {
     ui: sheet?.theme?.ui || state.colors.ui,
     text: sheet?.theme?.text || state.colors.text,
   };
+}
+
+function isSheetThemeAtDefaults() {
+  const cur = getSheetTheme();
+  return (
+    cur.bg.toLowerCase() === DEFAULT_SHEET_THEME.bg.toLowerCase() &&
+    cur.ui.toLowerCase() === DEFAULT_SHEET_THEME.ui.toLowerCase() &&
+    cur.text.toLowerCase() === DEFAULT_SHEET_THEME.text.toLowerCase()
+  );
 }
 
 function getKnownPlayers() {
@@ -3381,16 +3397,26 @@ function renderSettingsTab() {
       </div>
     `
     : "";
+  const themeAtDefault = isSheetThemeAtDefaults();
   return `
     <div class="card settings-card">
       <h2 class="settings-title">${t("tabSettings")}</h2>
-      <div class="settings-color-row">
-        <span class="settings-pill-label">${t("uiColors")}</span>
-        <div class="settings-color-strip">
-          <label class="settings-color-stop"><input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
-          <label class="settings-color-stop"><input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
-        <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
+      <div class="settings-color-block">
+        <div class="settings-color-row">
+          <span class="settings-pill-label">${t("uiColors")}</span>
+          <div class="settings-color-strip">
+            <label class="settings-color-stop"><input type="color" value="${c.bg}" data-color="bg" ${editable ? "" : "disabled"} /></label>
+            <label class="settings-color-stop"><input type="color" value="${c.ui}" data-color="ui" ${editable ? "" : "disabled"} /></label>
+            <label class="settings-color-stop"><input type="color" value="${c.text}" data-color="text" ${editable ? "" : "disabled"} /></label>
+          </div>
         </div>
+        ${
+          editable
+            ? `<div class="settings-color-footer">
+            <button type="button" id="btn-reset-theme-colors" class="settings-reset-theme-btn${themeAtDefault ? " is-quiet" : ""}" aria-label="${escapeAttr(t("resetThemeColors"))}">${t("resetThemeColors")}</button>
+          </div>`
+            : ""
+        }
       </div>
       <div class="settings-actions settings-actions-top">
         <button type="button" id="btn-import-sheet" class="settings-pill-btn">${t("importSheet")}</button>
@@ -6544,6 +6570,16 @@ function bindEvents() {
         storage.updateSheetCore(state.roomId, state.activeSheetId, { theme: state.sheet.theme }).catch(console.error);
       }
     });
+  });
+  app.querySelector("#btn-reset-theme-colors")?.addEventListener("click", () => {
+    if (!state.sheet || !canEdit(state.activeSheetId)) return;
+    state.sheet.theme = { ...DEFAULT_SHEET_THEME };
+    applyColors();
+    saveSheet();
+    if (state.roomId && state.activeSheetId) {
+      storage.updateSheetCore(state.roomId, state.activeSheetId, { theme: state.sheet.theme }).catch(console.error);
+    }
+    render();
   });
   app.querySelectorAll("[data-perm-mode]").forEach((el) => {
     el.addEventListener("click", async () => {
