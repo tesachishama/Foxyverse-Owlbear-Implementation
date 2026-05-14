@@ -170,14 +170,15 @@ export function evalModifier(modStr) {
 }
 
 export function getStatTotal(sheet, statId) {
-  const s = sheet.stats?.[statId];
-  if (!s) return 0;
+  const sid = String(statId || "").toLowerCase();
+  const s = sheet.stats?.[sid] || {};
   const base = Number(s.base) || 0;
   // XP is no longer part of totals in the new system.
   const xp = 0;
-  const item = Number(s.itemBonus) || 0;
+  const rowItem = Number(s.itemBonus) || 0;
   const passive = Number(s.passiveBonus) || 0;
-  return base + xp + item + passive;
+  const equippedItems = getEquippedItemStatBonus(sheet, sid);
+  return base + xp + passive + rowItem + equippedItems;
 }
 
 /** Knowledge bonus for a stat (sum of enabled knowledge bonuses by tier) */
@@ -204,6 +205,23 @@ export function findItemById(sheet, itemId) {
     if (item) return item;
   }
   return null;
+}
+
+/** Sum one stat's bonuses from all equipped items (each item at most once). Matches stats tab "Item" column. */
+export function getEquippedItemStatBonus(sheet, statId) {
+  const sid = String(statId || "").toLowerCase();
+  if (!STAT_IDS.includes(sid)) return 0;
+  const equipped = sheet.equipped || {};
+  const seen = new Set();
+  let sum = 0;
+  for (const itemId of Object.values(equipped)) {
+    if (!itemId || seen.has(itemId)) continue;
+    seen.add(itemId);
+    const it = findItemById(sheet, itemId);
+    if (!it) continue;
+    sum += Number(it[sid]) || 0;
+  }
+  return sum;
 }
 
 /** Sum Defense from all equipped armor (each item counted once). */
