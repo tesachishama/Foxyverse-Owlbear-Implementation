@@ -598,13 +598,37 @@ export function applyPhysicalDamage(sheet, value) {
   return applyDamageToHP(sheet, actual);
 }
 
+/**
+ * Elemental: temp HP then current HP absorb damage like normal; overflow reduces MP.
+ */
+function applyElementalDamageToBufferThenMana(sheet, amount) {
+  let temp = Math.max(0, Number(sheet.tempHP) || 0);
+  let current = Math.max(0, Number(sheet.currentHP) || 0);
+  let mp = Math.max(0, Number(sheet.currentMP) || 0);
+  let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+  if (remaining > 0 && temp > 0) {
+    const fromTemp = Math.min(temp, remaining);
+    temp -= fromTemp;
+    remaining -= fromTemp;
+  }
+  if (remaining > 0 && current > 0) {
+    const fromCur = Math.min(current, remaining);
+    current -= fromCur;
+    remaining -= fromCur;
+  }
+  if (remaining > 0) {
+    mp = Math.max(0, mp - remaining);
+  }
+  return { tempHP: temp, currentHP: current, currentMP: mp };
+}
+
 /** Apply magic damage: value - Magical Defense. */
 export function applyMagicDamage(sheet, value) {
   const magDef = Math.floor(Math.max(0, Number(getSheetMagicalDefense(sheet)) || 0));
   if (isElementalSheet(sheet)) {
     const raw = Math.max(0, Math.floor(Number(value) || 0));
     const actual = Math.max(0, 2 * raw - magDef);
-    return applyDamageToMP(sheet, actual);
+    return applyElementalDamageToBufferThenMana(sheet, actual);
   }
   const actual = Math.max(0, (value || 0) - magDef);
   return applyDamageToHP(sheet, actual);
@@ -614,7 +638,7 @@ export function applyMagicDamage(sheet, value) {
 export function applyTrueDamage(sheet, value) {
   if (isElementalSheet(sheet)) {
     const raw = Math.max(0, Math.floor(Number(value) || 0));
-    return applyDamageToMP(sheet, raw);
+    return applyElementalDamageToBufferThenMana(sheet, raw);
   }
   return applyDamageToHP(sheet, value || 0);
 }
@@ -659,9 +683,6 @@ export function applyHeal(sheet, amount, maxHP) {
 
 /** Add over-heal as temp HP. */
 export function applyOverHeal(sheet, amount) {
-  if (isElementalSheet(sheet)) {
-    return { tempHP: 0 };
-  }
   const temp = Math.max(0, Number(sheet.tempHP) || 0);
   return { tempHP: temp + (amount || 0) };
 }

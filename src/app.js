@@ -1631,10 +1631,24 @@ function renderSysApplyFx(ev) {
         raw: ev.raw,
         def: ev.def,
       });
+    case "mdmgApplyElemental":
+      return formatI18nTemplate("chatApplyMagicalDamageElemental", {
+        name: ev.name,
+        total: ev.total,
+        raw: ev.raw,
+        def: ev.def,
+        manaLost: ev.manaLost,
+      });
     case "tdmgApply":
       return formatI18nTemplate("chatApplyTrueDamage", { name: ev.name, actual: ev.actual });
     case "tdmgApplyMana":
       return formatI18nTemplate("chatApplyTrueDamageToMana", { name: ev.name, actual: ev.actual });
+    case "tdmgApplyElemental":
+      return formatI18nTemplate("chatApplyTrueDamageElemental", {
+        name: ev.name,
+        total: ev.total,
+        manaLost: ev.manaLost,
+      });
     case "healAlreadyFull":
       return `${ev.name} ${t("alreadyAtFullHealth")}`;
     case "healGain":
@@ -1643,8 +1657,6 @@ function renderSysApplyFx(ev) {
       return `${ev.name} ${t("nowAtFullHealth")}`;
     case "thealGain":
       return `${ev.name} ${t("gainedVerb")} ${ev.amount} ${t("temporaryHitPointsPhrase")}`;
-    case "thealIgnoredElemental":
-      return formatI18nTemplate("chatThealIgnoredElemental", { name: ev.name });
     case "manaAlreadyFull":
       return `${ev.name} ${t("alreadyAtFullMana")}`;
     case "manaGain":
@@ -1743,12 +1755,16 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
       const def = Math.floor(Math.max(0, Number(getSheetMagicalDefense(state.sheet)) || 0));
       cleanValues.forEach((val) => {
         const raw = Math.max(0, Math.floor(Number(val) || 0));
-        const next = applyMagicDamage(state.sheet, val);
-        Object.assign(state.sheet, next);
         if (elemental) {
-          const actual = Math.max(0, 2 * raw - def);
-          applyFx.push({ fx: "mdmgApplyMana", name, actual, raw, def });
+          const total = Math.max(0, 2 * raw - def);
+          const mpBefore = Math.max(0, Number(state.sheet.currentMP) || 0);
+          const next = applyMagicDamage(state.sheet, val);
+          Object.assign(state.sheet, next);
+          const manaLost = mpBefore - Math.max(0, Number(state.sheet.currentMP) || 0);
+          applyFx.push({ fx: "mdmgApplyElemental", name, total, raw, def, manaLost });
         } else {
+          const next = applyMagicDamage(state.sheet, val);
+          Object.assign(state.sheet, next);
           const actual = Math.max(0, raw - def);
           applyFx.push({ fx: "mdmgApply", name, actual, raw, def });
         }
@@ -1766,10 +1782,16 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
     case "tdmg": {
       const elemental = isElementalSheet(state.sheet);
       cleanValues.forEach((val) => {
-        const actual = Math.max(0, Math.floor(Number(val) || 0));
+        const total = Math.max(0, Math.floor(Number(val) || 0));
+        const mpBefore = Math.max(0, Number(state.sheet.currentMP) || 0);
         const next = applyTrueDamage(state.sheet, val);
         Object.assign(state.sheet, next);
-        applyFx.push({ fx: elemental ? "tdmgApplyMana" : "tdmgApply", name, actual });
+        if (elemental) {
+          const manaLost = mpBefore - Math.max(0, Number(state.sheet.currentMP) || 0);
+          applyFx.push({ fx: "tdmgApplyElemental", name, total, manaLost });
+        } else {
+          applyFx.push({ fx: "tdmgApply", name, actual: total });
+        }
       });
       saveSheet();
       storage
@@ -1805,10 +1827,6 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
       return { success: true, applyFx };
     }
     case "theal": {
-      if (isElementalSheet(state.sheet)) {
-        applyFx.push({ fx: "thealIgnoredElemental", name });
-        return { success: true, applyFx };
-      }
       const total = cleanValues.reduce((a, v) => a + Math.max(0, Math.floor(Number(v) || 0)), 0);
       cleanValues.forEach((val) => {
         const next = applyOverHeal(state.sheet, val);
@@ -2355,11 +2373,7 @@ function renderStatsTab() {
           </div>
           <div class="stats-col">
             <div class="stats-col-label">${t("labelTemporary")}</div>
-            ${
-              elemental
-                ? pill(0, { extraClass: "stats-pill--readonly" })
-                : stepper("tempHP", s.tempHP ?? 0, { min: 0, allowNegative: false, aria: t("tempHP") })
-            }
+            ${stepper("tempHP", s.tempHP ?? 0, { min: 0, allowNegative: false, aria: t("tempHP") })}
           </div>
         </div>
       </div>
@@ -7384,7 +7398,6 @@ function bindEvents() {
         const next = applyLocalMutation((sheet) => {
           sheet.isElemental = !sheet.isElemental;
           if (sheet.isElemental) {
-            sheet.tempHP = 0;
             const cur = Math.max(0, Number(sheet.currentHP) || 0);
             sheet.currentHP = Math.min(cur, getMaxHP(sheet));
           }
