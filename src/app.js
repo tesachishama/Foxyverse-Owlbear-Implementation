@@ -1899,7 +1899,7 @@ function renderConsumableTransferModal() {
       </div>
       <div class="inv-cons-xfer-qty inv-qty-counter">
         <button type="button" class="inv-qty-btn" id="cons-xfer-qty-minus" aria-label="${escapeAttr(t("remove"))}">${remXferQtySvg}</button>
-        <div class="inv-qty-pill" id="cons-xfer-qty-val">${escapeAttr(String(qty))}</div>
+        <div class="inv-qty-pill inv-qty-pill--readout" id="cons-xfer-qty-val">${escapeAttr(String(qty))}</div>
         <button type="button" class="inv-qty-btn" id="cons-xfer-qty-plus" aria-label="${escapeAttr(t("add"))}">${addXferQtySvg}</button>
       </div>
     </div>
