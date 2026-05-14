@@ -178,6 +178,12 @@ export const translations = {
     points: "Points",
     save: "Save",
     confirmDelete: "Are you sure you want to delete?",
+    confirmModalTitle: "Please confirm",
+    confirmDeleteSheetBody: "Delete the sheet \"{{name}}\"? This cannot be undone.",
+    confirmImportOverwriteBody: "Replace \"{{name}}\" with the imported sheet? Unsaved changes on this sheet will be lost.",
+    spellUseConfirmTitle: "Cast spell",
+    spellUseConfirmMpShortfallBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder. Continue?",
+    spellUseConfirmMpShortfallDangerBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder, bringing you to {{hpAfter}} HP (below 0). Continue?",
 
     // Inventory
     equipped: "Equipped",
@@ -492,6 +498,12 @@ export const translations = {
     points: "points",
     save: "Sauvegarder",
     confirmDelete: "Êtes-vous sûr de vouloir supprimer ?",
+    confirmModalTitle: "Confirmation",
+    confirmDeleteSheetBody: "Supprimer la fiche « {{name}} » ? Cette action est irréversible.",
+    confirmImportOverwriteBody: "Remplacer « {{name}} » par la fiche importée ? Les modifications non enregistrées seront perdues.",
+    spellUseConfirmTitle: "Lancer le sort",
+    spellUseConfirmMpShortfallBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste. Continuer ?",
+    spellUseConfirmMpShortfallDangerBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste, ce qui vous mènerait à {{hpAfter}} PV (sous 0). Continuer ?",
 
     // Inventaire
     equipped: "Équipé",

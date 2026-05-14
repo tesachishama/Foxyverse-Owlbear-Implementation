@@ -2016,6 +2016,24 @@ input.inv-qty-pill.inv-qty-inp {
 }
 .spell-edit-actions { display: flex; justify-content: flex-end; }
 .spell-remove-modal-content .spell-remove-picker { width: 100%; margin-top: 0.35rem; }
+.confirm-modal-content .confirm-modal-title {
+  margin: 0 0 0.45rem;
+  text-align: center;
+  font-weight: 400;
+  font-size: 1.65rem;
+}
+.confirm-modal-content .confirm-modal-body {
+  margin: 0 0 0.55rem;
+  text-align: center;
+  font-size: 1.25rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.confirm-modal-content .confirm-modal-footer {
+  justify-content: center;
+  gap: 0.65rem;
+}
 .spell-remove-picker .sheet-menu {
   max-height: min(42vh, 15rem);
   overflow-y: auto;

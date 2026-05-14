@@ -148,6 +148,13 @@ const state = {
   spellRemoveModalOpen: false,
   spellRemoveMenuOpen: false,
   spellRemoveSelectedId: "",
+  confirmModal: {
+    open: false,
+    titleKey: "",
+    bodyKey: "",
+    bodyParams: {},
+    resolve: null,
+  },
   colors: {
     bg: DEFAULT_SHEET_THEME.bg,
     ui: DEFAULT_SHEET_THEME.ui,
@@ -1052,6 +1059,136 @@ function renderChatI18nLineFromPayload(payload) {
   return formatI18nTemplate(key, merged);
 }
 
+const EMPTY_CONFIRM_MODAL = { open: false, titleKey: "", bodyKey: "", bodyParams: {}, resolve: null };
+
+function closeConfirmModal(result) {
+  const cb = state.confirmModal?.resolve;
+  state.confirmModal = { ...EMPTY_CONFIRM_MODAL };
+  try {
+    render();
+  } catch (_) {}
+  queueMicrotask(() => {
+    if (typeof cb === "function") cb(!!result);
+  });
+}
+
+function openConfirmModal({ titleKey, bodyKey, bodyParams = {} }) {
+  return new Promise((resolve) => {
+    state.confirmModal = {
+      open: true,
+      titleKey: titleKey || "confirmModalTitle",
+      bodyKey: bodyKey || "confirmDelete",
+      bodyParams: bodyParams && typeof bodyParams === "object" ? bodyParams : {},
+      resolve,
+    };
+    render();
+  });
+}
+
+function renderConfirmModal() {
+  if (!state.confirmModal?.open) return "";
+  const m = state.confirmModal;
+  const title = t(String(m.titleKey || "confirmModalTitle"));
+  const body = formatI18nTemplate(String(m.bodyKey || "confirmDelete"), m.bodyParams || {});
+  return `
+    <div id="confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <div class="modal-content spell-remove-modal-content confirm-modal-content">
+        <h3 id="confirm-modal-title" class="confirm-modal-title">${escapeAttr(title)}</h3>
+        <p class="confirm-modal-body">${escapeAttr(body)}</p>
+        <div class="roll-modal-footer confirm-modal-footer">
+          <button type="button" id="confirm-modal-ok" class="btn-sm">${escapeAttr(t("confirm"))}</button>
+          <button type="button" id="confirm-modal-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function installGlobalEscapeModalCloserOnce() {
+  if (typeof document === "undefined") return;
+  if (document.documentElement.getAttribute("data-fv-modal-esc")) return;
+  document.documentElement.setAttribute("data-fv-modal-esc", "1");
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Escape") return;
+      if (state.confirmModal?.open) {
+        e.preventDefault();
+        closeConfirmModal(false);
+        return;
+      }
+      if (state.talentModalOpen) {
+        e.preventDefault();
+        state.talentModalOpen = false;
+        state.talentDraft = null;
+        state.talentTierMenuOpen = false;
+        state._scrollToTalents = true;
+        render();
+        return;
+      }
+      if (state.spellRemoveModalOpen) {
+        e.preventDefault();
+        state.spellRemoveModalOpen = false;
+        state.spellRemoveMenuOpen = false;
+        render();
+        return;
+      }
+      if (state.itemRemoveModalOpen) {
+        e.preventDefault();
+        const secKey = String(state.itemRemoveSection || "");
+        state.itemRemoveModalOpen = false;
+        state.itemRemoveMenuOpen = false;
+        state.itemRemoveSection = "";
+        state.itemRemoveSelectedId = "";
+        if (secKey) state._scrollToInvSectionKey = secKey;
+        render();
+        return;
+      }
+      if (state.consumableTransferOpen) {
+        e.preventDefault();
+        const secKey = String(state.consumableTransferSection || "consumables");
+        state.consumableTransferOpen = false;
+        state.consumableTransferMode = "draft";
+        state.consumableTransferRecipientMenuOpen = false;
+        state.consumableTransferItemMenuOpen = false;
+        state.consumableTransferRecipientSheetId = "";
+        state.consumableTransferItemId = "";
+        state.consumableTransferQty = 1;
+        state.consumableTransferPending = null;
+        if (secKey) state._scrollToInvSectionKey = secKey;
+        render();
+        return;
+      }
+      if (state.currencyModalOpen) {
+        e.preventDefault();
+        state.currencyModalOpen = false;
+        state.currencyModalMode = "transfer";
+        state.currencyRecipientMenuOpen = false;
+        state.currencyRecipientSheetId = "";
+        state.currencyDraft = { gold: 0, silver: 0, copper: 0 };
+        state.currencyPendingAction = null;
+        state._scrollToCurrencyBlock = true;
+        render();
+        return;
+      }
+      const rollModal = document.getElementById("roll-modal");
+      if (state.rollModalOpen && rollModal && !rollModal.classList.contains("hidden")) {
+        e.preventDefault();
+        state.rollModalOpen = false;
+        rollModal.classList.add("hidden");
+        return;
+      }
+      const statModal = document.getElementById("stat-roll-modal");
+      if (statModal && !statModal.classList.contains("hidden")) {
+        e.preventDefault();
+        statModal.classList.add("hidden");
+        return;
+      }
+    },
+    { capture: true }
+  );
+}
+
 const CHAT_APPLY_ROLL_KINDS = new Set(["pdmg", "mdmg", "tdmg", "heal", "theal", "mana"]);
 
 function chatRollApplyButtonLabel(kind) {
@@ -1885,6 +2022,7 @@ function renderRollModals() {
     ${renderCurrencyModals()}
     ${renderActiveItemRemoveModal()}
     ${renderConsumableTransferModal()}
+    ${renderConfirmModal()}
   `;
 }
 
@@ -3829,6 +3967,11 @@ function bindEvents() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
 
+  installGlobalEscapeModalCloserOnce();
+
+  app.querySelector("#confirm-modal-ok")?.addEventListener("click", () => closeConfirmModal(true));
+  app.querySelector("#confirm-modal-cancel")?.addEventListener("click", () => closeConfirmModal(false));
+
   if (!app.dataset.outsideClickBound) {
     app.addEventListener("click", (e) => {
       if (state.sheetMenuOpen) {
@@ -4261,8 +4404,13 @@ function bindEvents() {
 
   app.querySelector("#btn-delete-sheet")?.addEventListener("click", async () => {
     if (!state.isGM || !state.activeSheetId || !state.roomId) return;
-    const confirmed = window.confirm(`Delete ${getSheetTitle()}?`);
-    if (!confirmed) return;
+    const name = getSheetTitle();
+    const ok = await openConfirmModal({
+      titleKey: "confirmModalTitle",
+      bodyKey: "confirmDeleteSheetBody",
+      bodyParams: { name },
+    });
+    if (!ok) return;
     const deletedId = state.activeSheetId;
     storage.removeSheetFromStorage(state.roomId, deletedId);
     await storage.removeSheetFromRoom(deletedId);
@@ -4736,21 +4884,12 @@ function bindEvents() {
     });
   });
 
-  if (!app.dataset.talentModalEscapeBound) {
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      if (!state.talentModalOpen) return;
-      closeTalentModal();
-      render();
-    });
-    app.dataset.talentModalEscapeBound = "true";
-  }
-
   app.querySelector("#talent-delete")?.addEventListener("click", async () => {
     if (!state.talentDraft || !state.sheet || !state.roomId || !state.activeSheetId) return;
     const id = String(state.talentDraft.id);
     const itemId = state.talentDraft.__itemId ? String(state.talentDraft.__itemId) : "";
-    if (!confirm(t("confirmDelete") || "Delete?")) return;
+    const ok = await openConfirmModal({ titleKey: "confirmModalTitle", bodyKey: "confirmDelete" });
+    if (!ok) return;
     if (itemId) {
       applyLocalMutation((sheet) => {
         const it = findItemById(sheet, itemId);
@@ -4780,17 +4919,6 @@ function bindEvents() {
     state.rollModalOpen = false;
     document.getElementById("roll-modal")?.classList.add("hidden");
   });
-  if (!app.dataset.rollModalEscapeBound) {
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      const modal = document.getElementById("roll-modal");
-      if (!modal || modal.classList.contains("hidden") || !state.rollModalOpen) return;
-      e.preventDefault();
-      state.rollModalOpen = false;
-      modal.classList.add("hidden");
-    });
-    app.dataset.rollModalEscapeBound = "true";
-  }
   app.querySelector("#roll-reroll-btn")?.addEventListener("click", async () => {
     const rr = document.getElementById("roll-reroll-btn");
     if (rr?.disabled) return;
@@ -5065,20 +5193,38 @@ function bindEvents() {
           state.sheet.currentMP = mp - cost;
         } else {
           const needHP = cost - mp;
-          if (needHP > 0 && !confirm(t("confirmUseHP"))) return;
-          const hpAvail = Number(state.sheet.currentHP) || 0;
-          if (needHP > 0 && hpAvail - needHP < 0) {
-            if (!confirm(t("confirmCastBelowZeroHP"))) return;
-          }
+          const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
+          const hpAfter = hpAvail - needHP;
+          const bodyKey =
+            hpAfter < 0 ? "spellUseConfirmMpShortfallDangerBody" : "spellUseConfirmMpShortfallBody";
+          const ok = await openConfirmModal({
+            titleKey: "spellUseConfirmTitle",
+            bodyKey,
+            bodyParams: {
+              haveMp: mp,
+              cost,
+              needHp: needHP,
+              hpAfter,
+              hpAvail,
+            },
+          });
+          if (!ok) return;
           state.sheet.currentMP = 0;
-          state.sheet.currentHP = hpAvail - needHP;
+          state.sheet.currentHP = hpAfter;
         }
       } else {
-        const hpAvail = Number(state.sheet.currentHP) || 0;
-        if (hpAvail - cost < 0) {
-          if (!confirm(t("confirmCastBelowZeroHP"))) return;
+        const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
+        if (hpAvail - cost >= 0) {
+          state.sheet.currentHP = hpAvail - cost;
+        } else {
+          const ok = await openConfirmModal({
+            titleKey: "spellUseConfirmTitle",
+            bodyKey: "confirmCastBelowZeroHP",
+            bodyParams: {},
+          });
+          if (!ok) return;
+          state.sheet.currentHP = hpAvail - cost;
         }
-        state.sheet.currentHP = hpAvail - cost;
       }
       sp.useCounter = Math.max(0, (Number(sp.useCounter) || 0) + 1);
       saveSheet();
@@ -5303,17 +5449,6 @@ function bindEvents() {
   app.querySelector("#currency-cancel")?.addEventListener("click", () => {
     closeCurrencyModal();
   });
-  if (!app.dataset.currencyEscapeBound) {
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      const modal = document.getElementById("currency-modal");
-      if (!modal || modal.classList.contains("hidden") || !state.currencyModalOpen) return;
-      e.preventDefault();
-      closeCurrencyModal();
-    });
-    app.dataset.currencyEscapeBound = "1";
-  }
-
   // Currency: save/send/confirm
   app.querySelector("#currency-save")?.addEventListener("click", async () => {
     if (!state.sheet || !state.roomId || !state.activeSheetId) return;
@@ -5842,7 +5977,8 @@ function bindEvents() {
       const itemId = btn.getAttribute("data-inv-item-talent-remove") || "";
       const talentId = btn.getAttribute("data-inv-talent-id") || "";
       if (!itemId || !talentId) return;
-      if (!confirm(t("confirmDelete") || "Delete?")) return;
+      const ok = await openConfirmModal({ titleKey: "confirmModalTitle", bodyKey: "confirmDelete" });
+      if (!ok) return;
       applyLocalMutation((sheet) => {
         const it = findItemById(sheet, itemId);
         if (!it) return;
@@ -6217,41 +6353,6 @@ function bindEvents() {
     state._scrollToInvSectionKey = sec;
     render();
   });
-
-  // ESC closes item remove / item transfer modals
-  if (!app.dataset.invModalEscapeBound) {
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      const rm = document.getElementById("item-remove-modal");
-      const tr = document.getElementById("consumable-transfer-modal");
-      if (rm && state.itemRemoveModalOpen) {
-        e.preventDefault();
-        const secKey = String(state.itemRemoveSection || "");
-        state.itemRemoveModalOpen = false;
-        state.itemRemoveMenuOpen = false;
-        state.itemRemoveSection = "";
-        state.itemRemoveSelectedId = "";
-        if (secKey) state._scrollToInvSectionKey = secKey;
-        render();
-        return;
-      }
-      if (tr && state.consumableTransferOpen) {
-        e.preventDefault();
-        const secKey = String(state.consumableTransferSection || "consumables");
-        state.consumableTransferOpen = false;
-        state.consumableTransferMode = "draft";
-        state.consumableTransferRecipientMenuOpen = false;
-        state.consumableTransferItemMenuOpen = false;
-        state.consumableTransferRecipientSheetId = "";
-        state.consumableTransferItemId = "";
-        state.consumableTransferQty = 1;
-        state.consumableTransferPending = null;
-        if (secKey) state._scrollToInvSectionKey = secKey;
-        render();
-      }
-    });
-    app.dataset.invModalEscapeBound = "1";
-  }
 
   app.querySelectorAll("[data-toggle-item]").forEach((el) => {
     el.addEventListener("click", () => {
@@ -6713,8 +6814,12 @@ function bindEvents() {
         regenerateNestedIds: overwritingActive,
       });
       if (state.activeSheetId) {
-        const confirmed = window.confirm(`Overwrite ${getSheetTitle()} with imported sheet?`);
-        if (!confirmed) {
+        const ok = await openConfirmModal({
+          titleKey: "confirmModalTitle",
+          bodyKey: "confirmImportOverwriteBody",
+          bodyParams: { name: getSheetTitle() },
+        });
+        if (!ok) {
           e.target.value = "";
           return;
         }
