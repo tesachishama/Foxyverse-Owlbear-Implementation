@@ -108,24 +108,41 @@ export function createEmptySheet(id = crypto.randomUUID()) {
     notes: "",
     /** When true, normal click rolls immediately; Shift+click opens the talent roll prep modal. */
     autoQuickRoll: false,
+    /** Elemental characters: max HP 1, damage to MP, special defenses and max MP formula. */
+    isElemental: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 }
 
-/** Max HP = totalConstitution * (level + 1) */
+export function isElementalSheet(sheet) {
+  return !!sheet?.isElemental;
+}
+
+/** Rounded baseline max HP (matches Sheets ROUND(Con*(level+1))) for elemental MP formula. */
+export function getRoundedBaseMaxHP(sheet) {
+  const con = getStatTotal(sheet, "constitution");
+  const level = Number(sheet.bio?.level) || 1;
+  return Math.round(con * (level + 1));
+}
+
+/** Max HP = totalConstitution * (level + 1); elementals always 1 */
 export function getMaxHP(sheet) {
+  if (isElementalSheet(sheet)) return 1;
   const con = getStatTotal(sheet, "constitution");
   const level = Number(sheet.bio?.level) || 1;
   return Math.max(0, con * (level + 1));
 }
 
-/** Max MP = ROUND((totalIntelligence + totalFocus)*0.75 + (level^2)/4) */
+/** Max MP = ROUND((totalIntelligence + totalFocus)*0.75 + (level^2)/4); elementals add 0.75*(rounded max HP − 1) */
 export function getMaxMP(sheet) {
   const int = getStatTotal(sheet, "intelligence");
   const foc = getStatTotal(sheet, "focus");
   const level = Number(sheet.bio?.level) || 1;
-  return Math.round((int + foc) * 0.75 + (level * level) / 4);
+  const baseMp = Math.round((int + foc) * 0.75 + (level * level) / 4);
+  if (!isElementalSheet(sheet)) return baseMp;
+  const roundedHp = getRoundedBaseMaxHP(sheet);
+  return Math.round(baseMp + (roundedHp - 1) * 0.75);
 }
 
 /** Max Favor = RoundUp((Level+1)/3) */

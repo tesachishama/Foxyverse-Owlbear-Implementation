@@ -19,6 +19,7 @@ import {
   getSheetDefense as getDef,
   getSheetMagicalDefense as getMagDef,
   getStatTotal,
+  isElementalSheet,
 } from "../data/schema.js";
 
 function stripDiacritics(text) {
@@ -589,6 +590,9 @@ export function applyMana(sheet, amount, maxMP) {
 
 /** Apply physical damage to sheet: value - Defense, then reduce HP (temp first). */
 export function applyPhysicalDamage(sheet, value) {
+  if (isElementalSheet(sheet)) {
+    return {};
+  }
   const defense = getSheetDefense(sheet);
   const actual = Math.max(0, (value || 0) - defense);
   return applyDamageToHP(sheet, actual);
@@ -596,13 +600,22 @@ export function applyPhysicalDamage(sheet, value) {
 
 /** Apply magic damage: value - Magical Defense. */
 export function applyMagicDamage(sheet, value) {
-  const magDef = getSheetMagicalDefense(sheet);
+  const magDef = Math.floor(Math.max(0, Number(getSheetMagicalDefense(sheet)) || 0));
+  if (isElementalSheet(sheet)) {
+    const raw = Math.max(0, Math.floor(Number(value) || 0));
+    const actual = Math.max(0, 2 * raw - magDef);
+    return applyDamageToMP(sheet, actual);
+  }
   const actual = Math.max(0, (value || 0) - magDef);
   return applyDamageToHP(sheet, actual);
 }
 
 /** Apply true damage: no reduction. */
 export function applyTrueDamage(sheet, value) {
+  if (isElementalSheet(sheet)) {
+    const raw = Math.max(0, Math.floor(Number(value) || 0));
+    return applyDamageToMP(sheet, raw);
+  }
   return applyDamageToHP(sheet, value || 0);
 }
 
@@ -630,6 +643,13 @@ function applyDamageToHP(sheet, amount) {
   return { tempHP: temp, currentHP: current };
 }
 
+/** Reduce current MP (elemental damage pool). */
+export function applyDamageToMP(sheet, amount) {
+  const current = Math.max(0, Number(sheet.currentMP) || 0);
+  const n = Math.max(0, Math.floor(Number(amount) || 0));
+  return { currentMP: Math.max(0, current - n) };
+}
+
 /** Add heal to current HP, cap at max. */
 export function applyHeal(sheet, amount, maxHP) {
   const current = Math.max(0, Number(sheet.currentHP) || 0);
@@ -639,6 +659,9 @@ export function applyHeal(sheet, amount, maxHP) {
 
 /** Add over-heal as temp HP. */
 export function applyOverHeal(sheet, amount) {
+  if (isElementalSheet(sheet)) {
+    return { tempHP: 0 };
+  }
   const temp = Math.max(0, Number(sheet.tempHP) || 0);
   return { tempHP: temp + (amount || 0) };
 }

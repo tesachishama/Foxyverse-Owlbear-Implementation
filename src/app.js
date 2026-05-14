@@ -67,6 +67,7 @@ import {
   getSheetDefense,
   getSheetMagicalDefense,
   formatKnowledgeTierModifier,
+  isElementalSheet,
 } from "./data/schema.js";
 import { evalEquipSlotsExpr, canonizeSlotToken } from "./data/equipSlots.js";
 import * as storage from "./data/storage.js";
@@ -1611,6 +1612,11 @@ function renderSysApplyFx(ev) {
         raw: ev.raw,
         def: ev.def,
       });
+    case "pdmgApplyElemental":
+      return formatI18nTemplate("chatApplyPhysicalDamageElemental", {
+        name: ev.name,
+        raw: ev.raw,
+      });
     case "mdmgApply":
       return formatI18nTemplate("chatApplyMagicalDamage", {
         name: ev.name,
@@ -1618,8 +1624,17 @@ function renderSysApplyFx(ev) {
         raw: ev.raw,
         def: ev.def,
       });
+    case "mdmgApplyMana":
+      return formatI18nTemplate("chatApplyMagicalDamageToMana", {
+        name: ev.name,
+        actual: ev.actual,
+        raw: ev.raw,
+        def: ev.def,
+      });
     case "tdmgApply":
       return formatI18nTemplate("chatApplyTrueDamage", { name: ev.name, actual: ev.actual });
+    case "tdmgApplyMana":
+      return formatI18nTemplate("chatApplyTrueDamageToMana", { name: ev.name, actual: ev.actual });
     case "healAlreadyFull":
       return `${ev.name} ${t("alreadyAtFullHealth")}`;
     case "healGain":
@@ -1628,6 +1643,8 @@ function renderSysApplyFx(ev) {
       return `${ev.name} ${t("nowAtFullHealth")}`;
     case "thealGain":
       return `${ev.name} ${t("gainedVerb")} ${ev.amount} ${t("temporaryHitPointsPhrase")}`;
+    case "thealIgnoredElemental":
+      return formatI18nTemplate("chatThealIgnoredElemental", { name: ev.name });
     case "manaAlreadyFull":
       return `${ev.name} ${t("alreadyAtFullMana")}`;
     case "manaGain":
@@ -1698,40 +1715,70 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
 
   switch (kind) {
     case "pdmg": {
+      const elemental = isElementalSheet(state.sheet);
       const def = Math.floor(Math.max(0, Number(getSheetDefense(state.sheet)) || 0));
       cleanValues.forEach((val) => {
         const raw = Math.max(0, Math.floor(Number(val) || 0));
-        const actual = Math.max(0, raw - def);
         const next = applyPhysicalDamage(state.sheet, val);
         Object.assign(state.sheet, next);
-        applyFx.push({ fx: "pdmgApply", name, actual, raw, def });
+        if (elemental) {
+          applyFx.push({ fx: "pdmgApplyElemental", name, raw });
+        } else {
+          const actual = Math.max(0, raw - def);
+          applyFx.push({ fx: "pdmgApply", name, actual, raw, def });
+        }
       });
       saveSheet();
-      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      storage
+        .updateSheetCore(roomId, sheetId, {
+          currentHP: state.sheet.currentHP,
+          tempHP: state.sheet.tempHP,
+          currentMP: state.sheet.currentMP,
+        })
+        .catch(console.error);
       return { success: true, applyFx };
     }
     case "mdmg": {
+      const elemental = isElementalSheet(state.sheet);
       const def = Math.floor(Math.max(0, Number(getSheetMagicalDefense(state.sheet)) || 0));
       cleanValues.forEach((val) => {
         const raw = Math.max(0, Math.floor(Number(val) || 0));
-        const actual = Math.max(0, raw - def);
         const next = applyMagicDamage(state.sheet, val);
         Object.assign(state.sheet, next);
-        applyFx.push({ fx: "mdmgApply", name, actual, raw, def });
+        if (elemental) {
+          const actual = Math.max(0, 2 * raw - def);
+          applyFx.push({ fx: "mdmgApplyMana", name, actual, raw, def });
+        } else {
+          const actual = Math.max(0, raw - def);
+          applyFx.push({ fx: "mdmgApply", name, actual, raw, def });
+        }
       });
       saveSheet();
-      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      storage
+        .updateSheetCore(roomId, sheetId, {
+          currentHP: state.sheet.currentHP,
+          tempHP: state.sheet.tempHP,
+          currentMP: state.sheet.currentMP,
+        })
+        .catch(console.error);
       return { success: true, applyFx };
     }
     case "tdmg": {
+      const elemental = isElementalSheet(state.sheet);
       cleanValues.forEach((val) => {
         const actual = Math.max(0, Math.floor(Number(val) || 0));
         const next = applyTrueDamage(state.sheet, val);
         Object.assign(state.sheet, next);
-        applyFx.push({ fx: "tdmgApply", name, actual });
+        applyFx.push({ fx: elemental ? "tdmgApplyMana" : "tdmgApply", name, actual });
       });
       saveSheet();
-      storage.updateSheetCore(roomId, sheetId, { currentHP: state.sheet.currentHP, tempHP: state.sheet.tempHP }).catch(console.error);
+      storage
+        .updateSheetCore(roomId, sheetId, {
+          currentHP: state.sheet.currentHP,
+          tempHP: state.sheet.tempHP,
+          currentMP: state.sheet.currentMP,
+        })
+        .catch(console.error);
       return { success: true, applyFx };
     }
     case "heal": {
@@ -1758,6 +1805,10 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
       return { success: true, applyFx };
     }
     case "theal": {
+      if (isElementalSheet(state.sheet)) {
+        applyFx.push({ fx: "thealIgnoredElemental", name });
+        return { success: true, applyFx };
+      }
       const total = cleanValues.reduce((a, v) => a + Math.max(0, Math.floor(Number(v) || 0)), 0);
       cleanValues.forEach((val) => {
         const next = applyOverHeal(state.sheet, val);
@@ -1937,6 +1988,7 @@ function renderStatsTab() {
   const maxHP = getMaxHP(s);
   const maxMP = getMaxMP(s);
   const maxFavor = getMaxFavor(s);
+  const elemental = isElementalSheet(s);
   const actions = getActionCount(s);
   const editable = canEdit(s.id);
 
@@ -2303,7 +2355,11 @@ function renderStatsTab() {
           </div>
           <div class="stats-col">
             <div class="stats-col-label">${t("labelTemporary")}</div>
-            ${stepper("tempHP", s.tempHP ?? 0, { min: 0, allowNegative: false, aria: t("tempHP") })}
+            ${
+              elemental
+                ? pill(0, { extraClass: "stats-pill--readonly" })
+                : stepper("tempHP", s.tempHP ?? 0, { min: 0, allowNegative: false, aria: t("tempHP") })
+            }
           </div>
         </div>
       </div>
@@ -2380,7 +2436,7 @@ function renderStatsTab() {
             <div class="stats-sub-row stats-sub-row--compact">
               <div class="stats-mini-col">
                 <div class="stats-mini-label">${t("labelPhysicalShort")}</div>
-                ${pill(defensesPhysical, { extraClass: "stats-pill--compact stats-pill--readonly" })}
+                ${pill(elemental ? t("defenseInfiniteDisplay") : defensesPhysical, { extraClass: "stats-pill--compact stats-pill--readonly" })}
               </div>
               <div class="stats-mini-col">
                 <div class="stats-mini-label">${t("labelMagicalShort")}</div>
@@ -4144,10 +4200,14 @@ function renderSettingsTab() {
     : "";
   const themeAtDefault = isSheetThemeAtDefaults();
   const autoQuick = !!state.sheet?.autoQuickRoll;
+  const isElemental = isElementalSheet(state.sheet);
   return `
     <div class="card settings-card">
       <h2 class="settings-title">${t("tabSettings")}</h2>
-      <button type="button" class="spell-pill-toggle settings-auto-quick-roll-btn${autoQuick ? " active" : ""}" id="btn-toggle-auto-quick-roll" ${editable ? "" : "disabled"} aria-pressed="${autoQuick ? "true" : "false"}" aria-label="${escapeAttr(t("autoQuickRoll"))}">${escapeAttr(t("autoQuickRoll"))}</button>
+      <div class="settings-toggle-row">
+        <button type="button" class="spell-pill-toggle settings-row-toggle-btn${autoQuick ? " active" : ""}" id="btn-toggle-auto-quick-roll" ${editable ? "" : "disabled"} aria-pressed="${autoQuick ? "true" : "false"}" aria-label="${escapeAttr(t("autoQuickRoll"))}">${escapeAttr(t("autoQuickRoll"))}</button>
+        <button type="button" class="spell-pill-toggle settings-row-toggle-btn${isElemental ? " active" : ""}" id="btn-toggle-is-elemental" ${editable ? "" : "disabled"} aria-pressed="${isElemental ? "true" : "false"}" aria-label="${escapeAttr(t("isElementalToggle"))}">${escapeAttr(t("isElementalToggle"))}</button>
+      </div>
       <div class="settings-color-row">
         <span class="settings-pill-label">${t("uiColors")}</span>
         <div class="settings-color-strip">
@@ -5816,7 +5876,7 @@ function bindEvents() {
       const sp = (state.sheet.spells || []).find((x) => String(x.id) === String(id));
       if (!sp) return;
       const cost = Math.max(0, Number(sp.cost) || 0);
-      const isMP = (sp.costType || "mp") === "mp";
+      const isMP = (sp.costType || "mp") === "mp" || isElementalSheet(state.sheet);
       if (isMP) {
         const mp = Math.max(0, Number(state.sheet.currentMP) || 0);
         if (mp >= cost) {
@@ -7307,16 +7367,41 @@ function bindEvents() {
   setupChatScrollbar();
 
   // Settings
-  if (!app.dataset.autoQuickRollBound) {
-    app.dataset.autoQuickRollBound = "1";
+  if (!app.dataset.settingsToggleRowBound) {
+    app.dataset.settingsToggleRowBound = "1";
     app.addEventListener("click", (e) => {
-      if (!e.target.closest("#btn-toggle-auto-quick-roll")) return;
+      const autoBtn = e.target.closest("#btn-toggle-auto-quick-roll");
+      const elementalBtn = e.target.closest("#btn-toggle-is-elemental");
+      if (!autoBtn && !elementalBtn) return;
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
-      const next = applyLocalMutation((sheet) => {
-        sheet.autoQuickRoll = !sheet.autoQuickRoll;
-      });
-      storage.updateSheetCore(state.roomId, state.activeSheetId, { autoQuickRoll: !!next?.autoQuickRoll }).catch(console.error);
+      if (autoBtn) {
+        const next = applyLocalMutation((sheet) => {
+          sheet.autoQuickRoll = !sheet.autoQuickRoll;
+        });
+        storage.updateSheetCore(state.roomId, state.activeSheetId, { autoQuickRoll: !!next?.autoQuickRoll }).catch(console.error);
+      } else {
+        const next = applyLocalMutation((sheet) => {
+          sheet.isElemental = !sheet.isElemental;
+          if (sheet.isElemental) {
+            sheet.tempHP = 0;
+            const cur = Math.max(0, Number(sheet.currentHP) || 0);
+            sheet.currentHP = Math.min(cur, getMaxHP(sheet));
+          }
+          const maxMp = getMaxMP(sheet);
+          const curMp = Math.max(0, Number(sheet.currentMP) || 0);
+          sheet.currentMP = Math.min(curMp, maxMp);
+        });
+        if (!next) return;
+        storage
+          .updateSheetCore(state.roomId, state.activeSheetId, {
+            isElemental: !!next.isElemental,
+            tempHP: next.tempHP,
+            currentHP: next.currentHP,
+            currentMP: next.currentMP,
+          })
+          .catch(console.error);
+      }
       render();
     });
   }

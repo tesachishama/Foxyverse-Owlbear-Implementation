@@ -2565,11 +2565,19 @@ input.inv-qty-pill.inv-qty-inp {
   padding: 0.24rem 0.28rem 0.24rem 0.24rem;
 }
 
-/* Full-width auto quick roll: single pill button, label is the control. */
-#app button.settings-auto-quick-roll-btn.spell-pill-toggle {
-  width: 100%;
-  box-sizing: border-box;
+/* Settings: auto quick roll + elemental on one row */
+.settings-toggle-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.35rem;
   margin: 0 0 0.55rem;
+}
+
+#app .settings-toggle-row .spell-pill-toggle.settings-row-toggle-btn {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
   align-items: center;
