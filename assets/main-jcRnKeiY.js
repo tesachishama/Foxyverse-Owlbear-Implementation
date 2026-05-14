@@ -674,11 +674,13 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
             <div class="inv-item-talent-name-cell">${oe?`<input type="text" class="inv-item-talent-name-inp" data-inv-item-talent-name="${w(V)}" data-inv-talent-id="${w(O)}" value="${w(B)}" placeholder="${w(g("talentDefault")||"")}" />`:`<span class="inv-item-talent-name-txt">${w(B)}</span>`}</div>
             <div class="inv-item-talent-actions">${U}</div>
           </div>
-        `}).join(""),b=e?`<div class="inv-item-talent-add-row"><button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${w(V)}" aria-label="${w(g("add"))}" title="${w(g("add"))}">${ne(bt,"inline-svg inv-item-talent-icon","var(--accent)")}</button></div>`:"",T=!_.length&&!e?"":!_.length&&e?`<div class="inv-item-talents-block inv-item-talents-block--minimal">${b}</div>`:`
+        `}).join(""),b=e?`<button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${w(V)}" aria-label="${w(g("add"))}" title="${w(g("add"))}">${ne(bt,"inline-svg inv-item-talent-icon","var(--accent)")}</button>`:"",T=`
         <div class="inv-item-talents-block">
-          <div class="inv-item-talents-title">${v}</div>
+          <div class="inv-item-talent-line inv-item-talents-header-row">
+            <div class="inv-item-talents-title">${v}</div>
+            <div class="inv-item-talent-actions">${b}</div>
+          </div>
           ${S}
-          ${b}
         </div>
       `;return`
         ${ve}
