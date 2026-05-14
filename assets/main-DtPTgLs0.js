@@ -499,7 +499,7 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
         </div>
       </div>
     </div>
-  `}function sp(){const t=o.sheet;if(!t)return`<div class="card"><p>${g("noSheet")}</p></div>`;const e=ue(t.id),n=t.spells||[],s=n.map((i,a)=>{const l=String(i.id||a),c=Ia(l),d=e&&String(o._editingSpellId||"")===l,u=d&&o._spellEditDraft&&String(o._spellEditDraft.id)===l?o._spellEditDraft:null,f=Jr(u?u.name:i.name||""),m=Math.max(0,Number(i.useCounter)||0),E=Math.max(0,Number(i.cost)||0),I=(i.costType||"mp")==="hp"?"hp":"mp",$=!!i.isContinuous,x=!!i.isArmed,M=ne(_e,"inline-svg spell-chevron-svg","var(--text)"),C=ne(Vo,"inline-svg spell-handle-svg","var(--text)"),R=ne(Us,"inline-svg spell-edit-svg","var(--text)"),j=Tn(f),q=`
+  `}function sp(){const t=o.sheet;if(!t)return`<div class="card"><p>${g("noSheet")}</p></div>`;const e=ue(t.id),n=t.spells||[],s=n.map((i,a)=>{const l=String(i.id||a),c=Ia(l),d=e&&String(o._editingSpellId||"")===l,u=d&&o._spellEditDraft&&String(o._spellEditDraft.id)===l?o._spellEditDraft:null,f=Jr(u?u.name:i.name||""),m=Math.max(0,Number(i.useCounter)||0),E=Math.max(0,Number(i.cost)||0),I=(i.costType||"mp")==="hp"?"hp":"mp",$=!!i.isContinuous,x=!!i.isArmed,M=ne(_e,"inline-svg spell-chevron-svg","var(--text)"),C=ne(Vo,"inline-svg spell-handle-svg","var(--accent)"),R=ne(Us,"inline-svg spell-edit-svg","var(--text)"),j=Tn(f),q=`
         <div class="spell-effect-row">
           <div class="spell-effect-text">${Tn(i.effect||"")||`<span class="muted">${w(g("spellEffect"))}</span>`}</div>
           ${e?`<button type="button" class="spell-edit-btn" data-spell-edit="${w(l)}" aria-label="${w(g("edit"))}" title="${w(g("edit"))}">${R}</button>`:""}
