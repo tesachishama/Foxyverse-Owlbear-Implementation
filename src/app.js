@@ -1016,6 +1016,42 @@ function formatI18nTemplate(key, vars) {
   return s;
 }
 
+const CHAT_I18N_PREFIX = "[[i18n]]";
+
+/** Persist a locale-neutral chat line; resolved in renderChatBody via t() + templates. */
+function formatChatI18nLine(key, params = {}) {
+  const k = String(key || "").trim();
+  const p = params && typeof params === "object" ? params : {};
+  return `${CHAT_I18N_PREFIX}${JSON.stringify({ key: k, params: p })}`;
+}
+
+/** Merge live-translated glue words for known auto chat keys (DB params stay locale-neutral). */
+function expandChatI18nParams(key, params) {
+  const p = { ...(params || {}) };
+  switch (String(key || "")) {
+    case "chatCurrencyGift":
+      return {
+        ...p,
+        gave: t("gave"),
+        to: t("to"),
+        goldLabel: t("goldCoin"),
+        silverLabel: t("silverCoin"),
+        copperLabel: t("copperCoin"),
+      };
+    case "chatItemGift":
+      return { ...p, gave: t("gave"), to: t("to") };
+    default:
+      return p;
+  }
+}
+
+function renderChatI18nLineFromPayload(payload) {
+  const key = String(payload?.key || "").trim();
+  if (!key) return "";
+  const merged = expandChatI18nParams(key, payload.params);
+  return formatI18nTemplate(key, merged);
+}
+
 const CHAT_APPLY_ROLL_KINDS = new Set(["pdmg", "mdmg", "tdmg", "heal", "theal", "mana"]);
 
 function chatRollApplyButtonLabel(kind) {
@@ -2980,6 +3016,15 @@ function renderChatTab() {
 function renderChatBody(body) {
   if (!body) return "";
   const bodyTrim = String(body).trimStart();
+  if (bodyTrim.startsWith(CHAT_I18N_PREFIX)) {
+    try {
+      const payload = JSON.parse(bodyTrim.slice(CHAT_I18N_PREFIX.length));
+      const line = renderChatI18nLineFromPayload(payload);
+      if (line) return `<em class="chat-sys-line">${escapeAttr(line)}</em>`;
+    } catch (_) {
+      /* fall through */
+    }
+  }
   if (bodyTrim.startsWith("[[sys]]")) {
     try {
       const payload = JSON.parse(bodyTrim.slice("[[sys]]".length));
@@ -3035,7 +3080,7 @@ function renderChatBody(body) {
         <div class="chat-roll-row chat-roll-row-head"><strong class="chat-roll-head">${headHtml}</strong></div>
         <div class="chat-roll-row chat-roll-row-formula"><em class="chat-roll-formula">${formulaText}</em> : <span class="chat-roll-dice">[${diceText}]</span></div>
         <div class="chat-roll-row chat-roll-row-result"><strong class="chat-roll-result">${resultText}</strong> ${winText}</div>
-        ${isMulti ? `<div class="chat-roll-row chat-roll-row-total"><span class="chat-roll-total-label">Total :</span> <strong class="chat-roll-total">${
+        ${isMulti ? `<div class="chat-roll-row chat-roll-row-total"><span class="chat-roll-total-label">${escapeAttr(`${t("total")} :`)}</span> <strong class="chat-roll-total">${
           (payload.kind === "stat" || isComparatorMulti)
             ? escapeAttr(`${succ} ${t("success")}${fail ? `, ${fail} ${t("failure")}` : ""}${critSucc ? `, ${critSucc} ${t("criticalSuccess")}` : ""}${critFail ? `, ${critFail} ${t("criticalFailure")}` : ""}`)
             : escapeAttr(String(total))
@@ -3115,6 +3160,15 @@ function formatRollChatLine(result, options = {}) {
 function formatChatToastBody(rawBody) {
   const s = String(rawBody || "").trim();
   if (!s) return "";
+  if (s.startsWith(CHAT_I18N_PREFIX)) {
+    try {
+      const payload = JSON.parse(s.slice(CHAT_I18N_PREFIX.length));
+      const line = renderChatI18nLineFromPayload(payload);
+      return line ? line.slice(0, 120) : "";
+    } catch (_) {
+      return s.slice(0, 120);
+    }
+  }
   if (s.startsWith("[[roll]]")) {
     try {
       const payload = JSON.parse(s.slice("[[roll]]".length));
@@ -5339,11 +5393,16 @@ function bindEvents() {
     try {
       const toName = resolveCharacterDisplayName(toId);
       const fromName = resolveCharacterDisplayName(state.activeSheetId);
-      const line = `${fromName} ${t("gave") || "gave"} ${amt.gold} ${t("goldCoin") || "gold"} ${amt.silver} ${t("silverCoin") || "silver"} ${amt.copper} ${t("copperCoin") || "copper"} ${t("to") || "to"} ${toName}`.trim();
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: line,
+        body: formatChatI18nLine("chatCurrencyGift", {
+          fromName,
+          toName,
+          gold: amt.gold,
+          silver: amt.silver,
+          copper: amt.copper,
+        }),
       });
       appendChatMessageIfNew(row);
     } catch (err) {
@@ -6085,11 +6144,15 @@ function bindEvents() {
     try {
       const fromName = resolveCharacterDisplayName(state.activeSheetId);
       const toName = resolveCharacterDisplayName(recipId);
-      const line = `${fromName} ${t("gave") || "gave"} ${qty} ${senderItem.name || (t("itemName") || "Item")} ${t("to") || "to"} ${toName}`.trim();
       const row = await storage.insertChatMessage(state.roomId, {
         playerId: state.playerId || "",
         sheetId: state.activeSheetId || null,
-        body: line,
+        body: formatChatI18nLine("chatItemGift", {
+          fromName,
+          toName,
+          qty,
+          itemName: senderItem.name || t("itemName"),
+        }),
       });
       appendChatMessageIfNew(row);
     } catch (err) {
