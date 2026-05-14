@@ -332,6 +332,19 @@ function scheduleDebouncedSave(key, delayMs, fn) {
   }, delayMs);
 }
 
+/** Prefer `talents[]`; support legacy single `talent` on items. */
+function getItemTalentsArray(it) {
+  if (!it) return [];
+  if (Array.isArray(it.talents) && it.talents.length) return it.talents;
+  if (it.talent) return [it.talent];
+  return [];
+}
+
+function itemHasEquippedSlots(it) {
+  const slots = it?.usedSlots?.equippedSlots;
+  return Array.isArray(slots) && slots.length > 0;
+}
+
 function computeUsedSlots(sheet, item) {
   const equippedSlots = Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
   const out = {};
@@ -658,10 +671,12 @@ function normalizeImportedSheet(raw, options = {}) {
         const nextId = crypto.randomUUID();
         itemIdMap.set(entry.id, nextId);
         const cloned = { ...entry, id: nextId };
-        // Item-bound talents must also get a fresh id so they don't collide with
-        // the source sheet's talent rows when both exist in the same DB.
-        if (cloned.talent && (section === "weapons" || section === "armor")) {
-          cloned.talent = { ...cloned.talent, id: crypto.randomUUID() };
+        if (section === "weapons" || section === "armor") {
+          if (Array.isArray(cloned.talents) && cloned.talents.length) {
+            cloned.talents = cloned.talents.map((tal) => ({ ...tal, id: crypto.randomUUID() }));
+          } else if (cloned.talent) {
+            cloned.talent = { ...cloned.talent, id: crypto.randomUUID() };
+          }
         }
         return cloned;
       });
@@ -1279,19 +1294,26 @@ function renderStatsTab() {
   const actions = getActionCount(s);
   const editable = canEdit(s.id);
 
-  // Item-bound talents: appended at the end of the talent grid for each equipped
-  // weapon/armor that has a `.talent` attached. They carry a __itemId marker so
-  // edit/save handlers know to route writes back to the item-talent helpers.
+  // Item-bound talents: appended after sheet talents. Shown for all weapons/armor
+  // that have talents; equipped ones are normal, unequipped are muted in the grid.
   const itemBoundTalents = (() => {
-    const equippedSections = [...(s.weapons || []), ...(s.armor || [])];
     const out = [];
-    equippedSections.forEach((it) => {
-      if (!it?.talent) return;
-      const slots = it?.usedSlots?.equippedSlots;
-      if (!Array.isArray(slots) || !slots.length) return;
+    [...(s.weapons || []), ...(s.armor || [])].forEach((it) => {
+      const talents = getItemTalentsArray(it);
+      if (!talents.length) return;
       const section = (s.weapons || []).some((w) => w.id === it.id) ? "weapons" : "armor";
-      out.push({ ...it.talent, __itemId: it.id, __itemName: it.name || "", __itemSection: section });
+      const equipped = itemHasEquippedSlots(it);
+      talents.forEach((tl) => {
+        out.push({
+          ...tl,
+          __itemId: it.id,
+          __itemName: it.name || "",
+          __itemSection: section,
+          __itemEquipped: equipped,
+        });
+      });
     });
+    out.sort((a, b) => Number(!!b.__itemEquipped) - Number(!!a.__itemEquipped));
     return out;
   })();
   const talents = [...(s.knowledge || []), ...itemBoundTalents];
@@ -1438,7 +1460,8 @@ function renderStatsTab() {
       const itemMarker = isItemBound
         ? `<div class="talent-item-marker" title="${escapeAttr(tl.__itemName || "")}">${inlineSvg(tl.__itemSection === "armor" ? chestSlotIcon : weaponIcon, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`
         : "";
-      const pillClass = `talent-pill${isItemBound ? " talent-pill--item-bound" : ""}`;
+      const itemUnequipped = isItemBound && !tl.__itemEquipped;
+      const pillClass = `talent-pill${isItemBound ? " talent-pill--item-bound" : ""}${itemUnequipped ? " talent-pill--item-unequipped" : ""}`;
       const talentIdStr = String(tl.id || idx);
       const itemAttr = isItemBound ? ` data-talent-item-id="${escapeAttr(String(tl.__itemId))}"` : "";
       return `
@@ -2772,31 +2795,46 @@ function renderInventoryTab() {
           </div>
         `;
 
-      const itemTalent = it?.talent || null;
+      const itemTalentsList = getItemTalentsArray(it);
       const talentTitle = escapeAttr(t("itemTalent") || "Item talent");
-      const talentName = escapeAttr(itemTalent?.name || (t("talentDefault") || "Talent"));
-      const talentBtns = editable
-        ? (itemTalent
-            ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${inlineSvg(editIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>
-               <button type="button" class="inv-item-talent-btn" data-inv-item-talent-remove="${escapeAttr(id)}" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
-            : `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`)
+      const talentRows = itemTalentsList.map((tal) => {
+        const tid = String(tal.id || "");
+        const nm = String(tal.name || "").trim() || (t("talentDefault") || "Talent");
+        const removeBtn = editable
+          ? `<button type="button" class="inv-item-talent-btn" data-inv-item-talent-remove="${escapeAttr(id)}" data-inv-talent-id="${escapeAttr(tid)}" aria-label="${escapeAttr(t("remove"))}" title="${escapeAttr(t("remove"))}">${inlineSvg(removeIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button>`
+          : "";
+        const nameCell = editing
+          ? `<input type="text" class="inv-item-talent-name-inp" data-inv-item-talent-name="${escapeAttr(id)}" data-inv-talent-id="${escapeAttr(tid)}" value="${escapeAttr(nm)}" placeholder="${escapeAttr(t("talentDefault") || "")}" />`
+          : `<span class="inv-item-talent-name-txt">${escapeAttr(nm)}</span>`;
+        return `
+          <div class="inv-item-talent-line">
+            <div class="inv-item-talent-name-cell">${nameCell}</div>
+            <div class="inv-item-talent-actions">${removeBtn}</div>
+          </div>
+        `;
+      }).join("");
+      const emptyTalentHint = !itemTalentsList.length
+        ? `<div class="inv-item-talent-line inv-item-talent-line--empty"><span class="inv-item-talent-empty">${escapeAttr(t("none") || "—")}</span></div>`
         : "";
-      const talentRow = `
-        <div class="inv-item-talent-row">
-          <div class="inv-item-talent-title">${talentTitle}</div>
-          <div class="inv-item-talent-name">${itemTalent ? talentName : `<span class="inv-item-talent-empty">${escapeAttr(t("none") || "—")}</span>`}</div>
-          <div class="inv-item-talent-actions">${talentBtns}</div>
+      const addBtnRow = editable
+        ? `<div class="inv-item-talent-add-row"><button type="button" class="inv-item-talent-btn" data-inv-item-talent-add="${escapeAttr(id)}" aria-label="${escapeAttr(t("add"))}" title="${escapeAttr(t("add"))}">${inlineSvg(addIcon, "inline-svg inv-item-talent-icon", "var(--accent)")}</button></div>`
+        : "";
+      const talentsBlock = `
+        <div class="inv-item-talents-block">
+          <div class="inv-item-talents-title">${talentTitle}</div>
+          ${emptyTalentHint}${talentRows}
+          ${addBtnRow}
         </div>
       `;
 
       return `
         ${strip}
         ${defRow}
+        ${talentsBlock}
         <div class="inv-slots-row">
           <div class="inv-slots-title">${escapeAttr(t("slots") || "Slots")}</div>
           ${slotsUI}
         </div>
-        ${talentRow}
       `;
     })();
 
@@ -4467,9 +4505,13 @@ function bindEvents() {
       let itemId = "";
       if (itemIdAttr) {
         const it = findItemById(state.sheet, itemIdAttr);
-        if (it?.talent && String(it.talent.id) === String(id)) {
-          tl = it.talent;
-          itemId = String(it.id);
+        if (it) {
+          const arr = getItemTalentsArray(it);
+          const found = arr.find((x) => String(x.id) === String(id));
+          if (found) {
+            tl = found;
+            itemId = String(it.id);
+          }
         }
       }
       if (!tl) {
@@ -4519,24 +4561,34 @@ function bindEvents() {
     const description = descriptionRaw;
 
     if (itemId) {
+      let talentPosition = 0;
       const next = applyLocalMutation((sheet) => {
         const it = findItemById(sheet, itemId);
-        if (!it?.talent) return;
-        it.talent.name = name;
-        it.talent.description = description;
-        it.talent.tier = tier;
-        it.talent.bonusOverride = bonusOverride;
+        if (!it) return;
+        const arr = getItemTalentsArray(it);
+        const ix = arr.findIndex((x) => String(x.id) === id);
+        if (ix < 0) return;
+        talentPosition = ix;
+        const trow = arr[ix];
+        trow.name = name;
+        trow.description = description;
+        trow.tier = tier;
+        trow.bonusOverride = bonusOverride;
+        if (!Array.isArray(it.talents)) {
+          it.talents = [...arr];
+          delete it.talent;
+        }
       });
+      const prevRow = getItemTalentsArray(findItemById(state.sheet, itemId) || {}).find((x) => String(x.id) === id);
       await storage.upsertItemTalent(state.roomId, itemId, {
         id,
-        position: 0,
+        position: talentPosition,
         name,
         description,
         tier,
         bonus_override: bonusOverride,
-        is_enabled: false,
+        is_enabled: !!prevRow?.enabled,
       }).catch(console.error);
-      // touch `next` to avoid unused-warning; it is implicitly persisted to localStorage by applyLocalMutation
       void next;
       closeTalentModal();
       render();
@@ -4598,7 +4650,11 @@ function bindEvents() {
     if (itemId) {
       applyLocalMutation((sheet) => {
         const it = findItemById(sheet, itemId);
-        if (it) it.talent = null;
+        if (!it) return;
+        const arr = getItemTalentsArray(it);
+        const filtered = arr.filter((x) => String(x.id) !== id);
+        delete it.talent;
+        it.talents = filtered;
       });
       await storage.deleteItemTalent(state.roomId, id).catch(console.error);
       closeTalentModal();
@@ -5571,63 +5627,63 @@ function bindEvents() {
       const itemId = btn.getAttribute("data-inv-item-talent-add") || "";
       if (!itemId) return;
       const it = findItemById(state.sheet, itemId);
-      if (!it || it.talent) return;
+      if (!it) return;
       const talentId = crypto.randomUUID();
       const defaultName = t("talentDefault") || "Talent";
       const draft = { id: talentId, name: defaultName, description: "", tier: 0, bonusOverride: null, enabled: false };
+      let position = 0;
       applyLocalMutation((sheet) => {
         const x = findItemById(sheet, itemId);
         if (!x) return;
-        x.talent = { ...draft };
+        const arr = [];
+        if (Array.isArray(x.talents)) arr.push(...x.talents);
+        else if (x.talent) arr.push(x.talent);
+        delete x.talent;
+        position = arr.length;
+        arr.push({ ...draft });
+        x.talents = arr;
       });
       await storage.upsertItemTalent(state.roomId, itemId, {
         id: talentId,
-        position: 0,
+        position,
         name: defaultName,
         description: "",
         tier: 0,
         bonus_override: null,
         is_enabled: false,
       }).catch(console.error);
-      // Open the modal immediately so the user can edit name/desc/tier.
-      state.talentModalOpen = true;
-      state.talentDraft = {
-        id: talentId,
-        name: defaultName,
-        description: "",
-        tier: 0,
-        bonusOverride: "",
-        __itemId: itemId,
-      };
-      state.talentTierMenuOpen = false;
       render();
     });
   });
 
-  app.querySelectorAll("[data-inv-item-talent-edit]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (!state.sheet) return;
+  app.querySelectorAll("[data-inv-item-talent-name]").forEach((inp) => {
+    const saveNameToDb = () => {
+      if (!state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
-      const itemId = btn.getAttribute("data-inv-item-talent-edit") || "";
-      if (!itemId) return;
-      const it = findItemById(state.sheet, itemId);
-      if (!it?.talent) return;
-      const descFull = String(it.talent.description || "");
-      const idxOv = descFull.lastIndexOf("[[override]]");
-      const desc = idxOv < 0 ? descFull : descFull.slice(0, idxOv).replace(/\s+$/, "");
-      const overrideFromDesc = idxOv < 0 ? "" : descFull.slice(idxOv + "[[override]]".length).trim();
-      state.talentModalOpen = true;
-      state.talentDraft = {
-        id: String(it.talent.id),
-        name: it.talent.name || "",
-        description: desc,
-        tier: Number(it.talent.tier) || 0,
-        bonusOverride: (it.talent.bonusOverride == null ? "" : String(it.talent.bonusOverride)) || overrideFromDesc,
-        __itemId: itemId,
-      };
-      state.talentTierMenuOpen = false;
-      render();
+      const talentId = inp.getAttribute("data-inv-talent-id") || "";
+      if (!talentId) return;
+      const name = String(inp.value || "").trim() || (t("talentDefault") || "Talent");
+      storage.updateItemTalentFields(state.roomId, talentId, { name }).catch(console.error);
+    };
+    inp.addEventListener("input", () => {
+      const itemId = inp.getAttribute("data-inv-item-talent-name") || "";
+      const talentId = inp.getAttribute("data-inv-talent-id") || "";
+      const name = String(inp.value || "").trim() || (t("talentDefault") || "Talent");
+      applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, itemId);
+        if (!it) return;
+        const arr = getItemTalentsArray(it);
+        const trow = arr.find((x) => String(x.id) === talentId);
+        if (!trow) return;
+        trow.name = name;
+        if (!Array.isArray(it.talents)) {
+          it.talents = [...arr];
+          delete it.talent;
+        }
+      });
+      scheduleDebouncedSave(`item_talent_name_${itemId}_${talentId}`, 450, saveNameToDb);
     });
+    inp.addEventListener("focusout", saveNameToDb);
   });
 
   app.querySelectorAll("[data-inv-item-talent-remove]").forEach((btn) => {
@@ -5635,16 +5691,18 @@ function bindEvents() {
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
       const itemId = btn.getAttribute("data-inv-item-talent-remove") || "";
-      if (!itemId) return;
-      const it = findItemById(state.sheet, itemId);
-      if (!it?.talent) return;
+      const talentId = btn.getAttribute("data-inv-talent-id") || "";
+      if (!itemId || !talentId) return;
       if (!confirm(t("confirmDelete") || "Delete?")) return;
-      const tid = String(it.talent.id);
       applyLocalMutation((sheet) => {
-        const x = findItemById(sheet, itemId);
-        if (x) x.talent = null;
+        const it = findItemById(sheet, itemId);
+        if (!it) return;
+        const arr = getItemTalentsArray(it);
+        const filtered = arr.filter((x) => String(x.id) !== talentId);
+        delete it.talent;
+        it.talents = filtered;
       });
-      await storage.deleteItemTalent(state.roomId, tid).catch(console.error);
+      await storage.deleteItemTalent(state.roomId, talentId).catch(console.error);
       render();
     });
   });
@@ -5911,20 +5969,22 @@ function bindEvents() {
           usable_slots: usableForRow,
           used_slots: null,
         }).catch(console.error);
-        // Carry the talent (if any) onto the recipient's brand-new item. The
-        // sender's talent row cascades away when the source item is deleted
-        // (qty -> 0). We always assign a fresh talent id to avoid PK collisions.
-        if (senderItem.talent && (sec === "weapons" || sec === "armor")) {
-          const newTalentId = crypto.randomUUID();
-          await storage.upsertItemTalent(state.roomId, newId, {
-            id: newTalentId,
-            position: 0,
-            name: senderItem.talent.name || "",
-            description: senderItem.talent.description || "",
-            tier: senderItem.talent.tier ?? 0,
-            bonus_override: senderItem.talent.bonusOverride ?? null,
-            is_enabled: !!senderItem.talent.enabled,
-          }).catch(console.error);
+        // Carry item-bound talents (if any) onto the recipient's new item.
+        if (sec === "weapons" || sec === "armor") {
+          const senderTalents = getItemTalentsArray(senderItem);
+          for (let i = 0; i < senderTalents.length; i++) {
+            const tal = senderTalents[i];
+            const newTalentId = crypto.randomUUID();
+            await storage.upsertItemTalent(state.roomId, newId, {
+              id: newTalentId,
+              position: i,
+              name: tal.name || "",
+              description: tal.description || "",
+              tier: tal.tier ?? 0,
+              bonus_override: tal.bonusOverride ?? null,
+              is_enabled: !!tal.enabled,
+            }).catch(console.error);
+          }
         }
       }
     } catch (err) {

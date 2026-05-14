@@ -229,14 +229,12 @@ function assembleSheet(sheetId, rows) {
   const itemTalentsByItemId = new Map();
   (rows.itemTalents || []).forEach((row) => {
     if (!row?.item_id) return;
-    itemTalentsByItemId.set(String(row.item_id), {
-      id: row.id,
-      name: row.name || "",
-      description: row.description || "",
-      tier: row.tier ?? 1,
-      bonusOverride: row.bonus_override,
-      enabled: !!row.is_enabled,
-    });
+    const key = String(row.item_id);
+    if (!itemTalentsByItemId.has(key)) itemTalentsByItemId.set(key, []);
+    itemTalentsByItemId.get(key).push(row);
+  });
+  itemTalentsByItemId.forEach((arr) => {
+    arr.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
   });
 
   rows.items.forEach((row) => {
@@ -265,7 +263,14 @@ function assembleSheet(sheetId, rows) {
       social: row.social ?? 0,
       agility: row.agility ?? 0,
       focus: row.focus ?? 0,
-      talent: itemTalentsByItemId.get(String(row.id)) || null,
+      talents: (itemTalentsByItemId.get(String(row.id)) || []).map((r) => ({
+        id: r.id,
+        name: r.name || "",
+        description: r.description || "",
+        tier: r.tier ?? 1,
+        bonusOverride: r.bonus_override,
+        enabled: !!r.is_enabled,
+      })),
     };
     base[section].push(item);
     usedSlots.equippedSlots.forEach((slotId) => {
@@ -693,17 +698,25 @@ async function persistRows(roomId, sheet) {
   const itemTalentRows = [];
   ["weapons", "armor"].forEach((sectionKey) => {
     (sheet[sectionKey] || []).forEach((item) => {
-      if (!item?.talent || !item.id) return;
-      itemTalentRows.push({
-        id: item.talent.id,
-        sheet_id: null,
-        item_id: item.id,
-        position: 0,
-        name: item.talent.name || "",
-        description: item.talent.description || "",
-        tier: item.talent.tier ?? 1,
-        bonus_override: item.talent.bonusOverride ?? null,
-        is_enabled: !!item.talent.enabled,
+      if (!item?.id) return;
+      const list = Array.isArray(item.talents) && item.talents.length
+        ? item.talents
+        : item.talent
+          ? [item.talent]
+          : [];
+      list.forEach((tal, position) => {
+        if (!tal?.id) return;
+        itemTalentRows.push({
+          id: tal.id,
+          sheet_id: null,
+          item_id: item.id,
+          position,
+          name: tal.name || "",
+          description: tal.description || "",
+          tier: tal.tier ?? 1,
+          bonus_override: tal.bonusOverride ?? null,
+          is_enabled: !!tal.enabled,
+        });
       });
     });
   });
