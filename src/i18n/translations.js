@@ -580,7 +580,7 @@ export const translations = {
     spellElement: "Élément",
 
     // Paramètres
-    uiColors: "Couleurs de l'interface",
+    uiColors: "Couleurs de l'IU",
     sheetPermissions: "Permissions de la fiche",
     canSee: "Peut voir",
     canEdit: "Peut modifier",
