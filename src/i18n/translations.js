@@ -169,7 +169,7 @@ export const translations = {
     deductCost: "Deduct cost",
     notEnoughMP: "Not enough MP — use HP?",
     confirmUseHP: "Using HP for MP will drain life. Continue?",
-    confirmCastBelowZeroHP: "Casting this spell would put you below 0 HP. Are you sure you want to do that?",
+    confirmCastBelowZeroHP: "Casting this spell would leave you at 0 HP or below. Are you sure you want to do that?",
 
     // Stats (template UI)
     talentName: "Talent name",
@@ -183,7 +183,7 @@ export const translations = {
     confirmImportOverwriteBody: "Replace \"{{name}}\" with the imported sheet? Unsaved changes on this sheet will be lost.",
     spellUseConfirmTitle: "Cast spell",
     spellUseConfirmMpShortfallBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder. Continue?",
-    spellUseConfirmMpShortfallDangerBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder, bringing you to {{hpAfter}} HP (below 0). Continue?",
+    spellUseConfirmMpShortfallDangerBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder, bringing you to {{hpAfter}} HP (below 1 HP, including 0 or negative). Continue?",
 
     // Inventory
     equipped: "Equipped",
@@ -489,7 +489,7 @@ export const translations = {
     deductCost: "Déduire coût",
     notEnoughMP: "Pas assez de PM — utiliser les PV ?",
     confirmUseHP: "Utiliser les PV à la place des PM va vous blesser. Continuer ?",
-    confirmCastBelowZeroHP: "Lancer ce sort vous ferait passer sous 0 PV. Voulez-vous continuer ?",
+    confirmCastBelowZeroHP: "Lancer ce sort vous laisserait à 0 PV ou en dessous. Voulez-vous continuer ?",
 
     // Stats (template UI)
     talentName: "Nom du talent",
@@ -503,7 +503,7 @@ export const translations = {
     confirmImportOverwriteBody: "Remplacer « {{name}} » par la fiche importée ? Les modifications non enregistrées seront perdues.",
     spellUseConfirmTitle: "Lancer le sort",
     spellUseConfirmMpShortfallBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste. Continuer ?",
-    spellUseConfirmMpShortfallDangerBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste, ce qui vous mènerait à {{hpAfter}} PV (sous 0). Continuer ?",
+    spellUseConfirmMpShortfallDangerBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste, ce qui vous mènerait à {{hpAfter}} PV (moins de 1 PV, y compris 0 ou négatif). Continuer ?",
 
     // Inventaire
     equipped: "Équipé",

@@ -155,6 +155,8 @@ const state = {
     bodyParams: {},
     resolve: null,
   },
+  /** Scroll snapshot taken when the in-app confirm modal opens; restored on close. */
+  _confirmModalScrollSnap: null,
   colors: {
     bg: DEFAULT_SHEET_THEME.bg,
     ui: DEFAULT_SHEET_THEME.ui,
@@ -727,6 +729,30 @@ function finalizeNotesEditIfOpen() {
   }
 }
 
+/** Older sheets stored the translated default label; treat as unset so the label follows locale. */
+const LEGACY_DEFAULT_SPELL_NAMES = new Set(["Spell name", "Nom du sort"]);
+
+function stripSpellTitleTokens(text) {
+  return String(text || "")
+    .replace(/\[[^\]]+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isDefaultSpellNameDraft(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return true;
+  if (LEGACY_DEFAULT_SPELL_NAMES.has(s)) return true;
+  if (s === t("spellName")) return true;
+  return false;
+}
+
+function spellTitleFromStorage(raw) {
+  if (isDefaultSpellNameDraft(raw)) return t("spellName");
+  const s = stripSpellTitleTokens(raw);
+  return s || t("spellName");
+}
+
 function isSpellOpen(spellId) {
   return !!state._openSpells?.[String(spellId || "")];
 }
@@ -744,9 +770,10 @@ function startSpellEditDraft(spellId) {
   const id = String(spellId || "");
   const sp = (state.sheet?.spells || []).find((x) => String(x.id) === id);
   if (!sp) return;
+  const stored = String(sp.name ?? "").trim();
   state._spellEditDraft = {
     id,
-    name: sp.name || "",
+    name: isDefaultSpellNameDraft(stored) ? "" : stored,
     effect: sp.effect || "",
     cost: Math.max(0, Number(sp.cost) || 0),
     costType: (sp.costType || "mp") === "hp" ? "hp" : "mp",
@@ -760,8 +787,8 @@ function finalizeSpellEditIfOpen() {
   const id = String(state._editingSpellId);
   const d = state._spellEditDraft;
   if (String(d.id) !== id) return;
-  const fallbackName = t("spellName");
-  const nameOut = String(d.name ?? "").trim() || fallbackName;
+  const trimmed = String(d.name ?? "").trim();
+  const nameOut = isDefaultSpellNameDraft(trimmed) ? "" : trimmed;
   const next = applyLocalMutation((sheet) => {
     const sp = (sheet.spells || []).find((x) => String(x.id) === id);
     if (!sp) return;
@@ -780,7 +807,7 @@ function finalizeSpellEditIfOpen() {
     storage.upsertSpell(state.roomId, state.activeSheetId, {
       id: sp.id,
       position,
-      name: sp.name || fallbackName,
+      name: sp.name || "",
       description: sp.effect || "",
       cost: sp.cost ?? 0,
       is_hp: (sp.costType || "mp") === "hp",
@@ -1062,6 +1089,8 @@ function renderChatI18nLineFromPayload(payload) {
 const EMPTY_CONFIRM_MODAL = { open: false, titleKey: "", bodyKey: "", bodyParams: {}, resolve: null };
 
 function closeConfirmModal(result) {
+  const snap = state._confirmModalScrollSnap;
+  state._confirmModalScrollSnap = null;
   const cb = state.confirmModal?.resolve;
   state.confirmModal = { ...EMPTY_CONFIRM_MODAL };
   try {
@@ -1069,11 +1098,16 @@ function closeConfirmModal(result) {
   } catch (_) {}
   queueMicrotask(() => {
     if (typeof cb === "function") cb(!!result);
+    queueMicrotask(() => {
+      restoreScrollSnapshot(snap);
+    });
   });
 }
 
 function openConfirmModal({ titleKey, bodyKey, bodyParams = {} }) {
   return new Promise((resolve) => {
+    const appEl = typeof document !== "undefined" ? document.getElementById(ROOT_ID) : null;
+    state._confirmModalScrollSnap = getScrollSnapshot(appEl);
     state.confirmModal = {
       open: true,
       titleKey: titleKey || "confirmModalTitle",
@@ -2238,6 +2272,21 @@ function getScrollSnapshot(app) {
   return { prevPageTop, prevWinY, prevAppTop, prevMainTop };
 }
 
+function restoreScrollSnapshot(snap) {
+  if (!snap) return;
+  const appEl = typeof document !== "undefined" ? document.getElementById(ROOT_ID) : null;
+  requestAnimationFrame(() => {
+    const main = document.querySelector("#app main.tab-content");
+    if (main) main.scrollTop = snap.prevMainTop;
+    const se = document.scrollingElement || document.documentElement;
+    if (se) se.scrollTop = snap.prevPageTop;
+    try {
+      window.scrollTo(0, snap.prevWinY);
+    } catch (_) {}
+    if (appEl) appEl.scrollTop = snap.prevAppTop;
+  });
+}
+
 function renderCoinCounter(kind, value, { inputIdPrefix = "", disabled = false, scope = "draft" } = {}) {
   const v = Math.max(0, clampInt(value));
   const dis = disabled ? " disabled" : "";
@@ -2372,23 +2421,16 @@ function renderCurrencyModals() {
 }
 
 function renderSpellRemoveModal(spells) {
-  const stripInlineButtons = (text) => {
-    // Hide inline roll button tokens like "[r 1d20]" in the picker UI.
-    return String(text || "")
-      .replace(/\[[^\]]+\]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
   const list = spells || [];
   const firstId = list[0]?.id != null ? String(list[0].id) : "";
   const selRaw = String(state.spellRemoveSelectedId || "");
   const selId = selRaw && list.some((sp) => String(sp.id) === selRaw) ? selRaw : firstId;
   const selSpell = list.find((sp) => String(sp.id) === selId);
-  const title = stripInlineButtons(selSpell?.name || "").trim() || t("spellName");
+  const title = spellTitleFromStorage(selSpell?.name || "");
   const menuItems = list
     .map((sp) => {
       const id = String(sp.id || "");
-      const name = stripInlineButtons(sp.name || "").trim() || t("spellName");
+      const name = spellTitleFromStorage(sp.name || "");
       return `<button type="button" class="sheet-menu-item spell-remove-menu-item ${id === selId ? "active" : ""}" data-spell-remove-pick="${escapeAttr(id)}">${escapeAttr(name)}</button>`;
     })
     .join("");
@@ -2502,7 +2544,7 @@ function renderSpellsTab() {
       const open = isSpellOpen(id);
       const editing = editable && String(state._editingSpellId || "") === id;
       const draft = editing && state._spellEditDraft && String(state._spellEditDraft.id) === id ? state._spellEditDraft : null;
-      const displayName = (draft ? draft.name : sp.name || "").trim() || t("spellName");
+      const displayName = spellTitleFromStorage(draft ? draft.name : sp.name || "");
       const used = Math.max(0, Number(sp.useCounter) || 0);
       const cost = Math.max(0, Number(sp.cost) || 0);
       const costType = (sp.costType || "mp") === "hp" ? "hp" : "mp";
@@ -4954,8 +4996,8 @@ function bindEvents() {
     if (!state.sheet) return;
     const next = applyLocalMutation((sheet) => {
       if (!sheet.spells) sheet.spells = [];
-      // spell.name is NOT NULL in DB; use a safe default.
-      sheet.spells.push({ id: crypto.randomUUID(), name: t("spellName"), effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, isArmed: false, useCounter: 0 });
+      // Empty name = default label via t("spellName"); persists across locale changes.
+      sheet.spells.push({ id: crypto.randomUUID(), name: "", effect: "", element: "", cost: 0, costType: "mp", isContinuous: false, isArmed: false, useCounter: 0 });
     });
     if (state.roomId && state.activeSheetId && next) {
       const idx = next.spells.length - 1;
@@ -5071,7 +5113,7 @@ function bindEvents() {
       if (!id) return;
       if (!state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
       const cur = String(el.value ?? "");
-      if (cur.trim() === t("spellName")) {
+      if (isDefaultSpellNameDraft(cur)) {
         el.value = "";
         state._spellEditDraft.name = "";
       }
@@ -5196,7 +5238,7 @@ function bindEvents() {
           const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
           const hpAfter = hpAvail - needHP;
           const bodyKey =
-            hpAfter < 0 ? "spellUseConfirmMpShortfallDangerBody" : "spellUseConfirmMpShortfallBody";
+            hpAfter < 1 ? "spellUseConfirmMpShortfallDangerBody" : "spellUseConfirmMpShortfallBody";
           const ok = await openConfirmModal({
             titleKey: "spellUseConfirmTitle",
             bodyKey,
@@ -5214,7 +5256,7 @@ function bindEvents() {
         }
       } else {
         const hpAvail = Math.max(0, Number(state.sheet.currentHP) || 0);
-        if (hpAvail - cost >= 0) {
+        if (hpAvail - cost >= 1) {
           state.sheet.currentHP = hpAvail - cost;
         } else {
           const ok = await openConfirmModal({
@@ -5309,15 +5351,7 @@ function bindEvents() {
   app.querySelector("#btn-currency-remove")?.addEventListener("mousedown", snapshotCurrencyScroll);
 
   const restoreCurrencyScroll = (snap) => {
-    if (!snap) return;
-    requestAnimationFrame(() => {
-      const main = document.querySelector("#app main.tab-content");
-      if (main) main.scrollTop = snap.prevMainTop;
-      const se = document.scrollingElement || document.documentElement;
-      if (se) se.scrollTop = snap.prevPageTop;
-      try { window.scrollTo(0, snap.prevWinY); } catch (_) {}
-      if (app) app.scrollTop = snap.prevAppTop;
-    });
+    restoreScrollSnapshot(snap);
   };
   const closeCurrencyModal = () => {
     // Instead of restoring exact scroll (Owlbear can interfere), just scroll back to the
@@ -5988,6 +6022,7 @@ function bindEvents() {
         it.talents = filtered;
       });
       await storage.deleteItemTalent(state.roomId, talentId).catch(console.error);
+      state._scrollToInventoryItemId = itemId;
       render();
     });
   });
