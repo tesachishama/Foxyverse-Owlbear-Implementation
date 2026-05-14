@@ -2355,7 +2355,7 @@ function renderSpellsTab() {
               <div class="spell-cost-pill-control" data-spell-cost-pill="${escapeAttr(id)}">
                 <span class="spell-cost-label">${t("cost")}</span>
                 <div class="spell-cost-pill">
-                  <span class="spell-cost-value" data-spell-cost-value="${escapeAttr(id)}">${escapeAttr(String(draft ? draft.cost : cost))}</span>
+                  <input type="number" class="spell-cost-value spell-cost-value-inp" data-spell-cost-inp="${escapeAttr(id)}" min="0" step="1" inputmode="numeric" value="${escapeAttr(String(draft ? draft.cost : cost))}" aria-label="${escapeAttr(t("cost"))}" />
                   <div class="spell-cost-arrows">
                     <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="1" aria-label="${escapeAttr(t("add"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg", "var(--text)")}</button>
                     <button type="button" class="spell-cost-arrow-btn" data-spell-cost-arrow="${escapeAttr(id)}" data-cost-delta="-1" aria-label="${escapeAttr(t("remove"))}">${inlineSvg(arrowIcon, "inline-svg spell-cost-arrow-svg spell-cost-arrow-down", "var(--text)")}</button>
@@ -4867,6 +4867,34 @@ function bindEvents() {
         el.value = "";
         state._spellEditDraft.name = "";
       }
+    });
+  });
+
+  // Spell cost: type in pill + click pill to focus
+  app.querySelectorAll("[data-spell-cost-pill]").forEach((wrap) => {
+    wrap.addEventListener("click", (e) => {
+      if (e.target.closest("button")) return;
+      const inp = wrap.querySelector("[data-spell-cost-inp]");
+      if (inp) inp.focus();
+    });
+  });
+  app.querySelectorAll("[data-spell-cost-inp]").forEach((el) => {
+    el.addEventListener("input", (e) => {
+      const id = el.dataset.spellCostInp;
+      if (!id || !state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      const raw = String(e.target.value ?? "").trim();
+      if (raw === "") return;
+      const n = Math.floor(Number(raw));
+      if (!Number.isFinite(n)) return;
+      state._spellEditDraft.cost = Math.max(0, n);
+    });
+    el.addEventListener("blur", (e) => {
+      const id = el.dataset.spellCostInp;
+      if (!id || !state._spellEditDraft || String(state._spellEditDraft.id) !== String(id)) return;
+      const raw = String(e.target.value ?? "").trim();
+      const n = Math.max(0, Math.floor(Number(raw) || 0));
+      state._spellEditDraft.cost = n;
+      e.target.value = String(n);
     });
   });
 

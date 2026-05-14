@@ -1959,6 +1959,31 @@ input.inv-qty-pill.inv-qty-inp {
 .spell-cost-arrow-svg { width: 0.9rem; height: 0.6rem; display: block; }
 .spell-cost-arrow-down { transform: rotate(180deg); }
 .spell-cost-value { min-width: 1.6rem; text-align: center; font-weight: 800; }
+.spell-cost-value-inp {
+  width: 3.1rem;
+  max-width: 8rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  padding: 0 0.12rem;
+  margin: 0;
+  -moz-appearance: textfield;
+}
+.spell-cost-value-inp::-webkit-outer-spin-button,
+.spell-cost-value-inp::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.spell-cost-value-inp:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 6px;
+}
+.spell-edit-meta .spell-cost-pill {
+  cursor: text;
+}
 .spell-toggle-row { display: inline-flex; align-items: center; gap: 0.2rem; flex-wrap: nowrap; }
 .spell-pill-toggle { background: transparent; border: 3px solid var(--border); color: var(--text); padding: 0.18rem 0.55rem; border-radius: 999px; }
 .spell-pill-toggle.active { background: var(--accent); color: var(--bg); }
