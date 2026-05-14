@@ -293,8 +293,8 @@ export const translations = {
     resetColorsTooltip: "Reset colors",
 
     /** Roll prep modal & quick-roll */
-    rollQuickRollTooltip: "Shift+click to roll immediately without opening the modifier window.",
-    rollQuickRollTooltipInverted: "Shift+click to open the modifier window before rolling.",
+    rollQuickRollTooltip: "Shift+click : Quick Roll",
+    rollQuickRollTooltipInverted: "Shift+click : Normal Roll",
     autoQuickRoll: "Auto quick roll",
     autoQuickRollOn: "On",
     autoQuickRollOff: "Off",
@@ -627,8 +627,8 @@ export const translations = {
     resetColorsTooltip: "Réinitialiser les couleurs",
 
     /** Jet avec talents */
-    rollQuickRollTooltip: "Maj+clic pour lancer tout de suite sans ouvrir la fenêtre de modificateurs.",
-    rollQuickRollTooltipInverted: "Maj+clic pour ouvrir la fenêtre de modificateurs avant de lancer.",
+    rollQuickRollTooltip: "Maj+clic : jet rapide",
+    rollQuickRollTooltipInverted: "Maj+clic : jet normal",
     autoQuickRoll: "Jet rapide auto",
     autoQuickRollOn: "Activé",
     autoQuickRollOff: "Désactivé",
