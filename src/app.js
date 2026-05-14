@@ -2331,10 +2331,14 @@ function renderSpellsTab() {
           ${editable ? `<button type="button" class="spell-edit-btn" data-spell-edit="${escapeAttr(id)}" aria-label="${escapeAttr(t("edit"))}" title="${escapeAttr(t("edit"))}">${edit}</button>` : ""}
         </div>
         <div class="spell-meta-row spell-meta-row--cost">
-          <span class="spell-cost-label">${t("cost")}</span>
-          <span class="spell-cost-pill">${escapeAttr(String(cost))}</span>
-          <button type="button" class="spell-pill-toggle ${costType === "mp" ? "active" : ""}" disabled>MP</button>
-          <button type="button" class="spell-pill-toggle ${costType === "hp" ? "active" : ""}" disabled>HP</button>
+          <div class="spell-meta-cost-leading">
+            <span class="spell-cost-label">${t("cost")}</span>
+            <span class="spell-cost-pill">${escapeAttr(String(cost))}</span>
+          </div>
+          <div class="spell-toggle-row">
+            <button type="button" class="spell-pill-toggle ${costType === "mp" ? "active" : ""}" disabled>MP</button>
+            <button type="button" class="spell-pill-toggle ${costType === "hp" ? "active" : ""}" disabled>HP</button>
+          </div>
         </div>
         <div class="spell-meta-row spell-meta-row--flags">
           <button type="button" class="spell-pill-toggle ${cont ? "active" : ""}" disabled>${t("continuous")}</button>
