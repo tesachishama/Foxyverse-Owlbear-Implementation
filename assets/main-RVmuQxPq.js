@@ -493,10 +493,14 @@ Total : ${E}`}}else if(t.kind==="stat"){const a=Array.isArray(t.diceResults)?t.d
           ${e?`<button type="button" class="spell-edit-btn" data-spell-edit="${w(l)}" aria-label="${w(m("edit"))}" title="${w(m("edit"))}">${x}</button>`:""}
         </div>
         <div class="spell-meta-row spell-meta-row--cost">
-          <span class="spell-cost-label">${m("cost")}</span>
-          <span class="spell-cost-pill">${w(String(E))}</span>
-          <button type="button" class="spell-pill-toggle ${A==="mp"?"active":""}" disabled>MP</button>
-          <button type="button" class="spell-pill-toggle ${A==="hp"?"active":""}" disabled>HP</button>
+          <div class="spell-meta-cost-leading">
+            <span class="spell-cost-label">${m("cost")}</span>
+            <span class="spell-cost-pill">${w(String(E))}</span>
+          </div>
+          <div class="spell-toggle-row">
+            <button type="button" class="spell-pill-toggle ${A==="mp"?"active":""}" disabled>MP</button>
+            <button type="button" class="spell-pill-toggle ${A==="hp"?"active":""}" disabled>HP</button>
+          </div>
         </div>
         <div class="spell-meta-row spell-meta-row--flags">
           <button type="button" class="spell-pill-toggle ${R?"active":""}" disabled>${m("continuous")}</button>
