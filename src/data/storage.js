@@ -184,6 +184,7 @@ function assembleSheet(sheetId, rows) {
     text: rows.sheet.color_text || base.theme.text,
   };
   base.isElemental = !!rows.sheet.is_elemental;
+  base.autoQuickRoll = !!rows.sheet.auto_quick_roll;
 
   base.bio = {
     name: rows.bio?.name || "",
@@ -322,6 +323,7 @@ function patchToSheetUpdate(patch = {}) {
     if ("ui" in patch.theme) update.color_ui = patch.theme.ui || "#ffdbff";
     if ("text" in patch.theme) update.color_text = patch.theme.text || "#eba5ff";
   }
+  if ("autoQuickRoll" in patch) update.auto_quick_roll = !!patch.autoQuickRoll;
   return update;
 }
 
@@ -581,6 +583,7 @@ async function persistRows(roomId, sheet) {
     id: sheet.id,
     room_id: roomId,
     is_elemental: !!sheet.isElemental,
+    auto_quick_roll: !!sheet.autoQuickRoll,
     current_health: sheet.currentHP ?? 0,
     temporary_health: sheet.tempHP ?? 0,
     current_mana: sheet.currentMP ?? 0,

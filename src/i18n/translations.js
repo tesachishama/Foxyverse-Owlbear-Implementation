@@ -292,6 +292,20 @@ export const translations = {
     importFile: "Import from file",
     resetColorsTooltip: "Reset colors",
 
+    /** Roll prep modal & quick-roll */
+    rollQuickRollTooltip: "Shift+click to roll immediately without opening the modifier window.",
+    rollQuickRollTooltipInverted: "Shift+click to open the modifier window before rolling.",
+    autoQuickRoll: "Auto quick roll",
+    autoQuickRollOn: "On",
+    autoQuickRollOff: "Off",
+    rollPrepTitle: "Roll",
+    rollPrepHint: "Toggle talents in the order you click; each adds its modifier to the formula.",
+    rollPrepNoTalents: "No talents on this sheet.",
+    rollPrepExtraLabel: "Additional modifiers",
+    rollPrepExtraPlaceholder: "Same syntax as chat or inline rolls (e.g. +3, 2d6, +str…)",
+    rollPrepFinalFormula: "Final formula",
+    rollPrepInvalidFormula: "That formula is not valid. Check your modifiers.",
+
     /** "Enter {field}..." — {field} is the lowercased label from t(key). */
     enterFieldTemplate: "Enter {field}...",
     statRollModifierPlaceholder: "+5 or -3",
@@ -611,6 +625,20 @@ export const translations = {
     importEverything: "Tout importer",
     importFile: "Importer un fichier",
     resetColorsTooltip: "Réinitialiser les couleurs",
+
+    /** Jet avec talents */
+    rollQuickRollTooltip: "Maj+clic pour lancer tout de suite sans ouvrir la fenêtre de modificateurs.",
+    rollQuickRollTooltipInverted: "Maj+clic pour ouvrir la fenêtre de modificateurs avant de lancer.",
+    autoQuickRoll: "Jet rapide auto",
+    autoQuickRollOn: "Activé",
+    autoQuickRollOff: "Désactivé",
+    rollPrepTitle: "Jet",
+    rollPrepHint: "Activez les talents dans l'ordre des clics ; chacun ajoute son modificateur à la formule.",
+    rollPrepNoTalents: "Aucun talent sur cette fiche.",
+    rollPrepExtraLabel: "Modificateurs supplémentaires",
+    rollPrepExtraPlaceholder: "Même syntaxe que le chat ou les jets inline (ex. +3, 2d6, +str…)",
+    rollPrepFinalFormula: "Formule finale",
+    rollPrepInvalidFormula: "Formule invalide. Vérifiez vos modificateurs.",
 
     /** "Enter {field}..." — {field} is the lowercased label from t(key). */
     enterFieldTemplate: "Saisir {field}...",

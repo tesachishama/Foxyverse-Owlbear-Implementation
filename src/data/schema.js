@@ -96,6 +96,8 @@ export function createEmptySheet(id = crypto.randomUUID()) {
     armor: [],    // + defense, magicalDefense, equippableSlots
     bags: [],
     notes: "",
+    /** When true, normal click rolls immediately; Shift+click opens the talent roll prep modal. */
+    autoQuickRoll: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

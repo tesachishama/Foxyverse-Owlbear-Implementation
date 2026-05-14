@@ -351,7 +351,7 @@ function outcomeFromNatAdjustment(baseSuccess, natRoll, natFaces, kind) {
   return "critical_failure";
 }
 
-function normalizeStatFormula(formula) {
+export function normalizeStatFormula(formula) {
   const f = String(formula || "").trim();
   if (!f) return "1d20";
   if (formulaHasDice(f)) return f;

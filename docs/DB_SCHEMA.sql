@@ -68,6 +68,7 @@ CREATE TABLE public.sheet (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   room_id text NOT NULL,
   is_elemental boolean NOT NULL DEFAULT false,
+  auto_quick_roll boolean NOT NULL DEFAULT false,
   current_health integer NOT NULL DEFAULT 0,
   temporary_health integer NOT NULL DEFAULT 0,
   current_mana integer NOT NULL DEFAULT 0,

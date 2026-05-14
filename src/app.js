@@ -71,6 +71,7 @@ import { evalEquipSlotsExpr, canonizeSlotToken } from "./data/equipSlots.js";
 import * as storage from "./data/storage.js";
 import {
   executeRoll,
+  normalizeStatFormula,
   getInlineButtons,
   parseChatCommand,
   applyPhysicalDamage,
@@ -133,6 +134,11 @@ const state = {
   rollModalOpen: false,
   lastRoll: null,
   lastRollPayload: null,
+  /** Roll prep modal: choose talents + extra formula before rolling. */
+  rollPrepOpen: false,
+  rollPrepBase: null, // { kind, stat?, formula, count, typeLabelKey?, typeLabel? }
+  rollPrepTalentOrder: [], // keys: k:<talentId> | i:<itemId>:<talentId>
+  rollPrepExtra: "",
   /** Session-only: lines the user sent from chat (oldest → newest). */
   _chatSendHistory: [],
   _chatHistoryIndex: null,
@@ -356,6 +362,120 @@ function getItemTalentsArray(it) {
   if (Array.isArray(it.talents) && it.talents.length) return it.talents;
   if (it.talent) return [it.talent];
   return [];
+}
+
+function legacyTalentOverrideFromDescription(raw) {
+  const s = String(raw || "");
+  const idx = s.lastIndexOf("[[override]]");
+  if (idx < 0) return "";
+  return s.slice(idx + "[[override]]".length).trim();
+}
+
+/** Raw formula fragment for a talent (tier default or override), for dice parser. */
+function talentModifierFormulaForRoll(tl) {
+  if (!tl) return "";
+  const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
+  const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
+  const override = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
+    ? String(tl.bonusOverride).trim()
+    : legacyTalentOverrideFromDescription(tl.description || "");
+  if (override) return override;
+  return tierMap[tier] || "+0";
+}
+
+function rollPrepTalentKeyForSheetTalent(id) {
+  return `k:${String(id || "")}`;
+}
+
+function rollPrepTalentKeyForItemTalent(itemId, talentId) {
+  return `i:${String(itemId || "")}:${String(talentId || "")}`;
+}
+
+function collectRollPrepTalentRows(sheet) {
+  if (!sheet) return [];
+  const rows = [];
+  (sheet.knowledge || []).forEach((tl) => {
+    const id = String(tl.id ?? "");
+    if (!id) return;
+    rows.push({
+      key: rollPrepTalentKeyForSheetTalent(id),
+      name: String(tl.name || "").trim() || t("talentDefault"),
+      fragment: talentModifierFormulaForRoll(tl),
+      itemHint: "",
+    });
+  });
+  [...(sheet.weapons || []), ...(sheet.armor || [])].forEach((it) => {
+    const arr = getItemTalentsArray(it);
+    if (!arr.length) return;
+    const section = (sheet.weapons || []).some((w) => w.id === it.id) ? "weapons" : "armor";
+    arr.forEach((tl) => {
+      const tid = String(tl.id ?? "");
+      if (!tid) return;
+      rows.push({
+        key: rollPrepTalentKeyForItemTalent(it.id, tid),
+        name: String(tl.name || "").trim() || t("talentDefault"),
+        fragment: talentModifierFormulaForRoll(tl),
+        itemHint: String(it.name || "").trim(),
+        itemSection: section,
+      });
+    });
+  });
+  return rows;
+}
+
+function resolveRollPrepTalentByKey(sheet, key) {
+  if (!sheet || !key) return null;
+  const ks = String(key);
+  if (ks.startsWith("k:")) {
+    const id = ks.slice(2);
+    return (sheet.knowledge || []).find((x) => String(x.id) === id) || null;
+  }
+  if (ks.startsWith("i:")) {
+    const rest = ks.slice(2);
+    const colon = rest.indexOf(":");
+    if (colon < 0) return null;
+    const itemId = rest.slice(0, colon);
+    const tid = rest.slice(colon + 1);
+    const it = findItemById(sheet, itemId);
+    if (!it) return null;
+    return getItemTalentsArray(it).find((x) => String(x.id) === tid) || null;
+  }
+  return null;
+}
+
+function joinRollFormulaFragments(...parts) {
+  return parts
+    .flat()
+    .map((p) => String(p ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function composeRollFormulaForPrep(basePayload, talentOrderKeys, extra, sheet) {
+  if (!basePayload) return "";
+  const frags = (talentOrderKeys || []).map((k) => talentModifierFormulaForRoll(resolveRollPrepTalentByKey(sheet, k)));
+  const joined = joinRollFormulaFragments(basePayload.formula, ...frags, extra);
+  if (basePayload.kind === "stat") return normalizeStatFormula(joined);
+  return joined;
+}
+
+function rollPrepWantsModal(shiftKey) {
+  const auto = !!state.sheet?.autoQuickRoll;
+  return auto ? !!shiftKey : !shiftKey;
+}
+
+function closeRollPrepModal() {
+  state.rollPrepOpen = false;
+  state.rollPrepBase = null;
+  state.rollPrepTalentOrder = [];
+  state.rollPrepExtra = "";
+}
+
+function openRollPrepModal(basePayload) {
+  state.rollPrepOpen = true;
+  state.rollPrepBase = { ...basePayload };
+  state.rollPrepTalentOrder = [];
+  state.rollPrepExtra = "";
 }
 
 function itemHasEquippedSlots(it) {
@@ -601,8 +721,10 @@ function renderNotesBody(raw) {
     const aria = escapeAttr(captionRaw || formatInlineRollButtonCaption({ ...btn, hasCustomLabel: false }) || t("roll"));
     const iconHtml = inlineDiceMarkupForButton(btn);
     const captionSpan = captionRaw ? `<span class="inline-roll-caption">${caption}</span>` : "";
+    const cnt = Math.max(1, Math.min(100, Number(btn.count) || 1));
+    const tipAttr = rollQuickRollTooltipAttr();
     html = html.split(escapeAttr(btn.raw)).join(
-      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" aria-label="${aria}">${iconHtml}${captionSpan}</button>`
+      `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(cnt))}" aria-label="${aria}"${tipAttr}>${iconHtml}${captionSpan}</button>`
     );
   });
   return html;
@@ -1006,6 +1128,11 @@ function dataFvTipAttr(text) {
   return ` data-fv-tip="${escapeAttr(s)}"`;
 }
 
+function rollQuickRollTooltipAttr() {
+  const inverted = !!state.sheet?.autoQuickRoll;
+  return dataFvTipAttr(t(inverted ? "rollQuickRollTooltipInverted" : "rollQuickRollTooltip"));
+}
+
 let _fvPluginTooltipHost = null;
 let _fvPluginTooltipMoveBound = false;
 
@@ -1330,6 +1457,12 @@ function installGlobalEscapeModalCloserOnce() {
         render();
         return;
       }
+      if (state.rollPrepOpen) {
+        e.preventDefault();
+        closeRollPrepModal();
+        render();
+        return;
+      }
       const rollModal = document.getElementById("roll-modal");
       if (state.rollModalOpen && rollModal && !rollModal.classList.contains("hidden")) {
         e.preventDefault();
@@ -1558,6 +1691,37 @@ function applyChatRollToActiveSheet(kind, valueOrValues) {
   }
 }
 
+async function finalizeRollToChat(result, rolledPayload, formatOpts = {}) {
+  if (!state.roomId) return false;
+  state.lastRoll = result;
+  state.lastRollPayload = rolledPayload;
+  try {
+    const row = await storage.insertChatMessage(state.roomId, {
+      playerId: state.playerId || "",
+      sheetId: state.activeSheetId || null,
+      body: formatRollChatLine(result, formatOpts),
+    });
+    appendChatMessageIfNew(row);
+    if (state.activeTab !== "chat") {
+      const sheetName = resolveCharacterDisplayName(row?.sheet_id);
+      const body = storage.getChatMessageText(row);
+      const short = formatChatToastBody(body);
+      OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
+    }
+    render();
+    requestAnimationFrame(() => {
+      showRollResult(result);
+      document.getElementById("chat-input")?.focus();
+    });
+    return true;
+  } catch (err) {
+    console.error(err);
+    const detail = err?.message || err?.details || String(err);
+    OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
+    return false;
+  }
+}
+
 function syncRollModalRerollState() {
   const modal = document.getElementById("roll-modal");
   const rerollBtn = document.getElementById("roll-reroll-btn");
@@ -1775,20 +1939,12 @@ function renderStatsTab() {
     return `<div class="stats-strip-abbr-cell"${dataFvTipAttr(t(statId))}>${abbr}</div>`;
   }).join("");
 
-  // Backward-compatible: older builds stored formula overrides in description with a [[override]] marker.
-  const legacyOverrideFromDescription = (raw) => {
-    const s = String(raw || "");
-    const idx = s.lastIndexOf("[[override]]");
-    if (idx < 0) return "";
-    return s.slice(idx + "[[override]]".length).trim();
-  };
-
   const talentBonusText = (tl) => {
     const tier = Math.max(0, Math.min(4, Number(tl.tier) || 0));
     const tierMap = { 0: "+0", 1: "+1", 2: "+3", 3: "+5", 4: "+10" };
     const override = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
       ? String(tl.bonusOverride)
-      : legacyOverrideFromDescription(tl.description || "");
+      : legacyTalentOverrideFromDescription(tl.description || "");
     if (!override) return tierMap[tier] || "+0";
     const raw = String(override).trim();
     const condensed = raw.length > 3 ? "±X" : raw;
@@ -1804,7 +1960,7 @@ function renderStatsTab() {
       const bonusLbl = talentBonusText(tl);
       const rawOverride = (tl.bonusOverride != null && String(tl.bonusOverride).trim())
         ? String(tl.bonusOverride).trim()
-        : legacyOverrideFromDescription(tl.description || "");
+        : legacyTalentOverrideFromDescription(tl.description || "");
       const bonusTipAttr = rawOverride && rawOverride.length > 3 ? dataFvTipAttr(rawOverride) : "";
       const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
       const isItemBound = !!tl.__itemId;
@@ -1878,7 +2034,7 @@ function renderStatsTab() {
   const defensesMagical = getSheetMagicalDefense(s);
 
   const speedRollBtn = `
-    <button type="button" id="btn-roll-speed" class="stats-speed-btn stats-speed-btn--circle" aria-label="${escapeAttr(t("speed"))}">
+    <button type="button" id="btn-roll-speed" class="stats-speed-btn stats-speed-btn--circle" aria-label="${escapeAttr(t("speed"))}"${rollQuickRollTooltipAttr()}>
       ${inlineSvg(d6Icon, "inline-svg stats-speed-d6", "var(--bg)")}
     </button>
   `;
@@ -2156,6 +2312,47 @@ function renderStatsTab() {
   `;
 }
 
+function renderRollPrepModal() {
+  if (!state.rollPrepOpen || !state.rollPrepBase || !state.sheet) return "";
+  const sheet = state.sheet;
+  const opts = collectRollPrepTalentRows(sheet);
+  const order = state.rollPrepTalentOrder || [];
+  const preview = composeRollFormulaForPrep(state.rollPrepBase, order, state.rollPrepExtra, sheet);
+  const talentsHtml = opts
+    .map((row) => {
+      const active = order.includes(row.key);
+      const sub = row.itemHint
+        ? `<span class="roll-prep-talent-item">${escapeAttr(row.itemHint)}</span>`
+        : "";
+      return `
+        <button type="button" class="roll-prep-talent-btn spell-pill-toggle${active ? " active" : ""}" data-roll-prep-talent="${escapeAttr(row.key)}">
+          <span class="roll-prep-talent-name">${escapeAttr(row.name)}</span>
+          ${sub}
+          <span class="roll-prep-talent-mod">${escapeAttr(row.fragment)}</span>
+        </button>`;
+    })
+    .join("");
+  return `
+    <div id="roll-prep-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="roll-prep-title">
+      <div class="modal-content roll-prep-modal-content">
+        <h3 id="roll-prep-title">${escapeAttr(t("rollPrepTitle"))}</h3>
+        <p class="roll-prep-hint muted">${escapeAttr(t("rollPrepHint"))}</p>
+        <div class="roll-prep-talent-list">${talentsHtml || `<span class="muted">${escapeAttr(t("rollPrepNoTalents"))}</span>`}</div>
+        <label class="roll-prep-extra-label" for="roll-prep-extra">${escapeAttr(t("rollPrepExtraLabel"))}</label>
+        <textarea id="roll-prep-extra" class="roll-prep-extra" rows="2" spellcheck="false" placeholder="${escapeAttr(t("rollPrepExtraPlaceholder"))}">${escapeAttr(state.rollPrepExtra || "")}</textarea>
+        <div class="roll-prep-formula-block">
+          <div class="roll-prep-formula-label">${escapeAttr(t("rollPrepFinalFormula"))}</div>
+          <code id="roll-prep-formula-preview" class="roll-prep-formula-code">${escapeAttr(preview)}</code>
+        </div>
+        <div class="roll-modal-footer roll-prep-footer">
+          <button type="button" id="roll-prep-save" class="btn-sm">${escapeAttr(t("save"))}</button>
+          <button type="button" id="roll-prep-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 /** Roll result + stat modifier modals: must live outside tab content so chat/notes rolls can use them. */
 function renderRollModals() {
   return `
@@ -2178,6 +2375,7 @@ function renderRollModals() {
         <button type="button" id="stat-roll-cancel">${t("cancel")}</button>
       </div>
     </div>
+    ${renderRollPrepModal()}
     ${renderCurrencyModals()}
     ${renderActiveItemRemoveModal()}
     ${renderConsumableTransferModal()}
@@ -3418,7 +3616,8 @@ function renderChatBody(body) {
     const iconHtml = inlineDiceMarkupForButton(btn);
     const rawEsc = escapeAttr(btn.raw);
     const captionSpan = captionRaw ? `<span class="inline-roll-caption">${caption}</span>` : "";
-    const html = `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${aria}">${iconHtml}${captionSpan}</button>`;
+    const tipAttr = rollQuickRollTooltipAttr();
+    const html = `<button type="button" class="inline-roll-btn" data-kind="${escapeAttr(btn.kind)}" data-formula="${escapeAttr(formula)}" data-stat="${escapeAttr(stat)}" data-count="${escapeAttr(String(btn.count || 1))}" aria-label="${aria}"${tipAttr}>${iconHtml}${captionSpan}</button>`;
     // Replace in escaped text so special chars like < or > don't break matching.
     text = text.split(rawEsc).join(html);
   });
@@ -3756,9 +3955,16 @@ function renderSettingsTab() {
     `
     : "";
   const themeAtDefault = isSheetThemeAtDefaults();
+  const autoQuick = !!state.sheet?.autoQuickRoll;
   return `
     <div class="card settings-card">
       <h2 class="settings-title">${t("tabSettings")}</h2>
+      <div class="settings-auto-quick-row">
+        <span class="settings-pill-label">${t("autoQuickRoll")}</span>
+        <div class="settings-auto-quick-toggle">
+          <button type="button" class="spell-pill-toggle${autoQuick ? " active" : ""}" id="btn-toggle-auto-quick-roll" ${editable ? "" : "disabled"} aria-pressed="${autoQuick ? "true" : "false"}" aria-label="${escapeAttr(t("autoQuickRoll"))}">${t(autoQuick ? "autoQuickRollOn" : "autoQuickRollOff")}</button>
+        </div>
+      </div>
       <div class="settings-color-row">
         <span class="settings-pill-label">${t("uiColors")}</span>
         <div class="settings-color-strip">
@@ -4231,35 +4437,77 @@ function bindEvents() {
       const formula = btn.dataset.formula || "";
       const count = Math.max(1, Math.min(100, Number(btn.dataset.count) || 1));
       const payload = kind === "stat" ? { kind: "stat", stat, formula, count } : { kind, formula, count };
+      if (rollPrepWantsModal(e.shiftKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        openRollPrepModal(payload);
+        render();
+        return;
+      }
       const result = executeRoll(payload, state.sheet);
       if (!result) return;
-      state.lastRoll = result;
-      state.lastRollPayload = payload;
-      try {
-        const row = await storage.insertChatMessage(state.roomId, {
-          playerId: state.playerId || "",
-          sheetId: state.activeSheetId || null,
-          body: formatRollChatLine(result),
-        });
-        appendChatMessageIfNew(row);
-        if (state.activeTab !== "chat") {
-          const sheetName = resolveCharacterDisplayName(row?.sheet_id);
-          const body = storage.getChatMessageText(row);
-          const short = formatChatToastBody(body);
-          OBR.notification.show(`${sheetName} sent ${short || "a message"}`);
-        }
-        render();
-        requestAnimationFrame(() => {
-          showRollResult(result);
-          document.getElementById("chat-input")?.focus();
-        });
-      } catch (err) {
-        console.error(err);
-        const detail = err?.message || err?.details || String(err);
-        OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
-      }
+      await finalizeRollToChat(result, payload);
     });
     app.dataset.inlineRollBound = "true";
+  }
+
+  if (!app.dataset.rollPrepUiBound) {
+    app.dataset.rollPrepUiBound = "1";
+    app.addEventListener("click", async (e) => {
+      const tbtn = e.target.closest("[data-roll-prep-talent]");
+      if (tbtn && state.rollPrepOpen) {
+        const key = tbtn.getAttribute("data-roll-prep-talent");
+        if (!key) return;
+        e.preventDefault();
+        const extraEl = document.getElementById("roll-prep-extra");
+        if (extraEl) state.rollPrepExtra = extraEl.value;
+        const i = state.rollPrepTalentOrder.indexOf(key);
+        if (i >= 0) state.rollPrepTalentOrder.splice(i, 1);
+        else state.rollPrepTalentOrder.push(key);
+        render();
+        return;
+      }
+      if (e.target.closest("#roll-prep-cancel") && state.rollPrepOpen) {
+        e.preventDefault();
+        closeRollPrepModal();
+        render();
+        return;
+      }
+      if (e.target.closest("#roll-prep-save") && state.rollPrepOpen) {
+        e.preventDefault();
+        const extraEl = document.getElementById("roll-prep-extra");
+        if (extraEl) state.rollPrepExtra = extraEl.value;
+        const base = state.rollPrepBase;
+        if (!base || !state.sheet) return;
+        const composed = composeRollFormulaForPrep(base, state.rollPrepTalentOrder, state.rollPrepExtra, state.sheet);
+        const payload = { ...base, formula: composed };
+        const result = executeRoll(payload, state.sheet);
+        if (!result) {
+          OBR.notification.show(t("rollPrepInvalidFormula"));
+          return;
+        }
+        const typeLabelKey = String(base?.typeLabelKey || "").trim();
+        const typeLabel = String(base?.typeLabel || "").trim();
+        const formatOpts = {};
+        if (typeLabelKey) formatOpts.typeLabelKey = typeLabelKey;
+        if (typeLabel) formatOpts.typeLabel = typeLabel;
+        closeRollPrepModal();
+        await finalizeRollToChat(result, payload, formatOpts);
+      }
+    });
+    app.addEventListener("input", (e) => {
+      if (e.target?.id !== "roll-prep-extra" || !state.rollPrepOpen) return;
+      state.rollPrepExtra = e.target.value;
+      const el = document.getElementById("roll-prep-formula-preview");
+      if (el && state.rollPrepBase && state.sheet) {
+        el.textContent = composeRollFormulaForPrep(
+          state.rollPrepBase,
+          state.rollPrepTalentOrder,
+          state.rollPrepExtra,
+          state.sheet
+        );
+      }
+    });
   }
 
   // Spells reorder (event delegated; survives re-render; works without HTML5 DnD)
@@ -4897,27 +5145,25 @@ function bindEvents() {
     app.dataset.statsStepperBlurBound = "1";
   }
 
-  // Speed roll button (standard roll behavior + chat message labeled as Speed)
-  app.querySelector("#btn-roll-speed")?.addEventListener("click", async () => {
-    if (!state.sheet || !state.roomId) return;
-    const payload = { kind: "roll", formula: "1d6+agi%5+bonspe", count: 1, typeLabelKey: "speed" };
-    const result = executeRoll(payload, state.sheet);
-    if (!result) return;
-    state.lastRoll = result;
-    state.lastRollPayload = payload;
-    try {
-      const row = await storage.insertChatMessage(state.roomId, {
-        playerId: state.playerId || "",
-        sheetId: state.activeSheetId || null,
-        body: formatRollChatLine(result, { typeLabelKey: "speed" }),
-      });
-      appendChatMessageIfNew(row);
-    } catch (err) {
-      console.error(err);
-    }
-    render();
-    requestAnimationFrame(() => showRollResult(result));
-  });
+  // Speed roll: delegated once (stats tab is re-rendered often).
+  if (!app.dataset.speedRollBound) {
+    app.dataset.speedRollBound = "1";
+    app.addEventListener("click", async (e) => {
+      if (!e.target.closest("#btn-roll-speed")) return;
+      if (!state.sheet || !state.roomId) return;
+      e.preventDefault();
+      const basePayload = { kind: "roll", formula: "1d6+agi%5+bonspe", count: 1, typeLabelKey: "speed" };
+      if (rollPrepWantsModal(e.shiftKey)) {
+        openRollPrepModal(basePayload);
+        render();
+        return;
+      }
+      const execPayload = { kind: "roll", formula: basePayload.formula, count: 1 };
+      const result = executeRoll(execPayload, state.sheet);
+      if (!result) return;
+      await finalizeRollToChat(result, basePayload, { typeLabelKey: "speed" });
+    });
+  }
 
   // Talents (stored in sheet.knowledge)
   app.querySelector("#btn-add-talent")?.addEventListener("click", async () => {
@@ -6860,6 +7106,19 @@ function bindEvents() {
   setupChatScrollbar();
 
   // Settings
+  if (!app.dataset.autoQuickRollBound) {
+    app.dataset.autoQuickRollBound = "1";
+    app.addEventListener("click", (e) => {
+      if (!e.target.closest("#btn-toggle-auto-quick-roll")) return;
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const next = applyLocalMutation((sheet) => {
+        sheet.autoQuickRoll = !sheet.autoQuickRoll;
+      });
+      storage.updateSheetCore(state.roomId, state.activeSheetId, { autoQuickRoll: !!next?.autoQuickRoll }).catch(console.error);
+      render();
+    });
+  }
   app.querySelectorAll("[data-color]").forEach((input) => {
     input.addEventListener("input", (e) => {
       if (!state.sheet) return;

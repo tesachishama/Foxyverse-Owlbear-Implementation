@@ -2498,6 +2498,128 @@ input.inv-qty-pill.inv-qty-inp {
   padding: 0.24rem 0.28rem 0.24rem 0.24rem;
 }
 
+.settings-auto-quick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  border: 3px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem 0.2rem 0.55rem;
+}
+
+.settings-auto-quick-row .settings-pill-label {
+  line-height: 1.1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-auto-quick-toggle {
+  flex: 0 0 auto;
+}
+
+.roll-prep-modal-content {
+  max-width: min(96vw, 26rem);
+  max-height: 85vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.roll-prep-modal-content h3 {
+  margin: 0 0 0.15rem;
+  text-align: center;
+}
+
+.roll-prep-hint {
+  font-size: 0.88rem;
+  margin: 0;
+  text-align: center;
+}
+
+.roll-prep-talent-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.roll-prep-talent-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  text-align: center;
+  min-width: 5.5rem;
+  max-width: 10rem;
+}
+
+.roll-prep-talent-name {
+  font-weight: 600;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.roll-prep-talent-item {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+.roll-prep-talent-mod {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.roll-prep-extra-label {
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0;
+}
+
+.roll-prep-extra {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 2.5rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  border: 3px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  background: color-mix(in srgb, var(--bg) 92%, var(--text));
+  color: var(--text);
+}
+
+.roll-prep-formula-block {
+  border: 3px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  background: color-mix(in srgb, var(--bg) 88%, var(--accent));
+}
+
+.roll-prep-formula-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.9;
+  margin-bottom: 0.2rem;
+}
+
+.roll-prep-formula-code {
+  display: block;
+  font-size: 0.88rem;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.roll-prep-footer {
+  margin-top: 0.25rem;
+}
+
 .settings-color-row .settings-pill-label {
   line-height: 1;
   align-self: center;
