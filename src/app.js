@@ -2922,7 +2922,7 @@ function renderInventoryTab() {
     const draft = editing && state._itemEditDraft && String(state._itemEditDraft.id) === id ? state._itemEditDraft : null;
     const name = (draft ? draft.name : it.name) || "";
     const desc = (draft ? draft.description : it.description) || "";
-    const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--text)");
+    const handle = inlineSvg(handleIcon, "inline-svg spell-handle-svg", "var(--accent)");
     const chevron = inlineSvg(arrowIcon, "inline-svg spell-chevron-svg", "var(--text)");
     const editSvg = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--accent)");
 
