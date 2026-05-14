@@ -2482,12 +2482,18 @@ input.inv-qty-pill.inv-qty-inp {
   padding: 0.24rem 0.28rem 0.24rem 0.24rem;
 }
 
-.settings-reset-theme-icon-btn {
+.settings-color-row .settings-pill-label {
+  line-height: 1;
+}
+
+/* #app button sets font: inherit — override line-height so the ⟲ centers in the row. */
+#app button.settings-reset-theme-icon-btn {
   flex: 0 0 auto;
-  width: auto;
-  height: auto;
+  box-sizing: border-box;
+  width: 2.25rem;
+  height: 1.9rem;
   min-width: 2.25rem;
-  min-height: 2.25rem;
+  min-height: 1.9rem;
   margin: 0;
   padding: 0;
   display: inline-flex;
@@ -2497,10 +2503,13 @@ input.inv-qty-pill.inv-qty-inp {
   border-radius: 999px;
   background: transparent;
   color: var(--text);
-  font: inherit;
-  font-size: 2.25rem !important;
-  line-height: 1;
+  font-family: inherit;
+  font-size: 2.25rem;
+  font-weight: inherit;
+  font-style: normal;
+  line-height: 0;
   cursor: pointer;
+  overflow: visible;
 }
 
 .settings-reset-theme-icon-btn:hover {
