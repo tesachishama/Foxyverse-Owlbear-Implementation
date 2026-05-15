@@ -1,6 +1,11 @@
 /**
- * Foxyverse Owlbear plugin — main app.
- * State-driven UI with tab navigation and translation.
+ * Foxyverse Owlbear plugin — main application (single module).
+ *
+ * Architecture, data flow, and legacy notes for new developers:
+ *   docs/CODEBASE.md
+ *
+ * This file is intentionally large: `state` + `render()` + `bindEvents()` + Supabase/Owlbear wiring.
+ * Section banners below match anchors in that document (search "docs/CODEBASE.md#").
  */
 import OBR from "@owlbear-rodeo/sdk";
 import { t, setLocale, enterField, getLocale } from "./i18n/translations.js";
@@ -117,6 +122,10 @@ const DEFAULT_SHEET_THEME = Object.freeze({
   text: "#eba5ff",
 });
 
+// =============================================================================
+// Global state — docs/CODEBASE.md#global-state
+// In-memory UI + domain state. Updated by loaders, mutations, and handlers; `render()` reads it.
+// =============================================================================
 const state = {
   locale: "en",
   roomId: null,
@@ -223,6 +232,9 @@ const state = {
   consumableTransferSection: "consumables", // inventory section key
 };
 
+// =============================================================================
+// Permissions & visible sheets — docs/CODEBASE.md#permissions-and-sheet-visibility
+// =============================================================================
 function canView(sheetId) {
   if (state.isGM) return true;
   const per = state.permissions[state.playerId];
@@ -241,6 +253,9 @@ function getVisibleSheets() {
   return state.sheetIds.filter(canView);
 }
 
+// =============================================================================
+// Room & sheet loading — docs/CODEBASE.md#room-and-sheet-loading
+// =============================================================================
 async function loadRoomData() {
   state.roomId = await storage.getRoomId();
   const roomData = await storage.getRoomData();
@@ -316,6 +331,9 @@ async function loadSheet(sheetId, options = {}) {
   clearPendingSheetTimeout();
 }
 
+// =============================================================================
+// Saving & mutations — docs/CODEBASE.md#saving-and-mutations
+// =============================================================================
 function saveSheet() {
   if (!state.sheet || !state.roomId) return;
   // Local-only save: remote persistence is handled per-field to avoid overwriting other users' edits.
@@ -368,6 +386,10 @@ function scheduleDebouncedSave(key, delayMs, fn) {
   }, delayMs);
 }
 
+// =============================================================================
+// Dice / roll prep helpers (talents, formula fragments) — docs/CODEBASE.md#dice-and-rolls
+// Execution lives in src/dice/roller.js; this block composes payloads for the UI.
+// =============================================================================
 /** Prefer `talents[]`; support legacy single `talent` on items. */
 function getItemTalentsArray(it) {
   if (!it) return [];
@@ -524,23 +546,6 @@ function itemHasEquippedSlots(it) {
   return Array.isArray(slots) && slots.length > 0;
 }
 
-function computeUsedSlots(sheet, item) {
-  const equippedSlots = Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
-  const out = {};
-  if (equippedSlots.length) out.equippedSlots = equippedSlots;
-  if (item.weaponSlots != null) out.weaponSlots = item.weaponSlots;
-  return Object.keys(out).length ? out : null;
-}
-
-/** DB shape for `used_slots` from current item fields (equippedSlots + optional weaponSlots). */
-function packItemUsedSlotsForDb(item) {
-  const out = {};
-  const arr = item?.usedSlots?.equippedSlots;
-  if (Array.isArray(arr) && arr.length) out.equippedSlots = arr;
-  if (item?.weaponSlots != null) out.weaponSlots = item.weaponSlots;
-  return Object.keys(out).length ? out : null;
-}
-
 /** Rebuild `sheet.equipped` from all items' `usedSlots.equippedSlots` (single source of truth). */
 function rebuildSheetEquippedFromUsedSlots(sheet) {
   if (!sheet) return;
@@ -568,12 +573,6 @@ function rebuildSheetEquippedFromUsedSlots(sheet) {
     });
   });
   sheet.equipped = eq;
-}
-
-function computeUsableSlots(item) {
-  const expr = String(item?.equippableExpr || "").trim();
-  if (expr) return { expr };
-  return item?.equippableSlots?.length ? { slots: item.equippableSlots } : null;
 }
 
 function pickRandom(max) {
@@ -660,6 +659,9 @@ function inlineSvg(svg, className = "", color = "var(--text)") {
   return cleaned;
 }
 
+// =============================================================================
+// Rich text, notes, inline roll buttons — docs/CODEBASE.md#rich-text-notes-and-inline-roll-buttons
+// =============================================================================
 const INLINE_DICE_SVG = {
   d4: d4Icon,
   d6: d6Icon,
@@ -989,6 +991,9 @@ function finalizeSpellEditIfOpen() {
   state._spellEditDraft = null;
 }
 
+// =============================================================================
+// Chat rows & display names — docs/CODEBASE.md#chat-persistence-and-realtime
+// =============================================================================
 function resolvePlayerDisplayName(playerId) {
   if (!playerId) return "Player";
   const d = state.playerDirectory?.[playerId];
@@ -1095,6 +1100,9 @@ async function supersedeChatRollMessageForFavorReroll(messageId) {
   }
 }
 
+// =============================================================================
+// Field locks (Owlbear room metadata) — docs/CODEBASE.md#room-metadata-party-and-field-locks
+// =============================================================================
 function getLockOwner(lockId) {
   return null;
 }
@@ -1123,6 +1131,9 @@ function syncFieldLockStates() {
   return;
 }
 
+// =============================================================================
+// Render: header & tabs shell — docs/CODEBASE.md#rendering-shell-tabs-and-theme
+// =============================================================================
 function renderHeader() {
   const visible = getVisibleSheets();
   const menuItems = visible
@@ -1163,6 +1174,9 @@ function renderTabs() {
   return `<nav class="tabs">${tabsHtml}</nav>`;
 }
 
+// =============================================================================
+// Tab: Bio — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderBioTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
@@ -2000,6 +2014,9 @@ function showRollResult(result) {
   }
 }
 
+// =============================================================================
+// Tab: Stats — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderStatsTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
@@ -2512,6 +2529,9 @@ function renderStatsTab() {
   `;
 }
 
+// =============================================================================
+// Modals: roll prep — docs/CODEBASE.md#modals-and-roll-prep
+// =============================================================================
 function renderRollPrepModal() {
   if (!state.rollPrepOpen || !state.rollPrepBase || !state.sheet) return "";
   const sheet = state.sheet;
@@ -2570,6 +2590,9 @@ function renderRollPrepModal() {
 }
 
 /** Roll result + stat modifier modals: must live outside tab content so chat/notes rolls can use them. */
+// =============================================================================
+// Modals: roll result chrome — docs/CODEBASE.md#modals-and-roll-prep
+// =============================================================================
 function renderRollModals() {
   return `
     <div id="roll-modal" class="modal hidden">
@@ -3072,6 +3095,9 @@ function renderTalentModal() {
   `;
 }
 
+// =============================================================================
+// Tab: Spells — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderSpellsTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${t("noSheet")}</p></div>`;
@@ -3195,6 +3221,9 @@ function renderSpellsTab() {
   `;
 }
 
+// =============================================================================
+// Tab: Inventory — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderInventoryTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
@@ -3682,6 +3711,9 @@ function renderInventoryTab() {
   `;
 }
 
+// =============================================================================
+// Tab: Chat — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderChatTab() {
   const messages = state.chatMessages || [];
   const list = messages
@@ -4130,6 +4162,9 @@ function syncNotesEditorHeight() {
   else scrollWrap.scrollTop = prevTop;
 }
 
+// =============================================================================
+// Tab: Notes — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderNotesTab() {
   const s = state.sheet;
   if (!s) return `<div class="card"><p>${state.pendingSheetId ? "Loading sheet..." : t("noSheet")}</p></div>`;
@@ -4183,6 +4218,9 @@ function renderNotesTab() {
   `;
 }
 
+// =============================================================================
+// Tab: Settings — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderSettingsTab() {
   const c = getSheetTheme();
   const editable = canEdit(state.activeSheetId);
@@ -4252,6 +4290,9 @@ function renderSettingsTab() {
   `;
 }
 
+// =============================================================================
+// Tab content router — docs/CODEBASE.md#per-tab-ui
+// =============================================================================
 function renderTabContent() {
   switch (state.activeTab) {
     case "bio":
@@ -4284,6 +4325,9 @@ function applyColors() {
   root.style.setProperty("--muted", theme.text);
 }
 
+// =============================================================================
+// Main render pass (innerHTML + scroll restore) — docs/CODEBASE.md#rendering-shell-tabs-and-theme
+// =============================================================================
 function render() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
@@ -4622,6 +4666,9 @@ function clampIntForStepperWrap(n, wrap) {
   return out;
 }
 
+// =============================================================================
+// DOM event wiring (runs after each render) — docs/CODEBASE.md#event-binding-bindevents
+// =============================================================================
 function bindEvents() {
   const app = document.getElementById(ROOT_ID);
   if (!app) return;
@@ -6235,7 +6282,7 @@ function bindEvents() {
         ];
         allItems.forEach((it) => {
           if (!affected.has(it.id)) return;
-          storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { used_slots: computeUsedSlots(next, it) }).catch(console.error);
+          storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { used_slots: storage.serializeUsedSlots(next, it) }).catch(console.error);
         });
       }
       render();
@@ -6529,7 +6576,7 @@ function bindEvents() {
         dirtyIds.forEach((iid) => {
           const it = findItemById(next, iid);
           if (!it) return;
-          storage.updateItemFields(state.roomId, state.activeSheetId, iid, { used_slots: packItemUsedSlotsForDb(it) }).catch(console.error);
+          storage.updateItemFields(state.roomId, state.activeSheetId, iid, { used_slots: storage.serializeUsedSlots(next, it) }).catch(console.error);
         });
       }
       state.invSlotMenuOpenFor = "";
@@ -6691,8 +6738,8 @@ function bindEvents() {
           social: Number(it.social) || 0,
           agility: Number(it.agility) || 0,
           focus: Number(it.focus) || 0,
-          usable_slots: computeUsableSlots(it),
-          used_slots: computeUsedSlots(next, it),
+          usable_slots: storage.getEquippableSlotDescriptor(it),
+          used_slots: storage.serializeUsedSlots(next, it),
         }).catch(console.error);
       }
       render();
@@ -7067,7 +7114,7 @@ function bindEvents() {
         const patch = {};
         if (el.dataset.itemDefense !== undefined) patch.physical_defense = it.defense ?? 0;
         if (el.dataset.itemMagdef !== undefined) patch.magical_defense = it.magicalDefense ?? 0;
-        if (el.dataset.itemWeaponSlots !== undefined) patch.used_slots = computeUsedSlots(next, it);
+        if (el.dataset.itemWeaponSlots !== undefined) patch.used_slots = storage.serializeUsedSlots(next, it);
         storage.updateItemFields(state.roomId, state.activeSheetId, it.id, patch).catch(console.error);
       }
     });
@@ -7085,7 +7132,7 @@ function bindEvents() {
       });
       if (state.roomId && state.activeSheetId && next?.[section]?.[idx]) {
         const it = next[section][idx];
-        storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { usable_slots: computeUsableSlots(it) }).catch(console.error);
+        storage.updateItemFields(state.roomId, state.activeSheetId, it.id, { usable_slots: storage.getEquippableSlotDescriptor(it) }).catch(console.error);
       }
     });
   });
@@ -7132,8 +7179,8 @@ function bindEvents() {
           social: Number(it.social) || 0,
           agility: Number(it.agility) || 0,
           focus: Number(it.focus) || 0,
-          usable_slots: computeUsableSlots(it),
-          used_slots: computeUsedSlots(next, it),
+          usable_slots: storage.getEquippableSlotDescriptor(it),
+          used_slots: storage.serializeUsedSlots(next, it),
         }).catch(console.error);
       }
       render();
@@ -7569,6 +7616,10 @@ function bindEvents() {
   });
 }
 
+// =============================================================================
+// Owlbear bootstrap: load room, subscribe chat + Realtime, metadata listeners — docs/CODEBASE.md#bootstrap-and-entry
+// See also: docs/CODEBASE.md#chat-persistence-and-realtime
+// =============================================================================
 export async function initApp() {
   try {
     await loadRoomData();

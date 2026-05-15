@@ -9,6 +9,8 @@
  * - `!<expr` — result cannot be below `expr` (evaluated with the same variable context as the roll).
  * - `!>expr` — result cannot be above `expr`.
  * Example: `[r 1d20+2!<con]` or `/roll 1d8+1!>6`.
+ *
+ * Code map: `docs/CODEBASE.md#dice-and-rolls`. Formula details: `docs/rolls-and-inline.md`.
  */
 import { evaluateFormula, formulaHasDice } from "./parser.js";
 import {
@@ -21,26 +23,7 @@ import {
   getStatTotal,
   isElementalSheet,
 } from "../data/schema.js";
-
-function stripDiacritics(text) {
-  const s = String(text || "");
-  // Best-effort; fallback keeps the string unchanged.
-  try {
-    return s.normalize("NFD").replace(/\p{Diacritic}+/gu, "");
-  } catch (_) {
-    return s
-      .replace(/[éèêë]/gi, "e")
-      .replace(/[àâä]/gi, "a")
-      .replace(/[îï]/gi, "i")
-      .replace(/[ôö]/gi, "o")
-      .replace(/[ùûü]/gi, "u")
-      .replace(/[ç]/gi, "c");
-  }
-}
-
-function normalizeKey(text) {
-  return stripDiacritics(text).trim().toLowerCase();
-}
+import { normalizeKey } from "../utils/textNormalize.js";
 
 const STAT_TYPE_ALIASES = {
   constitution: "constitution",
@@ -117,7 +100,11 @@ function parseLeadingRepeatCount(formulaText) {
   return { count: 1, formula: String(formulaText || "").trim() };
 }
 
-/** Parse chat command: /<type> <formula> (new spec). */
+/**
+ * Parse a chat line as `/<type> <formula>` (repeat count optional as first integer token).
+ * @param {string} line raw user input including leading `/`
+ * @returns {{ kind: string, formula: string, count: number, stat?: string } | null}
+ */
 export function parseChatCommand(line) {
   const s = String(line || "").trim();
   if (!s.startsWith("/")) return null;
@@ -168,7 +155,11 @@ export function pickInlineDiceIconKey(formula) {
   return `d${best}`;
 }
 
-/** Find all inline roll buttons in text: [type formula] (new spec only). */
+/**
+ * Find inline roll buttons `[type formula]` (optional `|label`) in rich text.
+ * @param {string} text
+ * @returns {Array<object>} button descriptors consumed by the UI
+ */
 export function getInlineButtons(text) {
   const s = String(text || "");
   const re = /\[([^\]]+)\]/g;
@@ -432,8 +423,13 @@ export function normalizeStatFormula(formula) {
   return startsWithOp ? `1d20${f}` : `1d20+${f}`;
 }
 
-/** Execute a roll with the new dice language. */
-export function executeRoll(payload, sheet, _unused = null) {
+/**
+ * Run a full roll (dice + clamps + comparison) against `sheet` for variable context.
+ * @param {{ kind: string, formula?: string, count?: number, stat?: string }} payload from `parseChatCommand` / inline parsing
+ * @param {object|null} sheet active character sheet or null
+ * @returns {object|null} structured result for the modal / chat renderer
+ */
+export function executeRoll(payload, sheet) {
   if (!sheet) return null;
   if (!payload || !payload.kind) return null;
 

@@ -4,6 +4,7 @@
 
 **Foxyverse** est une extension de **feuilles de personnage** pour [Owlbear Rodeo](https://www.owlbear.rodeo/). Ouvrez-la depuis la barre latérale de la carte : chaque joueur (ou le MJ) peut attacher des **feuilles** synchronisées via **Supabase** (PostgreSQL + Realtime). Les onglets couvrent la bio, les stats, les sorts, l’inventaire, le chat partagé, les notes et les réglages (thèmes, droits, import/export).
 
+- **Guide développeur (carte du code) :** [docs/fr/CODEBASE.md](docs/fr/CODEBASE.md) · [EN](docs/CODEBASE.md)  
 - **Fork / base de données / variables d’environnement :** [docs/fr/database.md](docs/fr/database.md) · [EN](docs/database.md)  
 - **Dés (chat + inline) :** [docs/fr/rolls-and-inline.md](docs/fr/rolls-and-inline.md) · [EN](docs/rolls-and-inline.md)  
 - **Expressions d’emplacements d’équipement :** [docs/fr/equipment-slots.md](docs/fr/equipment-slots.md) · [EN](docs/equipment-slots.md)
@@ -12,6 +13,7 @@
 
 | Doc | Description | EN |
 |-----|-------------|-----|
+| [docs/fr/CODEBASE.md](docs/fr/CODEBASE.md) | Guide dev : structure, flux de données, rétrocompat | [EN](docs/CODEBASE.md) |
 | [docs/fr/tab-bio.md](docs/fr/tab-bio.md) | Onglet Bio — identité et niveau | [EN](docs/tab-bio.md) |
 | [docs/fr/tab-stats.md](docs/fr/tab-stats.md) | Onglet Stats — PV/PM/faveur, actions, défenses, radar, talents | [EN](docs/tab-stats.md) |
 | [docs/fr/tab-spells.md](docs/fr/tab-spells.md) | Onglet Sorts — liste, coûts, USE, ordre | [EN](docs/tab-spells.md) |

@@ -6,26 +6,9 @@
  * - Produces equip options as arrays of canonical slot ids (e.g. ["hat","pendant2"])
  *
  * The grammar and aliases are documented in `docs/equipment-slots.md`.
+ * Code map: `docs/CODEBASE.md#supporting-modules`.
  */
-
-function stripDiacritics(text) {
-  const s = String(text || "");
-  try {
-    return s.normalize("NFD").replace(/\p{Diacritic}+/gu, "");
-  } catch (_) {
-    return s
-      .replace(/[éèêë]/gi, "e")
-      .replace(/[àâä]/gi, "a")
-      .replace(/[îï]/gi, "i")
-      .replace(/[ôö]/gi, "o")
-      .replace(/[ùûü]/gi, "u")
-      .replace(/[ç]/gi, "c");
-  }
-}
-
-function normKey(text) {
-  return stripDiacritics(String(text || "")).trim().toLowerCase();
-}
+import { normalizeKey } from "../utils/textNormalize.js";
 
 export const CANONICAL_SLOTS = [
   "weapon1", "weapon2", "weapon3",
@@ -82,7 +65,7 @@ export const SLOT_ALIASES = Object.freeze({
 
 /** Resolve a slot token (alias, FR/EN, legacy PascalCase, or canonical id) to a canonical slot id. */
 export function canonizeSlotToken(raw) {
-  const k = normKey(raw);
+  const k = normalizeKey(raw);
   if (!k) return null;
   if (SLOT_ALIASES[k]) return SLOT_ALIASES[k];
   if (CANONICAL_SLOTS.includes(k)) return k;
@@ -139,12 +122,12 @@ export const GROUP_ALIASES = Object.freeze({
 });
 
 function canonicalSlot(raw) {
-  const k = normKey(raw);
+  const k = normalizeKey(raw);
   return SLOT_ALIASES[k] || null;
 }
 
 function canonicalGroup(raw) {
-  const k = normKey(raw);
+  const k = normalizeKey(raw);
   return GROUP_ALIASES[k] || null;
 }
 
@@ -173,7 +156,7 @@ function tokenize(input) {
       let j = i + 1;
       while (j < s.length && isIdentChar(s[j])) j++;
       const raw = s.slice(i, j);
-      const k = normKey(raw);
+      const k = normalizeKey(raw);
       if (k === "and") push("and");
       else if (k === "or") push("or");
       else if (k === "all") push("all");

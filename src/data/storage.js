@@ -2,6 +2,15 @@ import OBR from "@owlbear-rodeo/sdk";
 import { supabase } from "./supabase.js";
 import { createEmptySheet, STAT_IDS } from "./schema.js";
 
+/**
+ * Data layer: Supabase queries, Realtime subscriptions, sessionStorage cache, and Owlbear room metadata.
+ * The in-memory `sheet` object in `app.js` is assembled here from normalized rows and written back row-by-row.
+ *
+ * @see docs/CODEBASE.md#saving-and-mutations
+ * @see docs/CODEBASE.md#chat-persistence-and-realtime
+ * @see docs/database.md
+ */
+
 // DB column reference: see `docs/DB_SCHEMA.sql` (project-provided, reference only).
 const ROOM_META_KEY = "foxyverse";
 const STORAGE_PREFIX = "foxyverse_sheet_";
@@ -60,14 +69,19 @@ function toSectionKey(type) {
   return "others";
 }
 
-function computeUsableSlotsFromItem(item) {
+/** Shape for `usable_slots` JSON: either `{ expr: "..." }` or `{ slots: [...] }`. */
+export function getEquippableSlotDescriptor(item) {
   const expr = String(item?.equippableExpr || "").trim();
   if (expr) return { expr };
   const slots = item?.equippableSlots;
   return Array.isArray(slots) && slots.length ? { slots } : null;
 }
 
-function serializeUsedSlots(sheet, item) {
+/**
+ * DB payload for `used_slots`: prefer `item.usedSlots.equippedSlots` when set,
+ * else derive from `sheet.equipped` (same rule as reading rows back).
+ */
+export function serializeUsedSlots(sheet, item) {
   const equippedSlots = Array.isArray(item?.usedSlots?.equippedSlots)
     ? item.usedSlots.equippedSlots
     : Object.keys(sheet.equipped || {}).filter((slotId) => sheet.equipped?.[slotId] === item.id);
@@ -689,7 +703,7 @@ async function persistRows(roomId, sheet) {
     social: Number(item.social) || 0,
     agility: Number(item.agility) || 0,
     focus: Number(item.focus) || 0,
-    usable_slots: computeUsableSlotsFromItem(item),
+    usable_slots: getEquippableSlotDescriptor(item),
     used_slots: serializeUsedSlots(sheet, item),
   }));
   const { error: deleteItemError } = await supabase.from("item").delete().eq("sheet_id", sheet.id);

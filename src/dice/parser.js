@@ -15,6 +15,8 @@
  * - translatedFormula: normalized formula with variables replaced by numbers
  * - diceEvents: [{ count, faces, rolls[] }] (for nat 1 / nat 20 detection in stat checks)
  * - comparison?: { kind: \"<\"|\">\", leftValue, rightValue, success }
+ *
+ * Player-facing syntax: `docs/rolls-and-inline.md`. Code map: `docs/CODEBASE.md#dice-and-rolls`.
  */
 
 function isDigit(ch) {
@@ -319,7 +321,11 @@ export function evaluateFormula(formula, context = {}, rng = null) {
   };
 }
 
-/** Utility: case-insensitive check for presence of dice operator `d` in a formula string. */
+/**
+ * Returns true if the formula string contains a dice operator `d` (case-insensitive).
+ * Used to decide whether stat rolls should default to `1d20+…` or treat the expression as pure modifiers.
+ * @param {string} formula
+ */
 export function formulaHasDice(formula) {
   return /d/i.test(String(formula || ""));
 }

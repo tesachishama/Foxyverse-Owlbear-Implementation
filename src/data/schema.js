@@ -1,3 +1,8 @@
+/**
+ * In-memory character sheet shape: stat math, defaults, slot id lists, and pure helpers (no I/O).
+ * @see docs/CODEBASE.md#supporting-modules
+ */
+
 /** Stat IDs used in formulas and UI */
 export const STAT_IDS = [
   "constitution",

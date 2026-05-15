@@ -4,6 +4,7 @@
 
 **Foxyverse** is a character-sheet extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Open it from the map sidebar: each player (or the GM) can attach **character sheets** that stay in sync through **Supabase** (PostgreSQL + Realtime). Tabs cover bio, stats, spells, inventory, shared chat, notes, and settings (themes, permissions, import/export).
 
+- **Developer guide (code map):** [docs/CODEBASE.md](docs/CODEBASE.md) · [FR](docs/fr/CODEBASE.md)  
 - **Fork / database / env vars:** [docs/database.md](docs/database.md) · [FR](docs/fr/database.md)  
 - **Dice (chat + inline):** [docs/rolls-and-inline.md](docs/rolls-and-inline.md) · [FR](docs/fr/rolls-and-inline.md)  
 - **Equipment slot expressions:** [docs/equipment-slots.md](docs/equipment-slots.md) · [FR](docs/fr/equipment-slots.md)
@@ -12,6 +13,7 @@
 
 | Doc | Description | FR |
 |-----|-------------|-----|
+| [docs/CODEBASE.md](docs/CODEBASE.md) | Developer guide: app structure, data flow, legacy notes | [FR](docs/fr/CODEBASE.md) |
 | [docs/tab-bio.md](docs/tab-bio.md) | Bio tab — identity fields and level | [FR](docs/fr/tab-bio.md) |
 | [docs/tab-stats.md](docs/tab-stats.md) | Stats tab — HP/MP/favor, actions, defenses, radar, talents | [FR](docs/fr/tab-stats.md) |
 | [docs/tab-spells.md](docs/tab-spells.md) | Spells tab — list, costs, USE, reorder | [FR](docs/fr/tab-spells.md) |
