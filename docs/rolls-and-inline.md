@@ -82,24 +82,6 @@ Optional label after `|`:
 
 The **button caption** uses the label; the roll still uses `<type>` and `<formula>`.
 
-## Clamp suffixes (`!<` / `!>`) — floor and ceiling on the roll total
-
-These tokens appear **after** the main formula. They clamp the **final numeric roll total** using a **floor** or **ceiling** in the usual math sense on that total:
-
-- **`!<expr`** — **floor the total at the bound**: the total cannot end up **below** the integer value of `expr`. If it would be lower, it becomes that value — same as `total = max(total, bound)`.
-- **`!>expr`** — **ceiling the total at the bound**: the total cannot end up **above** the integer value of `expr`. If it would be higher, it becomes that value — same as `total = min(total, bound)`.
-
-This is **not** the same as the `\` or `%` **operators inside the formula** (those only change how an inner division is rounded).
-
-If you chain several suffixes, **rightmost is stripped first** when parsing. Each bound expression uses the **same variable context** as the roll (same sheet variables, etc.).
-
-Examples:
-
-```text
-[r 1d20+2!<con]
-/roll 1d8+1!>6
-```
-
 ## Roll types (`<type>`)
 
 Case-insensitive. Old `[type:expr]` bracket form is **not** supported.
@@ -154,14 +136,30 @@ Examples: `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
 
 **Division by zero:** any of `/`, `\`, `%` with a zero divisor yields **`0`** (safe fallback).
 
-**Final integer:** after the full expression is evaluated, the roll value is coerced to an integer using **toward-zero** rounding (see `clampInt` / `clampRollInt` in the parser and roller). For **minimum/maximum bounds on the whole total** after the formula, use the **`!<` / `!>` clamp suffixes** above (those are an explicit **floor** / **ceiling** on the result).
+**Final integer:** after the full expression is evaluated, the roll value is coerced to an integer using **toward-zero** rounding (see `clampInt` / `clampRollInt` in the parser and roller). For **minimum/maximum bounds on the whole total** after the formula, use **`!<` / `!>`** in the next subsection.
 
-### Success comparators (non-stat rolls)
+### Success comparators and total clamp suffixes (`!<` / `!>`)
+
+**Success thresholds** (non-stat rolls): compare the left-hand roll expression to a right-hand target.
 
 - `<` means left ≤ right
 - `>` means left ≥ right
 
 Examples: `1d20+3 > 12`, `1d20 < dc`.
+
+**Floor and ceiling on the roll total:** the tokens **`!<expr`** and **`!>expr`** appear **after** the main formula. They clamp the **final numeric roll total** using a **floor** or **ceiling** in the usual math sense on that total:
+
+- **`!<expr`** — the total cannot end up **below** the integer value of `expr`; if it would be lower, it becomes that value — same as `total = max(total, bound)`.
+- **`!>expr`** — the total cannot end up **above** the integer value of `expr`; if it would be higher, it becomes that value — same as `total = min(total, bound)`.
+
+This is **not** the same as the `\` or `%` **operators inside the formula** (those only change how an inner division is rounded). If you chain several clamp suffixes, **rightmost is stripped first** when parsing. Each bound expression uses the **same variable context** as the roll (same sheet variables, etc.).
+
+Examples:
+
+```text
+[r 1d20+2!<con]
+/roll 1d8+1!>6
+```
 
 ### Variables (active sheet)
 

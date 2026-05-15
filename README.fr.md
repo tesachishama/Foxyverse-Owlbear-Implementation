@@ -20,7 +20,7 @@
 | [docs/fr/tab-notes.md](docs/fr/tab-notes.md) | Onglet Notes — notes riches et jets inline | [EN](docs/tab-notes.md) |
 | [docs/fr/tab-settings.md](docs/fr/tab-settings.md) | Onglet Réglages — thème, options, droits, import/export | [EN](docs/tab-settings.md) |
 | [docs/fr/equipment-slots.md](docs/fr/equipment-slots.md) | Langage des emplacements d’équipement | [EN](docs/equipment-slots.md) |
-| [docs/fr/rolls-and-inline.md](docs/fr/rolls-and-inline.md) | Commandes de jet, boutons inline, variables, suffixes `!<` / `!>` | [EN](docs/rolls-and-inline.md) |
+| [docs/fr/rolls-and-inline.md](docs/fr/rolls-and-inline.md) | Commandes de jet, boutons inline, variables, comparateurs de réussite, suffixes `!<` / `!>` | [EN](docs/rolls-and-inline.md) |
 | [docs/fr/database.md](docs/fr/database.md) | Schéma Supabase, Realtime, variables, fork | [EN](docs/database.md) |
 | [docs/DB_SCHEMA.sql](docs/DB_SCHEMA.sql) | DDL de référence (pas un script de migration exécutable) | — |
 

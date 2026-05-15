@@ -20,7 +20,7 @@
 | [docs/tab-notes.md](docs/tab-notes.md) | Notes tab — rich notes and inline rolls | [FR](docs/fr/tab-notes.md) |
 | [docs/tab-settings.md](docs/tab-settings.md) | Settings tab — theme, toggles, permissions, import/export | [FR](docs/fr/tab-settings.md) |
 | [docs/equipment-slots.md](docs/equipment-slots.md) | Equipment slot expression language | [FR](docs/fr/equipment-slots.md) |
-| [docs/rolls-and-inline.md](docs/rolls-and-inline.md) | Roll commands, inline buttons, formula variables, clamps | [FR](docs/fr/rolls-and-inline.md) |
+| [docs/rolls-and-inline.md](docs/rolls-and-inline.md) | Roll commands, inline buttons, formula variables, comparators, `!<`/`!>` | [FR](docs/fr/rolls-and-inline.md) |
 | [docs/database.md](docs/database.md) | Supabase schema overview, Realtime, env vars, forking | [FR](docs/fr/database.md) |
 | [docs/DB_SCHEMA.sql](docs/DB_SCHEMA.sql) | Reference DDL (not a runnable migration script) | — |
 

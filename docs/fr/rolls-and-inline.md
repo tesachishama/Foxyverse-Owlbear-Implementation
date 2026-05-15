@@ -82,24 +82,6 @@ Libellé optionnel après `|` :
 
 Le **texte du bouton** utilise le libellé ; le jet utilise toujours `<type>` et `<formule>`.
 
-## Suffixes `!<` / `!>` — plancher et plafond sur le total du jet
-
-Ces marqueurs viennent **après** la formule principale. Ils bornent le **total numérique final** du jet avec un **plancher** ou un **plafond** au sens mathématique habituel :
-
-- **`!<expr`** — **plancher** : le total ne peut pas finir **en dessous** de la valeur entière de `expr`. S’il serait plus bas, il devient cette borne — comme `total = max(total, borne)`.
-- **`!>expr`** — **plafond** : le total ne peut pas finir **au-dessus** de la valeur entière de `expr`. S’il serait plus haut, il devient cette borne — comme `total = min(total, borne)`.
-
-Ce n’est **pas** la même chose que les opérateurs `\` ou **`%` dans la formule** (ceux-ci ne font qu’arrondir une division interne).
-
-Si vous enchaînez plusieurs suffixes, le **plus à droite est retiré en premier** à l’analyse. Chaque expression de borne utilise le **même contexte de variables** que le jet (mêmes variables de feuille, etc.).
-
-Exemples :
-
-```text
-[r 1d20+2!<con]
-/roll 1d8+1!>6
-```
-
 ## Types de jet (`<type>`)
 
 Insensible à la casse. L’ancienne forme entre crochets `[type:expr]` n’est **pas** prise en charge.
@@ -154,14 +136,30 @@ Exemples : `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
 
 **Division par zéro :** pour `/`, `\`, `%`, un diviseur nul donne **`0`** (repli sûr).
 
-**Entier final :** après évaluation de toute l’expression, la valeur du jet est convertie en entier par arrondi **vers zéro** (voir `clampInt` / `clampRollInt` dans le parseur et le roller). Pour un **minimum ou maximum sur tout le total** après la formule, utilisez les **suffixes `!<` / `!>`** ci-dessus (**plancher** / **plafond** explicites sur le résultat).
+**Entier final :** après évaluation de toute l’expression, la valeur du jet est convertie en entier par arrondi **vers zéro** (voir `clampInt` / `clampRollInt` dans le parseur et le roller). Pour un **minimum ou maximum sur tout le total** après la formule, utilisez **`!<` / `!>`** dans la sous-section suivante.
 
-### Comparateurs de réussite (hors jets de stat)
+### Comparateurs de réussite et suffixes de bornage du total (`!<` / `!>`)
+
+**Seuils de réussite** (hors jets de stat) : comparent la partie gauche du jet à une cible à droite.
 
 - `<` signifie gauche ≤ droite
 - `>` signifie gauche ≥ droite
 
 Exemples : `1d20+3 > 12`, `1d20 < dc`.
+
+**Plancher et plafond sur le total du jet :** les marqueurs **`!<expr`** et **`!>expr`** viennent **après** la formule principale. Ils bornent le **total numérique final** avec un **plancher** ou un **plafond** au sens mathématique habituel :
+
+- **`!<expr`** — le total ne peut pas finir **en dessous** de la valeur entière de `expr` ; s’il serait plus bas, il devient cette borne — comme `total = max(total, borne)`.
+- **`!>expr`** — le total ne peut pas finir **au-dessus** de la valeur entière de `expr` ; s’il serait plus haut, il devient cette borne — comme `total = min(total, borne)`.
+
+Ce n’est **pas** la même chose que les opérateurs `\` ou **`%` dans la formule** (ceux-ci ne font qu’arrondir une division interne). Si vous enchaînez plusieurs suffixes de bornage, le **plus à droite est retiré en premier** à l’analyse. Chaque expression de borne utilise le **même contexte de variables** que le jet (mêmes variables de feuille, etc.).
+
+Exemples :
+
+```text
+[r 1d20+2!<con]
+/roll 1d8+1!>6
+```
 
 ### Variables (feuille active)
 
