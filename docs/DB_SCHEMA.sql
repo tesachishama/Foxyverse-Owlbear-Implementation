@@ -1,5 +1,6 @@
 -- Foxyverse database schema (REFERENCE ONLY)
 -- Source: provided by project owner (2026-04-25).
+-- Operator guide: docs/database.md
 --
 -- WARNING:
 -- - This file is for context only and is NOT meant to be run.

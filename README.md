@@ -1,161 +1,53 @@
-# Foxyverse Owlbear plugin
+# Foxyverse Owlbear extension
 
-Vite-built extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Character sheets sync via **Supabase** (PostgreSQL + Realtime).
+**Foxyverse** is a character-sheet extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Open it from the map sidebar: each player (or the GM) can attach **character sheets** that stay in sync through **Supabase** (PostgreSQL + Realtime). Tabs cover bio, stats, spells, inventory, shared chat, notes, and settings (themes, permissions, import/export).
 
-Quick reference: see [`COMMAND_HELPER.md`](COMMAND_HELPER.md).
+- **Fork / database / env vars:** [docs/database.md](docs/database.md)  
+- **Dice (chat + inline):** [docs/rolls-and-inline.md](docs/rolls-and-inline.md)  
+- **Equipment slot expressions:** [docs/equipment-slots.md](docs/equipment-slots.md)
 
-## Setup
+## Documentation index
 
-1. Clone and install: `npm install`
-2. Copy `.env.example` to `.env` (or create `.env`) with:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-3. Apply SQL migrations in `supabase/migrations/` as needed (e.g. `spell.element`). Your **`chat`** table should already match what the app expects; see below. Enable **Realtime** on `chat` (and other subscribed tables).
-4. Dev: `npm run dev` — load the extension URL in Owlbear’s extension dev tools.
-5. Production: `npm run build` — deploy `dist/` (e.g. GitHub Pages); configure the same env vars in CI secrets.
+| Doc | Description |
+|-----|-------------|
+| [docs/tab-bio.md](docs/tab-bio.md) | Bio tab — identity fields and level |
+| [docs/tab-stats.md](docs/tab-stats.md) | Stats tab — HP/MP/favor, actions, defenses, radar, talents |
+| [docs/tab-spells.md](docs/tab-spells.md) | Spells tab — list, costs, USE, reorder |
+| [docs/tab-inventory.md](docs/tab-inventory.md) | Inventory tab — gear, slots, currency, item talents |
+| [docs/tab-chat.md](docs/tab-chat.md) | Chat tab — room log, rolls, delete rules |
+| [docs/tab-notes.md](docs/tab-notes.md) | Notes tab — rich notes and inline rolls |
+| [docs/tab-settings.md](docs/tab-settings.md) | Settings tab — theme, toggles, permissions, import/export |
+| [docs/equipment-slots.md](docs/equipment-slots.md) | Equipment slot expression language |
+| [docs/rolls-and-inline.md](docs/rolls-and-inline.md) | Roll commands, inline buttons, formula variables, clamps |
+| [docs/database.md](docs/database.md) | Supabase schema overview, Realtime, env vars, forking |
+| [docs/DB_SCHEMA.sql](docs/DB_SCHEMA.sql) | Reference DDL (not a runnable migration script) |
 
-## Chat (room log)
+## Install in Owlbear Rodeo
 
-The plugin expects your existing `chat` table columns: **`id`**, **`room_id`**, **`sheet_id`**, **`player_id`**, a **text body** column (default name **`content`**), and **`time_sent`** (timestamp). Override the body column with **`VITE_CHAT_MESSAGE_COLUMN`** in `.env` if yours differs (e.g. `message`). Optional: **`VITE_CHAT_TIME_COLUMN`** if the timestamp column is not `time_sent`. Realtime `INSERT` on `chat` should be enabled.
+### Use a hosted build (e.g. GitHub Pages)
 
-The client stores only IDs; **player name** and **Name Surname** are resolved at render time from Owlbear party / `playerDirectory` and `sheetNames`.
+1. Build and deploy the `dist/` folder so **`manifest.json`** and **`index.html`** are served under a stable HTTPS URL.  
+   This repository’s production build uses base path `/Foxyverse-Owlbear-Implementation/` (see [`vite.config.js`](vite.config.js)); a fork must change `base` to match its own hosting URL.
+2. In Owlbear Rodeo, open your room → **Extensions** (or the extensions panel for your account, depending on Owlbear version).
+3. **Add extension** and paste the **full URL to `manifest.json`**, for example:  
+   `https://<your-account>.github.io/<your-repo>/manifest.json`  
+   If the UI asks for a “root” URL instead, use the folder that contains both `manifest.json` and `index.html`.
 
-## Dice: chat commands (`/…`)
+### Local development
 
-Commands start with `/`. The word after `/` is the **roll type**; the rest of the line is the **formula** (see below).
+1. `npm install`
+2. Copy [`.env.example`](.env.example) to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see [docs/database.md](docs/database.md)).
+3. `npm run dev` and load the **Vite dev server URL** in Owlbear’s extension developer / “load unpacked URL” flow (same idea: Owlbear must reach your machine).
 
-### Repeating rolls (multi-roll)
+## Minimal developer commands
 
-You can repeat a roll by putting an integer **count** as the first token of the formula:
-
-- `/str 5 +3` → 5 stat rolls (each is `1d20+3`)
-- `/pdmg 10 2d4` → 10 physical damage rolls (each is `2d4`)
-
-Notes:
-
-- Count is clamped to `1..100`.
-- Favor reroll rerolls the **whole set** when you reroll a multi-roll.
-
-When you send a command, the **command itself is not stored** in chat — only the generated roll result line is saved.
-
-| Command | Meaning |
-|--------|---------|
-| `/constitution`, `/con` | Constitution stat check. If formula has no dice, defaults to `1d20` (then applies the formula). |
-| `/strength`, `/str`, `/force`, `/for` | Strength stat check. |
-| `/intelligence`, `/int` | Intelligence stat check. |
-| `/perception`, `/per` | Perception stat check. |
-| `/social`, `/soc` | Social stat check. |
-| `/agility`, `/agi`, `/agilité`, `/agilite` | Agility stat check. |
-| `/focus`, `/foc` | Focus stat check. |
-| `/pdmg`, `/dgtp` | Physical damage roll (Apply button accounts for defenses). |
-| `/mdmg`, `/dgtm` | Magical damage roll. |
-| `/tdmg`, `/dgtb` | True damage roll (ignores defenses). |
-| `/heal`, `/soin` | Heal roll (Apply adds HP). |
-| `/theal`, `/soint` | Temp heal roll (Apply adds temp HP). |
-| `/mana` | Mana roll (Apply adds MP). |
-| `/roll`, `/r` | Generic roll. |
-
-Stat abbreviations match `src/dice/parser.js`: `str`, `con`, `int`, `per`, `soc`, `agi`, `foc`.
-
-## Dice: formula syntax
-
-Used after the command (chat) or inside inline buttons (notes/chat). Not case sensitive.
-
-- **Dice**: `XdY` rolls X dice with Y faces.
-  - X and/or Y can be expressions when parenthesized: `(1d4)d4`.
-  - Without parentheses, `d` binds to the nearest atoms until the first operator.
-- **Operators**: `+`, `-`, `*`, `/` (round), `\\` (floor), `%` (ceil), `^` (power), parentheses.
-- **Success operators**: `<` means “left <= right”, `>` means “left >= right” (adds a success/failure tag to non-stat rolls).
-- **Whitespace** is ignored.
-
-### Formula variables (active sheet)
-
-Identifiers are resolved from the **current character sheet** when you roll (chat command or inline button). Names are matched **case-insensitively**. Any unknown name is treated as **0** (which can produce odd rolls like `1d0` in the translated line if you typo a variable).
-
-Below, each bullet lists **all aliases** for one value (same number everywhere).
-
-**Stat totals** (computed total including gear/passives, etc.)
-
-| Value | Aliases |
-|--------|---------|
-| Constitution total | `con` |
-| Strength total | `str`, `for` |
-| Intelligence total | `int` |
-| Perception total | `per` |
-| Social total | `soc` |
-| Agility total | `agi` |
-| Focus total | `foc` |
-
-**HP**
-
-| Meaning | Aliases |
-|---------|---------|
-| Max HP | `maxhp`, `hpmax`, `pvmax`, `maxpv` |
-| Current HP | `curhp`, `hpcur`, `pvact`, `actpv` |
-| Temp HP | `temhp`, `hptem`, `pvtem`, `tempv`, `temphp`, `hptemp`, `temppv`, `pvtemp` |
-
-**MP**
-
-| Meaning | Aliases |
-|---------|---------|
-| Max MP | `maxmp`, `mpmax`, `pmmax`, `maxpm` |
-| Current MP | `curmp`, `mpcur`, `pmact`, `actpm` |
-
-**Favor**
-
-| Meaning | Aliases |
-|---------|---------|
-| Max favor | `maxfav`, `favmax` |
-| Current favor | `curfav`, `favcur`, `favact`, `actfav` |
-
-**Other sheet values**
-
-| Meaning | Aliases |
-|---------|---------|
-| Action count (computed) | `act` |
-| Character level | `lvl`, `niv` |
-| Physical defense | `pdef`, `defp` |
-| Magical defense | `mdef`, `defm` |
-| Action modifier (sheet field) | `bonact`, `actbon` |
-| Speed modifier (sheet field) | `bonspe`, `spebon`, `vitbon`, `bonvit` |
-
-Implementation reference: [`src/dice/parser.js`](src/dice/parser.js), [`src/dice/roller.js`](src/dice/roller.js) (`buildFormulaContext`).
-
-## Inline roll buttons (notes & chat)
-
-In any text field that renders rich content (chat messages, **Notes preview**), you can embed:
-
-```text
-[str +5]
-[pdmg 2d6+3]
-[roll 1d20+2]
+```bash
+npm install
+npm run dev      # local dev server
+npm run build    # production build → dist/
 ```
 
-Bracket form: `[type formula]` where `type` matches the commands above. Click the rendered button to roll using the **current character sheet**; it posts the roll result line into chat.
-
-### Repeating inline rolls
-
-Same rule as commands: start the formula with a count.
-
-```text
-[str 5 +3]
-[pdmg 10 2d4]
-```
-
-### Custom button label
-
-You can optionally provide a label after a `|`:
-
-```text
-[str +5|hit hard]
-[pdmg 10 2d4|full-auto burst]
-```
-
-If there is no `|`, the button caption is the default (`str+5`, `dgtp 2d4 ×10`, etc.).
-
-## Spells: element field
-
-Each spell row can have an optional **Element** label (stored in `spell.element` in the database). Apply the migration that adds the `element` column if upgrading an existing database.
+Production builds also run `scripts/rewrite-manifest.js` (see `package.json`).
 
 ## License
 

@@ -5,7 +5,7 @@
  * - Accepts EN and FR aliases for slots/groups
  * - Produces equip options as arrays of canonical slot ids (e.g. ["hat","pendant2"])
  *
- * The grammar and aliases are documented in `docs/EQUIPMENT_SLOTS_SYNTAX.md`.
+ * The grammar and aliases are documented in `docs/equipment-slots.md`.
  */
 
 function stripDiacritics(text) {
