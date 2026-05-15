@@ -1,5 +1,7 @@
 # Settings tab
 
+[Français (FR)](fr/tab-settings.md)
+
 Per-sheet **UI theme**, **import/export**, **optional GM tools**, **permissions**, and **behavior toggles**.
 
 ## Who can edit

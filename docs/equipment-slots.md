@@ -1,5 +1,7 @@
 # Equipment slots syntax (Inventory)
 
+[Français (FR)](fr/equipment-slots.md)
+
 This document describes the **equipment-slot expression syntax** implemented by the plugin for inventory items (weapons and armor).
 
 The expression defines which equipment slot(s) an item **may** occupy and, when equipped, which slot(s) it **does** occupy.

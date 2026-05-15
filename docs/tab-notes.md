@@ -1,5 +1,7 @@
 # Notes tab
 
+[Français (FR)](fr/tab-notes.md)
+
 Per-character **free-form notes** stored on the sheet (`notes` field in Supabase).
 
 ## View vs edit

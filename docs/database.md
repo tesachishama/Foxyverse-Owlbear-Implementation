@@ -1,5 +1,7 @@
 # Database and self-hosting (Supabase)
 
+[Français (FR)](fr/database.md)
+
 The extension is a **static Vite app** that talks to **Supabase** (PostgreSQL + Realtime) using the **anon key** in the browser. There is no separate custom backend in this repository.
 
 Operator overview: [DB_SCHEMA.sql](DB_SCHEMA.sql) (reference DDL). For day-to-day fork setup, read this file and [`.env.example`](../.env.example).

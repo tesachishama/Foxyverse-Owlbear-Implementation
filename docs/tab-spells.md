@@ -1,5 +1,7 @@
 # Spells tab
 
+[Français (FR)](fr/tab-spells.md)
+
 Manage the character’s **spell list**: names, effects, costs, flags, usage counter, and casting (**USE**).
 
 ## Who can edit

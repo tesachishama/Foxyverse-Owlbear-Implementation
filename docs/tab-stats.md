@@ -1,5 +1,7 @@
 # Stats tab
 
+[Français (FR)](fr/tab-stats.md)
+
 Combat resources, derived stats, defenses, the **radar** chart, and **talents** (including talents granted by equipped items).
 
 ## Who can edit

@@ -2,25 +2,25 @@
 
 **Foxyverse** is a character-sheet extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Open it from the map sidebar: each player (or the GM) can attach **character sheets** that stay in sync through **Supabase** (PostgreSQL + Realtime). Tabs cover bio, stats, spells, inventory, shared chat, notes, and settings (themes, permissions, import/export).
 
-- **Fork / database / env vars:** [docs/database.md](docs/database.md)  
-- **Dice (chat + inline):** [docs/rolls-and-inline.md](docs/rolls-and-inline.md)  
-- **Equipment slot expressions:** [docs/equipment-slots.md](docs/equipment-slots.md)
+- **Fork / database / env vars:** [docs/database.md](docs/database.md) · [FR](docs/fr/database.md)  
+- **Dice (chat + inline):** [docs/rolls-and-inline.md](docs/rolls-and-inline.md) · [FR](docs/fr/rolls-and-inline.md)  
+- **Equipment slot expressions:** [docs/equipment-slots.md](docs/equipment-slots.md) · [FR](docs/fr/equipment-slots.md)
 
 ## Documentation index
 
-| Doc | Description |
-|-----|-------------|
-| [docs/tab-bio.md](docs/tab-bio.md) | Bio tab — identity fields and level |
-| [docs/tab-stats.md](docs/tab-stats.md) | Stats tab — HP/MP/favor, actions, defenses, radar, talents |
-| [docs/tab-spells.md](docs/tab-spells.md) | Spells tab — list, costs, USE, reorder |
-| [docs/tab-inventory.md](docs/tab-inventory.md) | Inventory tab — gear, slots, currency, item talents |
-| [docs/tab-chat.md](docs/tab-chat.md) | Chat tab — room log, rolls, delete rules |
-| [docs/tab-notes.md](docs/tab-notes.md) | Notes tab — rich notes and inline rolls |
-| [docs/tab-settings.md](docs/tab-settings.md) | Settings tab — theme, toggles, permissions, import/export |
-| [docs/equipment-slots.md](docs/equipment-slots.md) | Equipment slot expression language |
-| [docs/rolls-and-inline.md](docs/rolls-and-inline.md) | Roll commands, inline buttons, formula variables, clamps |
-| [docs/database.md](docs/database.md) | Supabase schema overview, Realtime, env vars, forking |
-| [docs/DB_SCHEMA.sql](docs/DB_SCHEMA.sql) | Reference DDL (not a runnable migration script) |
+| Doc | Description | FR |
+|-----|-------------|-----|
+| [docs/tab-bio.md](docs/tab-bio.md) | Bio tab — identity fields and level | [FR](docs/fr/tab-bio.md) |
+| [docs/tab-stats.md](docs/tab-stats.md) | Stats tab — HP/MP/favor, actions, defenses, radar, talents | [FR](docs/fr/tab-stats.md) |
+| [docs/tab-spells.md](docs/tab-spells.md) | Spells tab — list, costs, USE, reorder | [FR](docs/fr/tab-spells.md) |
+| [docs/tab-inventory.md](docs/tab-inventory.md) | Inventory tab — gear, slots, currency, item talents | [FR](docs/fr/tab-inventory.md) |
+| [docs/tab-chat.md](docs/tab-chat.md) | Chat tab — room log, rolls, delete rules | [FR](docs/fr/tab-chat.md) |
+| [docs/tab-notes.md](docs/tab-notes.md) | Notes tab — rich notes and inline rolls | [FR](docs/fr/tab-notes.md) |
+| [docs/tab-settings.md](docs/tab-settings.md) | Settings tab — theme, toggles, permissions, import/export | [FR](docs/fr/tab-settings.md) |
+| [docs/equipment-slots.md](docs/equipment-slots.md) | Equipment slot expression language | [FR](docs/fr/equipment-slots.md) |
+| [docs/rolls-and-inline.md](docs/rolls-and-inline.md) | Roll commands, inline buttons, formula variables, clamps | [FR](docs/fr/rolls-and-inline.md) |
+| [docs/database.md](docs/database.md) | Supabase schema overview, Realtime, env vars, forking | [FR](docs/fr/database.md) |
+| [docs/DB_SCHEMA.sql](docs/DB_SCHEMA.sql) | Reference DDL (not a runnable migration script) | — |
 
 ## Install in Owlbear Rodeo
 

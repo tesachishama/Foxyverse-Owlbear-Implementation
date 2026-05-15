@@ -1,5 +1,7 @@
 # Inventory tab
 
+[Français (FR)](fr/tab-inventory.md)
+
 Equipment, consumables, bags, loose items, **currency**, and **item transfer**. Item stats and **equipment slot expressions** feed the **Stats** tab (defenses, passive bonuses from gear).
 
 ## Who can edit

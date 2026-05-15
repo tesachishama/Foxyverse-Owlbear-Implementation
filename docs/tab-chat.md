@@ -1,5 +1,7 @@
 # Chat tab
 
+[Français (FR)](fr/tab-chat.md)
+
 Room-wide **chat log** shared by everyone in the Owlbear room using the extension, plus the **composer** to send text and **roll commands**.
 
 ## Messages

@@ -1,5 +1,5 @@
 # Roll commands and inline buttons (moved)
 
-The full reference now lives in **[docs/rolls-and-inline.md](docs/rolls-and-inline.md)**.
+The full reference now lives in **[docs/rolls-and-inline.md](docs/rolls-and-inline.md)** (English) and **[docs/fr/rolls-and-inline.md](docs/fr/rolls-and-inline.md)** (French).
 
-Use that file for chat commands (`/…`), inline buttons (`[…]`), repeat counts, clamp suffixes, and formula variables.
+Use those files for chat commands (`/…`), inline buttons (`[…]`), repeat counts, clamp suffixes, and formula variables.

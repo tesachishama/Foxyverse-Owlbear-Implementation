@@ -1,5 +1,7 @@
 # Roll commands and inline buttons
 
+[Français (FR)](fr/rolls-and-inline.md)
+
 How **chat roll commands**, **inline roll buttons**, and **formula** syntax work in the Foxyverse Owlbear extension.
 
 Implementation references:
@@ -82,10 +84,10 @@ The **button caption** uses the label; the roll still uses `<type>` and `<formul
 
 ## Clamp suffixes (after the main formula)
 
-Suffixes apply to the numeric result; **rightmost is stripped first** if combined.
+Suffixes apply to the **numeric total after the main formula** is evaluated; **rightmost is stripped first** if you chain several. The bound expressions use the **same variable context** as the roll (same sheet variables, etc.).
 
-- `!<expr` — result cannot be **below** `expr` (same variable context as the roll).
-- `!>expr` — result cannot be **above** `expr`.
+- `!<expr` — **minimum floor**: if the roll total is **less** than the value of `expr`, it becomes that value (the total is raised to the floor).
+- `!>expr` — **maximum cap**: if the roll total is **greater** than the value of `expr`, it becomes that value (the total is lowered to the ceiling).
 
 Examples:
 
@@ -137,14 +139,18 @@ Examples: `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
 
 ### Arithmetic
 
-- `+` add
-- `-` subtract
-- `*` multiply
-- `/` divide (rounded)
-- `\` divide (floor)
-- `%` divide (ceil)
-- `^` power
+- `+` addition
+- `-` subtraction
+- `*` multiplication
+- `/` **rounded division**: `a / b` uses `Math.round(a / b)` in the implementation (nearest integer, with JavaScript’s usual `.5` behavior).
+- `\` **floor division**: `a \ b` is **⌊a ÷ b⌋** (`Math.floor(a / b)`). Use this when you want the quotient rounded **down** (toward −∞ for negatives).
+- `%` **ceil division**: `a % b` is **⌈a ÷ b⌉** (`Math.ceil(a / b)`). In this dice language **`%` is always ceil-of-quotient**, not a remainder/modulo operator.
+- `^` power (exponent is integer-clamped in the evaluator; very large exponents are capped—see [`src/dice/parser.js`](../src/dice/parser.js))
 - `( … )` parentheses
+
+**Division by zero:** any of `/`, `\`, `%` with a zero divisor yields **`0`** (safe fallback).
+
+**Final integer:** after the full expression is evaluated, the roll value is coerced to an integer using **toward-zero** rounding: negative values use `Math.ceil`, non-negative use `Math.floor` (see `clampInt` / `clampRollInt` in the parser and roller).
 
 ### Success comparators (non-stat rolls)
 

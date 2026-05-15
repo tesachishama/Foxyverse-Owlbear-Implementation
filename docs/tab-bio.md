@@ -1,5 +1,7 @@
 # Bio tab
 
+[Français (FR)](fr/tab-bio.md)
+
 Character identity and level. Data is stored in Supabase (`bio` table, linked to the active sheet).
 
 ## Who can edit
