@@ -82,12 +82,16 @@ Optional label after `|`:
 
 The **button caption** uses the label; the roll still uses `<type>` and `<formula>`.
 
-## Clamp suffixes (after the main formula)
+## Clamp suffixes (`!<` / `!>`) — floor and ceiling on the roll total
 
-Suffixes apply to the **numeric total after the main formula** is evaluated; **rightmost is stripped first** if you chain several. The bound expressions use the **same variable context** as the roll (same sheet variables, etc.).
+These tokens appear **after** the main formula. They clamp the **final numeric roll total** using a **floor** or **ceiling** in the usual math sense on that total:
 
-- `!<expr` — **minimum floor**: if the roll total is **less** than the value of `expr`, it becomes that value (the total is raised to the floor).
-- `!>expr` — **maximum cap**: if the roll total is **greater** than the value of `expr`, it becomes that value (the total is lowered to the ceiling).
+- **`!<expr`** — **floor the total at the bound**: the total cannot end up **below** the integer value of `expr`. If it would be lower, it becomes that value — same as `total = max(total, bound)`.
+- **`!>expr`** — **ceiling the total at the bound**: the total cannot end up **above** the integer value of `expr`. If it would be higher, it becomes that value — same as `total = min(total, bound)`.
+
+This is **not** the same as the `\` or `%` **operators inside the formula** (those only change how an inner division is rounded).
+
+If you chain several suffixes, **rightmost is stripped first** when parsing. Each bound expression uses the **same variable context** as the roll (same sheet variables, etc.).
 
 Examples:
 
@@ -142,15 +146,15 @@ Examples: `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
 - `+` addition
 - `-` subtraction
 - `*` multiplication
-- `/` **rounded division**: `a / b` uses `Math.round(a / b)` in the implementation (nearest integer, with JavaScript’s usual `.5` behavior).
-- `\` **floor division**: `a \ b` is **⌊a ÷ b⌋** (`Math.floor(a / b)`). Use this when you want the quotient rounded **down** (toward −∞ for negatives).
-- `%` **ceil division**: `a % b` is **⌈a ÷ b⌉** (`Math.ceil(a / b)`). In this dice language **`%` is always ceil-of-quotient**, not a remainder/modulo operator.
+- `/` division with **nearest-integer** quotient (`Math.round` in the implementation; JavaScript `.5` rules apply).
+- `\` division with quotient rounded **toward −∞** (integer division “down”; `Math.floor(a / b)` in the implementation).
+- `%` division with quotient rounded **toward +∞** (`Math.ceil(a / b)` in the implementation). **`%` is not modulo** — there is no remainder operator.
 - `^` power (exponent is integer-clamped in the evaluator; very large exponents are capped—see [`src/dice/parser.js`](../src/dice/parser.js))
 - `( … )` parentheses
 
 **Division by zero:** any of `/`, `\`, `%` with a zero divisor yields **`0`** (safe fallback).
 
-**Final integer:** after the full expression is evaluated, the roll value is coerced to an integer using **toward-zero** rounding: negative values use `Math.ceil`, non-negative use `Math.floor` (see `clampInt` / `clampRollInt` in the parser and roller).
+**Final integer:** after the full expression is evaluated, the roll value is coerced to an integer using **toward-zero** rounding (see `clampInt` / `clampRollInt` in the parser and roller). For **minimum/maximum bounds on the whole total** after the formula, use the **`!<` / `!>` clamp suffixes** above (those are an explicit **floor** / **ceiling** on the result).
 
 ### Success comparators (non-stat rolls)
 

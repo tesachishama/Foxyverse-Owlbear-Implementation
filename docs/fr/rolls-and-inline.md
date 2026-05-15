@@ -82,12 +82,16 @@ Libellé optionnel après `|` :
 
 Le **texte du bouton** utilise le libellé ; le jet utilise toujours `<type>` et `<formule>`.
 
-## Suffixes de bornage (après la formule principale)
+## Suffixes `!<` / `!>` — plancher et plafond sur le total du jet
 
-Les suffixes s’appliquent au **total numérique après** évaluation de la formule principale ; si vous en enchaînez plusieurs, le **plus à droite est retiré en premier**. Les expressions de borne utilisent le **même contexte de variables** que le jet (mêmes variables de feuille, etc.).
+Ces marqueurs viennent **après** la formule principale. Ils bornent le **total numérique final** du jet avec un **plancher** ou un **plafond** au sens mathématique habituel :
 
-- `!<expr` — **plancher minimum** : si le total du jet est **strictement inférieur** à la valeur de `expr`, il devient cette valeur (le total est relevé jusqu’au plancher).
-- `!>expr` — **plafond maximum** : si le total du jet est **strictement supérieur** à la valeur de `expr`, il devient cette valeur (le total est abaissé jusqu’au plafond).
+- **`!<expr`** — **plancher** : le total ne peut pas finir **en dessous** de la valeur entière de `expr`. S’il serait plus bas, il devient cette borne — comme `total = max(total, borne)`.
+- **`!>expr`** — **plafond** : le total ne peut pas finir **au-dessus** de la valeur entière de `expr`. S’il serait plus haut, il devient cette borne — comme `total = min(total, borne)`.
+
+Ce n’est **pas** la même chose que les opérateurs `\` ou **`%` dans la formule** (ceux-ci ne font qu’arrondir une division interne).
+
+Si vous enchaînez plusieurs suffixes, le **plus à droite est retiré en premier** à l’analyse. Chaque expression de borne utilise le **même contexte de variables** que le jet (mêmes variables de feuille, etc.).
 
 Exemples :
 
@@ -142,15 +146,15 @@ Exemples : `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
 - `+` addition
 - `-` soustraction
 - `*` multiplication
-- `/` **division arrondie** : `a / b` utilise `Math.round(a / b)` dans l’implémentation (entier le plus proche, avec le comportement JavaScript habituel pour les `.5`).
-- `\` **division plancher** : `a \ b` vaut **⌊a ÷ b⌋** (`Math.floor(a / b)`). Utilisez-la pour un quotient arrondi **vers le bas** (vers −∞ pour les négatifs).
-- `%` **division plafond** : `a % b` vaut **⌈a ÷ b⌉** (`Math.ceil(a / b)`). Dans ce langage de dés, **`%` est toujours le plafond du quotient**, et **pas** un opérateur modulo / reste.
+- `/` division avec quotient **arrondi à l’entier le plus proche** (`Math.round` dans l’implémentation ; règles JavaScript pour les `.5`).
+- `\` division avec quotient arrondi **vers −∞** (division entière « vers le bas » ; `Math.floor(a / b)` dans l’implémentation).
+- `%` division avec quotient arrondi **vers +∞** (`Math.ceil(a / b)` dans l’implémentation). **`%` n’est pas un modulo** — il n’y a pas d’opérateur de reste.
 - `^` puissance (exposant borné en entier dans l’évaluateur ; exposants très grands plafonnés — voir [`src/dice/parser.js`](../../src/dice/parser.js))
 - `( … )` parenthèses
 
 **Division par zéro :** pour `/`, `\`, `%`, un diviseur nul donne **`0`** (repli sûr).
 
-**Entier final :** après évaluation de toute l’expression, la valeur du jet est convertie en entier par arrondi **vers zéro** : valeurs négatives avec `Math.ceil`, positives ou nulles avec `Math.floor` (voir `clampInt` / `clampRollInt` dans le parseur et le roller).
+**Entier final :** après évaluation de toute l’expression, la valeur du jet est convertie en entier par arrondi **vers zéro** (voir `clampInt` / `clampRollInt` dans le parseur et le roller). Pour un **minimum ou maximum sur tout le total** après la formule, utilisez les **suffixes `!<` / `!>`** ci-dessus (**plancher** / **plafond** explicites sur le résultat).
 
 ### Comparateurs de réussite (hors jets de stat)
 

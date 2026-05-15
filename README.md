@@ -1,5 +1,7 @@
 # Foxyverse Owlbear extension
 
+[Français (FR)](README.fr.md)
+
 **Foxyverse** is a character-sheet extension for [Owlbear Rodeo](https://www.owlbear.rodeo/). Open it from the map sidebar: each player (or the GM) can attach **character sheets** that stay in sync through **Supabase** (PostgreSQL + Realtime). Tabs cover bio, stats, spells, inventory, shared chat, notes, and settings (themes, permissions, import/export).
 
 - **Fork / database / env vars:** [docs/database.md](docs/database.md) · [FR](docs/fr/database.md)  
