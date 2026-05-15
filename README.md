@@ -34,6 +34,8 @@
    This repository’s production build uses base path `/Foxyverse-Owlbear-Implementation/` (see [`vite.config.js`](vite.config.js)); a fork must change `base` to match its own hosting URL.
 2. In Owlbear Rodeo, open your room → **Extensions** (or the extensions panel for your account, depending on Owlbear version).
 3. **Add extension** and paste the **full URL to `manifest.json`**, for example:  
+   `https://<your-account>.github.io/<your-repo>/manifest.json`
+   for example:  
    `https://<your-account>.github.io/<your-repo>/manifest.json`  
    for this version it would be :
    `https://tesachishama.github.io/Foxyverse-Owlbear-Implementation/manifest.json` 
