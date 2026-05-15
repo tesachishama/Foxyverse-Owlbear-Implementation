@@ -35,9 +35,8 @@
 2. In Owlbear Rodeo, open your room → **Extensions** (or the extensions panel for your account, depending on Owlbear version).
 3. **Add extension** and paste the **full URL to `manifest.json`**, for example:  
    `https://<your-account>.github.io/<your-repo>/manifest.json`
-   
    for this version it would be:
-   `https://tesachishama.github.io/Foxyverse-Owlbear-Implementation/manifest.json` 
+   `https://tesachishama.github.io/Foxyverse-Owlbear-Implementation/manifest.json`
    If the UI asks for a “root” URL instead, use the folder that contains both `manifest.json` and `index.html`.
 
 ### Local development
