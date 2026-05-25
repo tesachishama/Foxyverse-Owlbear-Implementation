@@ -2,6 +2,39 @@
   box-sizing: border-box;
 }
 
+/* Thin scrollbars everywhere (Firefox-style), so browsers with fat default
+   scrollbars (Opera GX, default Chromium on Windows, Edge, etc.) don't crop
+   the plugin's content width. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+
+/* Chromium-based browsers: render thin overlay-ish scrollbars matching the
+   theme. We keep them subtle so they don't visually compete with content. */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 65%, transparent);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 :root {
   /* Foxyverse default palette (3 colors) */
   --bg: #4b002c;
@@ -1072,6 +1105,7 @@ input.inv-qty-pill.inv-qty-inp {
   font-size: 1.25rem !important;
 }
 .stats-add-icon { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 2.1rem; height: 2.1rem; border: none; background: transparent; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.stats-add-icon.stats-add-icon--left { right: auto; left: 0; }
 .stats-add-svg { width: 1.6rem; height: 1.6rem; display: block; }
 
 .stats-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
@@ -1407,6 +1441,10 @@ input.inv-qty-pill.inv-qty-inp {
   right: 0.15rem;
   width: 1.65rem;
   height: 1.65rem;
+}
+.stats-bubble-title-row .stats-add-icon.stats-add-icon--left {
+  right: auto;
+  left: 0.15rem;
 }
 .stats-bubble-title-row .stats-add-svg {
   width: 1.2rem;
@@ -2151,7 +2189,11 @@ input.inv-qty-pill.inv-qty-inp {
   word-break: break-word;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
+}
+
+.chat-msg > .chat-msg-bubble {
+  align-self: flex-start;
 }
 
 .chat-msg:last-child {
@@ -2159,23 +2201,8 @@ input.inv-qty-pill.inv-qty-inp {
 }
 
 /* Own messages: header and bubble aligned to the right; (player) then character name. */
-.chat-msg--own {
-  align-items: flex-end;
-}
-
-.chat-msg--own .chat-msg-header {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
-  align-items: center;
-  gap: 0.35rem;
-  width: 100%;
-}
-
 .chat-msg--own .chat-msg-header-text {
   text-align: right;
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .chat-msg-header .chat-msg-delete-btn {
@@ -2183,7 +2210,7 @@ input.inv-qty-pill.inv-qty-inp {
   flex-shrink: 0;
 }
 
-.chat-msg--own .chat-msg-bubble {
+.chat-msg--own > .chat-msg-bubble {
   align-self: flex-end;
   max-width: 100%;
 }
@@ -2206,15 +2233,18 @@ input.inv-qty-pill.inv-qty-inp {
 }
 
 .chat-msg-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
   gap: 0.35rem;
+  width: 100%;
   margin-bottom: calc(0.28rem * 2 / 3);
   line-height: 1.2;
 }
 
 .chat-msg-header-text {
+  flex: 1 1 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -2295,6 +2325,23 @@ input.inv-qty-pill.inv-qty-inp {
 .notes-view code {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Linkified URLs in chat and notes: use the UI accent color so they're
+   visible against arbitrary user-defined themes (not the default <a> blue). */
+.fv-link,
+.fv-link:link,
+.fv-link:visited {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.fv-link:hover,
+.fv-link:active,
+.fv-link:focus-visible {
+  color: var(--accent);
+  filter: brightness(1.15);
 }
 
 .chat-roll-line .chat-roll-head,

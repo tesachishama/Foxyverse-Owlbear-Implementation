@@ -71,6 +71,27 @@ Rules:
 - Favor reroll rerolls the **whole set** for multi-rolls.
 - For `pdmg` / `mdmg`, **Apply** uses defense **per roll**, not once on the total.
 
+## Hyperlinks in chat and notes
+
+In chat messages and the Notes preview, raw URLs and Markdown-style links are
+automatically turned into clickable hyperlinks.
+
+- Plain URLs: any `http://` or `https://` URL is detected and linkified.
+  Example: `https://example.com/foo` becomes a clickable link.
+- Markdown link syntax: `[label](url)` renders as a clickable link with the
+  custom label. Example: `[my page](https://example.com)`.
+
+Links open in a new tab (`target="_blank" rel="noopener noreferrer"`) and use the
+**UI accent color** (`var(--accent)`) so they stay visible against any custom
+color theme.
+
+Notes:
+
+- Links inside `[type formula]` inline roll buttons are not linkified — the
+  bracket form is reserved for rolls (see below).
+- Inline Markdown formatting (`**bold**`, `*italic*`, etc.) is applied to the
+  visible label of a link.
+
 ## Inline custom label (`|`)
 
 Optional label after `|`:

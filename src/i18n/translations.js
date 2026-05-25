@@ -303,8 +303,9 @@ export const translations = {
     importFile: "Import from file",
     resetColorsTooltip: "Reset colors",
     defaultSheetName: "Name Surname",
-    docRolls: "Rolls doc",
-    docSlots: "Slots doc",
+    documentation: "Documentation",
+    docRolls: "Rolls",
+    docSlots: "Slot syntax",
     notesFormatBold: "Bold",
     notesFormatItalic: "Italic",
     notesFormatUnderline: "Underline",
@@ -316,6 +317,7 @@ export const translations = {
     favorTransferConfirmTitle: "Transfer favor",
     favorTransferConfirmBody: "Send {{amount}} favor to {{toName}}?",
     notEnoughFavor: "Not enough favor",
+    favorTransferCapExceeded: "{{recipName}} cannot receive {{qty}} favor",
 
     /** Roll prep modal & quick-roll */
     rollQuickRollTooltip: "Shift+click : Quick Roll",
@@ -660,8 +662,9 @@ export const translations = {
     importFile: "Importer un fichier",
     resetColorsTooltip: "Réinitialiser les couleurs",
     defaultSheetName: "Prénom Nom",
-    docRolls: "Doc jets",
-    docSlots: "Doc emplacements",
+    documentation: "Documentation",
+    docRolls: "Jets",
+    docSlots: "Syntaxe de slots",
     notesFormatBold: "Gras",
     notesFormatItalic: "Italique",
     notesFormatUnderline: "Souligné",
@@ -673,6 +676,7 @@ export const translations = {
     favorTransferConfirmTitle: "Transférer des faveurs",
     favorTransferConfirmBody: "Envoyer {{amount}} faveur(s) à {{toName}} ?",
     notEnoughFavor: "Pas assez de faveurs",
+    favorTransferCapExceeded: "{{recipName}} ne peut pas recevoir {{qty}} faveur(s)",
 
     /** Jet avec talents */
     rollQuickRollTooltip: "Maj+clic : jet rapide",

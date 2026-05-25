@@ -142,6 +142,40 @@ function defaultSheetNameLabel() {
   return t("defaultSheetName");
 }
 
+const DEFAULT_SHEET_NAME_ALIASES = new Set([
+  "name surname",
+  "prénom nom",
+  "prenom nom",
+  "name",
+  "unnamed",
+  "",
+]);
+
+function isDefaultSheetName(raw) {
+  const v = String(raw || "").trim().toLowerCase();
+  return DEFAULT_SHEET_NAME_ALIASES.has(v);
+}
+
+function displayNameForSheet(sheetId) {
+  if (!sheetId) return defaultSheetNameLabel();
+  const stored = state.sheetNames?.[sheetId];
+  if (stored == null || isDefaultSheetName(stored)) return defaultSheetNameLabel();
+  return String(stored).trim();
+}
+
+const DEFAULT_ITEM_NAME_ALIASES = new Set([
+  "",
+  "item",
+  "item name",
+  "objet",
+  "nom",
+]);
+
+function isDefaultItemName(raw) {
+  const v = String(raw || "").trim().toLowerCase();
+  return DEFAULT_ITEM_NAME_ALIASES.has(v);
+}
+
 // =============================================================================
 // Global state — docs/CODEBASE.md#global-state
 // In-memory UI + domain state. Updated by loaders, mutations, and handlers; `render()` reads it.
@@ -258,6 +292,7 @@ const state = {
   favorTransferPending: null,
   _chatSending: false,
   _favorRerollInFlight: false,
+  _suppressOwnEchoUntil: 0,
 };
 
 // =============================================================================
@@ -291,9 +326,7 @@ async function loadRoomData() {
   state.sheetNames = Object.fromEntries(
     Object.entries(roomData.sheetNames || {}).map(([id, name]) => {
       const normalized = String(name || "").trim();
-      if (!normalized || normalized === "Name" || normalized === "Unnamed") {
-        return [id, defaultSheetNameLabel()];
-      }
+      if (isDefaultSheetName(normalized)) return [id, ""];
       return [id, normalized];
     })
   );
@@ -331,7 +364,7 @@ async function loadSheet(sheetId, options = {}) {
     if (state.isGM) {
       sheet = createEmptySheet(sheetId);
       storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
-      await storage.addSheetToRoom(sheetId, defaultSheetNameLabel());
+      await storage.addSheetToRoom(sheetId, "");
     } else {
       state.pendingSheetId = sheetId;
       state.sheet = null;
@@ -810,7 +843,7 @@ function getSheetTitle() {
   const surname = (state.sheet?.bio?.surname || "").trim();
   const display = [name, surname].filter(Boolean).join(" ");
   const fallbackId = state.pendingSheetId || state.activeSheetId;
-  const fallback = state.sheetNames[fallbackId] || defaultSheetNameLabel();
+  const fallback = displayNameForSheet(fallbackId);
   return escapeAttr(display || fallback);
 }
 
@@ -1047,6 +1080,9 @@ function flushInvItemStatStripSave(itemId) {
   if (!state.sheet || !state.roomId || !state.activeSheetId) return;
   const it = findItemById(state.sheet, itemId);
   if (!it) return;
+  // Suppress the realtime echo for a short window so it doesn't re-render and
+  // wipe the user's in-progress stat strip edits.
+  state._suppressOwnEchoUntil = Date.now() + 2000;
   storage.updateItemFields(state.roomId, state.activeSheetId, itemId, {
     constitution: clampInt(it.constitution ?? 0),
     strength: clampInt(it.strength ?? 0),
@@ -1102,17 +1138,14 @@ function resolvePlayerDisplayName(playerId) {
 }
 
 function resolveCharacterDisplayName(sheetId) {
-  if (!sheetId) return defaultSheetNameLabel();
-  const n = state.sheetNames?.[sheetId];
-  if (n && String(n).trim()) return String(n).trim();
-  return defaultSheetNameLabel();
+  return displayNameForSheet(sheetId);
 }
 
 function linkifyEscapedText(text) {
   let out = String(text || "");
   out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, (_, label, url) => {
     const safeUrl = escapeAttr(url);
-    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${String(label)}</a>`;
+    return `<a class="fv-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${String(label)}</a>`;
   });
   const placeholders = [];
   out = out.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (m) => {
@@ -1122,7 +1155,7 @@ function linkifyEscapedText(text) {
   });
   out = out.replace(/https?:\/\/[^\s<]+/gi, (url) => {
     const safeUrl = escapeAttr(url);
-    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`;
+    return `<a class="fv-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`;
   });
   placeholders.forEach((m, i) => {
     out = out.replace(`\x00LINK${i}\x00`, m);
@@ -1258,7 +1291,7 @@ function renderHeader() {
   const visible = getVisibleSheets();
   const menuItems = visible
     .map((id) => {
-      const name = escapeAttr(state.sheetNames[id] || defaultSheetNameLabel());
+      const name = escapeAttr(displayNameForSheet(id));
       return `<button type="button" class="sheet-menu-item ${id === (state.pendingSheetId || state.activeSheetId) ? "active" : ""}" data-sheet-id="${id}">${name}</button>`;
     })
     .join("");
@@ -2576,7 +2609,7 @@ function renderStatsTab() {
         <div class="stats-bubble">
           <div class="stats-bubble-title-row">
             <div class="stats-bubble-title">${t("favor")}</div>
-            ${editable ? `<button type="button" class="stats-add-icon" id="btn-favor-transfer" aria-label="${escapeAttr(t("transfer"))}"${dataFvTipAttr(t("transfer"))}>${inlineSvg(transferIcon, "inline-svg stats-add-svg", "var(--accent)")}</button>` : ""}
+            ${editable ? `<button type="button" class="stats-add-icon stats-add-icon--left" id="btn-favor-transfer" aria-label="${escapeAttr(t("transfer"))}"${dataFvTipAttr(t("transfer"))}>${inlineSvg(transferIcon, "inline-svg stats-add-svg", "var(--accent)")}</button>` : ""}
           </div>
           <div class="stats-2col stats-2col--even-pills">
             <div class="stats-col">
@@ -2806,10 +2839,10 @@ function renderFavorTransferModal() {
   if (!state.favorTransferOpen || !state.sheet) return "";
   const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
   const recipId = String(state.favorTransferRecipientSheetId || "") || (vis[0] || "");
-  const recipName = state.sheetNames[recipId] || defaultSheetNameLabel();
+  const recipName = displayNameForSheet(recipId);
   const qty = Math.max(1, clampInt(state.favorTransferQty || 1));
   const recipMenu = vis
-    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-favor-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || defaultSheetNameLabel())}</button>`)
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-favor-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(displayNameForSheet(id))}</button>`)
     .join("");
   const addSvg = inlineSvg(addIcon, "inline-svg inv-qty-ico", "var(--accent)");
   const remSvg = inlineSvg(removeIcon, "inline-svg inv-qty-ico", "var(--accent)");
@@ -2859,7 +2892,7 @@ function renderConsumableTransferModal() {
   const s = state.sheet;
   const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
   const recipId = String(state.consumableTransferRecipientSheetId || "") || (vis[0] || "");
-  const recipName = state.sheetNames[recipId] || defaultSheetNameLabel();
+  const recipName = displayNameForSheet(recipId);
   const sec = String(state.consumableTransferSection || "consumables");
   const items =
     sec === "weapons" ? (s.weapons || [])
@@ -2869,16 +2902,19 @@ function renderConsumableTransferModal() {
             : (s.consumables || []);
   const itemId = String(state.consumableTransferItemId || "") || (items[0]?.id ? String(items[0].id) : "");
   const item = itemId ? (items || []).find((x) => String(x.id) === itemId) : null;
-  const xferItemDisplayLabel = (raw) =>
-    String(raw || "")
+  const xferItemDisplayLabel = (raw) => {
+    const cleaned = String(raw || "")
       .replace(/\[[^\]]+\]/g, "")
-      .trim() || (t("itemName") || "Item");
-  const itemNameRaw = item?.name || (t("itemName") || "Item");
+      .trim();
+    if (!cleaned || isDefaultItemName(cleaned)) return t("itemName") || "Item";
+    return cleaned;
+  };
+  const itemNameRaw = isDefaultItemName(item?.name) ? (t("itemName") || "Item") : (item?.name || (t("itemName") || "Item"));
   const itemNameShown = xferItemDisplayLabel(itemNameRaw);
   const qty = Math.max(1, clampInt(state.consumableTransferQty || 1));
 
   const recipMenu = vis
-    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-cons-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || defaultSheetNameLabel())}</button>`)
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-cons-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(displayNameForSheet(id))}</button>`)
     .join("");
   const itemMenu = items
     .map((it) => `<button type="button" class="sheet-menu-item ${String(it.id) === itemId ? "active" : ""}" data-cons-xfer-item-pick="${escapeAttr(String(it.id))}">${escapeAttr(xferItemDisplayLabel(it.name))}</button>`)
@@ -3111,10 +3147,10 @@ function renderCurrencyModals() {
   const recipientId = String(state.currencyRecipientSheetId || "");
   const canPick = vis.filter((id) => id !== state.activeSheetId);
   const safeRecipient = recipientId && canPick.includes(recipientId) ? recipientId : (canPick[0] || "");
-  const recipientName = state.sheetNames[safeRecipient] || defaultSheetNameLabel();
+  const recipientName = displayNameForSheet(safeRecipient);
   const senderName = resolveCharacterDisplayName(state.activeSheetId);
   const menuItems = canPick
-    .map((id) => `<button type="button" class="sheet-menu-item ${id === safeRecipient ? "active" : ""}" data-currency-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || defaultSheetNameLabel())}</button>`)
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === safeRecipient ? "active" : ""}" data-currency-recipient-pick="${escapeAttr(id)}">${escapeAttr(displayNameForSheet(id))}</button>`)
     .join("");
 
   const title = mode === "transfer"
@@ -3155,7 +3191,7 @@ function renderCurrencyModals() {
 
   const confirmText = mode === "confirm" && state.currencyPendingAction ? (() => {
     const d = state.currencyPendingAction.draft || { gold: 0, silver: 0, copper: 0 };
-    const to = state.sheetNames[state.currencyPendingAction.recipientSheetId] || defaultSheetNameLabel();
+    const to = displayNameForSheet(state.currencyPendingAction.recipientSheetId);
     return `${t("confirmSending") || "Confirm sending"} ${d.gold} ${t("goldCoin") || "gold"} ${d.silver} ${t("silverCoin") || "silver"} ${d.copper} ${t("copperCoin") || "copper"} ${t("to") || "to"} ${to}`;
   })() : "";
 
@@ -3244,11 +3280,13 @@ function renderItemRemoveModal(sectionKey, items) {
   const selRaw = String(state.itemRemoveSelectedId || "");
   const selId = selRaw && list.some((it) => String(it.id) === selRaw) ? selRaw : firstId;
   const selItem = list.find((it) => String(it.id) === String(selId));
-  const title = stripInlineButtons(selItem?.name || "").trim() || (t("itemName") || "Item");
+  const titleRaw = stripInlineButtons(selItem?.name || "").trim();
+  const title = isDefaultItemName(titleRaw) ? (t("itemName") || "Item") : titleRaw;
   const menuItems = list
     .map((it) => {
       const id = String(it.id || "");
-      const name = stripInlineButtons(it.name || "").trim() || (t("itemName") || "Item");
+      const cleaned = stripInlineButtons(it.name || "").trim();
+      const name = isDefaultItemName(cleaned) ? (t("itemName") || "Item") : cleaned;
       return `<button type="button" class="sheet-menu-item spell-remove-menu-item ${id === selId ? "active" : ""}" data-item-remove-pick="${escapeAttr(id)}">${escapeAttr(name)}</button>`;
     })
     .join("");
@@ -3717,9 +3755,11 @@ function renderInventoryTab() {
     const chevron = inlineSvg(arrowIcon, "inline-svg spell-chevron-svg", "var(--text)");
     const editSvg = inlineSvg(editIcon, "inline-svg spell-edit-svg", "var(--accent)");
 
+    const editableName = isDefaultItemName(name) ? "" : name;
+    const displayName = isDefaultItemName(name) ? (t("itemName") || "Item") : (name || (t("itemName") || "Item"));
     const nameNode = editing
-      ? `<input type="text" class="spell-name spell-name-inp" value="${escapeAttr(name)}" data-inv-item-name="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemName") || "Item name")}" />`
-      : `<div class="spell-name-display inv-item-title">${renderChatBody(name || (t("itemName") || "Item"))}</div>`;
+      ? `<input type="text" class="spell-name spell-name-inp" value="${escapeAttr(editableName)}" data-inv-item-name="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemName") || "Item name")}" />`
+      : `<div class="spell-name-display inv-item-title">${renderChatBody(displayName)}</div>`;
 
     const descNode = editing
       ? `<textarea class="spell-effect-inp" rows="3" data-inv-item-desc="${escapeAttr(id)}" placeholder="${escapeAttr(t("itemDescription") || "Description")}">${escapeAttr(desc)}</textarea>`
@@ -3821,10 +3861,18 @@ function renderInventoryTab() {
         const c = canonizeSlotToken(legacyKey) || SLOT_LEGACY_TO_CANON[legacyKey] || null;
         if (c && c !== "other") occupied.add(c);
       });
+      const slotLabel = (sl) => {
+        const canon = canonizeSlotToken(sl) || SLOT_LEGACY_TO_CANON[sl] || String(sl || "").toLowerCase();
+        return slotTitle(canon);
+      };
       const choices = [
         { key: "unequipped", label: t("unequipped") || "Unequipped", slots: [] },
-        ...options.map((slots) => ({ key: slots.join("+"), label: slots.join(" + "), slots })),
-        { key: "other", label: "other", slots: ["other"] },
+        ...options.map((slots) => ({
+          key: slots.join("+"),
+          label: slots.map(slotLabel).join(" + "),
+          slots,
+        })),
+        { key: "other", label: slotTitle("other"), slots: ["other"] },
       ];
       const selectedSlots = Array.isArray(it?.usedSlots?.equippedSlots) ? it.usedSlots.equippedSlots : [];
       const selectedKey = selectedSlots.length ? selectedSlots.join("+") : "unequipped";
@@ -4505,6 +4553,7 @@ function renderSettingsTab() {
         <button type="button" id="btn-export-sheet" class="settings-pill-btn">${t("exportSheet")}</button>
         <input type="file" id="import-file-input" accept=".json" class="hidden" />
       </div>
+      <h3 class="settings-section-title">${escapeAttr(t("documentation"))}</h3>
       <div class="settings-actions settings-actions-docs">
         <a href="${escapeAttr(docLink("rolls"))}" target="_blank" rel="noopener noreferrer" class="settings-pill-btn">${escapeAttr(t("docRolls"))}</a>
         <a href="${escapeAttr(docLink("slots"))}" target="_blank" rel="noopener noreferrer" class="settings-pill-btn">${escapeAttr(t("docSlots"))}</a>
@@ -5375,9 +5424,9 @@ function bindEvents() {
     const sheet = createEmptySheet();
     state.roomId = state.roomId || await storage.getRoomId();
     storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
-    await storage.addSheetToRoom(sheet.id, defaultSheetNameLabel());
+    await storage.addSheetToRoom(sheet.id, "");
     state.sheetIds = await storage.getSheetList();
-    state.sheetNames = { ...state.sheetNames, [sheet.id]: defaultSheetNameLabel() };
+    state.sheetNames = { ...state.sheetNames, [sheet.id]: "" };
     await loadSheet(sheet.id);
     render();
   });
@@ -5461,9 +5510,10 @@ function bindEvents() {
       if (field.startsWith("bio.")) {
         const bioKey = field.replace("bio.", "");
         storage.updateBio(state.roomId, state.activeSheetId, { [bioKey]: val }).catch(console.error);
-        const displayName = [next.bio?.name || "", next.bio?.surname || ""].join(" ").trim() || defaultSheetNameLabel();
-        state.sheetNames[state.activeSheetId] = displayName;
-        storage.setSheetNameInRoom(state.activeSheetId, displayName).catch(console.error);
+        const rawDisplayName = [next.bio?.name || "", next.bio?.surname || ""].join(" ").trim();
+        const stored = isDefaultSheetName(rawDisplayName) ? "" : rawDisplayName;
+        state.sheetNames[state.activeSheetId] = stored;
+        storage.setSheetNameInRoom(state.activeSheetId, stored).catch(console.error);
       } else if (field === "currentHP" || field === "tempHP" || field === "currentMP" || field === "currentFavor" || field === "actionModifier" || field === "speedModifier" || field === "notes" || field === "isElemental") {
         storage.updateSheetCore(state.roomId, state.activeSheetId, { [field]: next[field] }).catch(console.error);
       }
@@ -5743,12 +5793,38 @@ function bindEvents() {
     state.favorTransferPending = null;
     render();
   });
-  app.querySelector("#favor-xfer-send")?.addEventListener("click", () => {
+  app.querySelector("#favor-xfer-send")?.addEventListener("click", async () => {
     if (!state.sheet) return;
     const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
     const recipId = String(state.favorTransferRecipientSheetId || "") || (vis[0] || "");
     const qty = Math.max(1, clampInt(state.favorTransferQty || 1));
     if (!recipId) return;
+    const senderCur = Math.max(0, Number(state.sheet.currentFavor) || 0);
+    if (qty > senderCur) {
+      try { OBR.notification.show(t("notEnoughFavor")); } catch (_) {}
+      return;
+    }
+    // Validate recipient capacity: refuse if it would exceed their max favor.
+    let recipSheet = null;
+    try {
+      recipSheet = await storage.getSheet(state.roomId, recipId, { forceRefresh: true });
+    } catch (err) {
+      console.error(err);
+    }
+    if (recipSheet) {
+      const maxFav = getMaxFavor(recipSheet);
+      const recipCur = Math.max(0, Number(recipSheet.currentFavor) || 0);
+      const remainingCapacity = Math.max(0, maxFav - recipCur);
+      if (qty > remainingCapacity) {
+        try {
+          const recipName = displayNameForSheet(recipId);
+          OBR.notification.show(
+            formatI18nTemplate("favorTransferCapExceeded", { recipName, qty })
+          );
+        } catch (_) {}
+        return;
+      }
+    }
     state.favorTransferPending = { recipientSheetId: recipId, qty };
     state.favorTransferMode = "confirm";
     render();
@@ -7050,7 +7126,8 @@ function bindEvents() {
       const type = sec === "weapons" ? "weapon" : sec === "armor" ? "armor" : sec === "consumables" ? "consumable" : sec === "bags" ? "bag" : "other";
       const next = applyLocalMutation((sheet) => {
         if (!sheet[sec]) sheet[sec] = [];
-        const row = { id, type, name: t("itemName") || "Item", description: "", count: 1 };
+        // Empty name = default label via t("itemName"); persists across locale changes.
+        const row = { id, type, name: "", description: "", count: 1 };
         if (sec === "weapons") row.equippableExpr = "[weapons]";
         sheet[sec].push(row);
       });
@@ -7929,9 +8006,10 @@ function bindEvents() {
       storage.saveSheetToStorage(state.roomId, imported, { persistRemote: false });
       await storage.persistSheet(state.roomId, imported);
       state.sheetIds = await storage.getSheetList();
-      const displayName = getDisplayName(imported) || defaultSheetNameLabel();
-      state.sheetNames = { ...(state.sheetNames || {}), [imported.id]: displayName };
-      await storage.setSheetNameInRoom(imported.id, displayName);
+      const rawDisplayName = getDisplayName(imported) || "";
+      const storedName = isDefaultSheetName(rawDisplayName) ? "" : rawDisplayName;
+      state.sheetNames = { ...(state.sheetNames || {}), [imported.id]: storedName };
+      await storage.setSheetNameInRoom(imported.id, storedName);
       await loadSheet(imported.id);
       render();
     } catch (err) {
@@ -7956,9 +8034,10 @@ function bindEvents() {
         });
         storage.saveSheetToStorage(state.roomId, nextSheet, { persistRemote: false });
         await storage.persistSheet(state.roomId, nextSheet);
-        const displayName = getDisplayName(nextSheet) || defaultSheetNameLabel();
-        state.sheetNames = { ...(state.sheetNames || {}), [nextSheet.id]: displayName };
-        await storage.setSheetNameInRoom(nextSheet.id, displayName);
+        const rawDisplayName = getDisplayName(nextSheet) || "";
+        const storedName = isDefaultSheetName(rawDisplayName) ? "" : rawDisplayName;
+        state.sheetNames = { ...(state.sheetNames || {}), [nextSheet.id]: storedName };
+        await storage.setSheetNameInRoom(nextSheet.id, storedName);
       }
       await loadRoomData();
       if (!state.activeSheetId && state.sheetIds.length) {
@@ -8076,7 +8155,11 @@ export async function initApp() {
 
         // For most events (bio/stat/item/spell/talent), avoid the expensive full room reload;
         // only refresh the active sheet if it was affected.
-        if (selectedSheetId && realtimeState.changedSheetIds.has(selectedSheetId)) {
+        const suppressActiveEcho =
+          selectedSheetId &&
+          realtimeState.changedSheetIds.has(selectedSheetId) &&
+          Date.now() < (state._suppressOwnEchoUntil || 0);
+        if (selectedSheetId && realtimeState.changedSheetIds.has(selectedSheetId) && !suppressActiveEcho) {
           await loadSheet(selectedSheetId, { forceRefresh: true });
           render();
         } else if (mustReloadRoom) {
@@ -8118,6 +8201,19 @@ export async function initApp() {
         scheduleRealtimeFlush();
         return;
       }
+      // A new sheet was created elsewhere (e.g. someone created or imported
+      // a sheet as a new entity, not an overwrite). Refresh the room so the
+      // sheet list and names propagate to this client.
+      if (payload?.table === "sheet" && payload?.eventType === "INSERT") {
+        realtimeState.needsRoomReload = true;
+      }
+      // Bio changes can rename a sheet (incl. via import-overwrite). Even when
+      // the changed sheet isn't the active one, we still want this client to
+      // refresh its sheet-name cache so menus/transfer lists/chat headers
+      // pick up the new display name.
+      if (payload?.table === "bio") {
+        realtimeState.needsRoomReload = true;
+      }
       const sheetId = payload?.new?.sheet_id || payload?.old?.sheet_id || payload?.new?.id || payload?.old?.id;
       if (sheetId) realtimeState.changedSheetIds.add(sheetId);
       if (payload?.table === "sheet_permissions") realtimeState.needsRoomReload = true;
@@ -8141,10 +8237,10 @@ export async function initApp() {
       let sheetNamesChanged = false;
       if (nextSheetNames && typeof nextSheetNames === "object") {
         Object.entries(nextSheetNames).forEach(([id, name]) => {
-          const n = String(name || "").trim();
-          if (!n) return;
-          if (state.sheetNames[id] !== n) {
-            state.sheetNames[id] = n;
+          const raw = String(name || "").trim();
+          const stored = isDefaultSheetName(raw) ? "" : raw;
+          if ((state.sheetNames[id] || "") !== stored) {
+            state.sheetNames[id] = stored;
             sheetNamesChanged = true;
           }
         });

@@ -71,6 +71,28 @@ Règles :
 - Un relancement par faveur refait **tout le lot** pour les multi-jets.
 - Pour `pdmg` / `mdmg`, le bouton **Appliquer** utilise la défense **par jet**, pas une seule fois sur le total.
 
+## Hyperliens dans le chat et les notes
+
+Dans les messages de chat et dans l’aperçu des Notes, les URL brutes et les
+liens au format Markdown sont automatiquement transformés en hyperliens
+cliquables.
+
+- URL brutes : toute URL `http://` ou `https://` est détectée et transformée
+  en lien. Exemple : `https://example.com/foo` devient un lien cliquable.
+- Syntaxe Markdown : `[libellé](url)` rend un lien cliquable avec un libellé
+  personnalisé. Exemple : `[ma page](https://example.com)`.
+
+Les liens s’ouvrent dans un nouvel onglet (`target="_blank" rel="noopener
+noreferrer"`) et utilisent la **couleur d’accent de l’interface**
+(`var(--accent)`), pour rester visibles avec n’importe quel thème de couleurs.
+
+Remarques :
+
+- Les liens à l’intérieur de boutons inline `[type formule]` ne sont **pas**
+  transformés — la forme entre crochets est réservée aux jets (voir plus bas).
+- Le formatage Markdown inline (`**gras**`, `*italique*`, etc.) s’applique
+  au libellé visible d’un lien.
+
 ## Libellé personnalisé des boutons inline (`|`)
 
 Libellé optionnel après `|` :
