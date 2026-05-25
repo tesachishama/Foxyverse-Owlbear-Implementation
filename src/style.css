@@ -97,7 +97,10 @@ body::-webkit-scrollbar {
 }
 
 #app {
-  padding: 0.4rem 0.45rem 0.5rem;
+  /* Slightly larger right padding (vs left) so the rightmost bubble borders
+     never sit underneath OBR's plugin-pane scrollbar / browser chrome on
+     Opera GX, Edge, etc. */
+  padding: 0.4rem 0.6rem 0.5rem 0.45rem;
   min-height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
