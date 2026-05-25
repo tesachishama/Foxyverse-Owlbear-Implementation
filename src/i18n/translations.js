@@ -664,7 +664,7 @@ export const translations = {
     defaultSheetName: "Prénom Nom",
     documentation: "Documentation",
     docRolls: "Jets",
-    docSlots: "Syntaxe de slots",
+    docSlots: "Syntaxe slots",
     notesFormatBold: "Gras",
     notesFormatItalic: "Italique",
     notesFormatUnderline: "Souligné",
