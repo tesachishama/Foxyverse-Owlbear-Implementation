@@ -48,18 +48,27 @@
 
 html {
   height: 100%;
+  margin: 0;
+  padding: 0;
+  /* Explicit so the page-level scrollbar always lives on <html> and sits
+     flush against the iframe right edge (no residual padding/margin gap). */
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {
   margin: 0;
+  padding: 0;
+  /* Body sizes to its content (min 100% of html) and overflow stays visible
+     so taller-than-viewport content spills into <html>'s scrollable area
+     (rather than creating a second scrollbar on <body>). */
   overflow-x: hidden;
+  overflow-y: visible;
   font-family: "Franklin Gothic Medium", "Franklin Gothic", "Arial Narrow", "Arial", "Helvetica", sans-serif;
   font-size: 1.25rem;
   background: var(--bg);
   color: var(--text);
   min-height: 100%;
-  height: 100%;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -84,7 +93,6 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
-  height: 100%;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
