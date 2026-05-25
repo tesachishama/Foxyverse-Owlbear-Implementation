@@ -49,6 +49,17 @@
 html {
   height: 100%;
   overflow-x: hidden;
+  /* Hide the page-level scrollbar so it doesn't reserve a gutter and crop
+     the plugin's horizontal space. The viewport itself is still scrollable
+     via the wheel / touch; inner scroll regions (chat, dropdowns, notes)
+     keep their own thin themed scrollbars. */
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 body {
@@ -61,6 +72,13 @@ body {
   min-height: 100%;
   height: 100%;
   -webkit-font-smoothing: antialiased;
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* Scope font reset to the app root so extension host / outer layout cannot fight chat line metrics. */
@@ -1084,7 +1102,10 @@ input.inv-qty-pill.inv-qty-inp {
 .stats-bubble { border: 3px solid var(--border); border-radius: 18px; padding: 0.55rem; background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .stats-bubble + .stats-bubble { margin-top: 0.55rem; }
 .stats-bubble--strip { padding-left: 0.05rem; padding-right: 0.05rem; }
-#app .stats-bubble--3sub { padding-left: 0.28rem; }
+#app .stats-bubble--3sub {
+  padding-left: 0.28rem;
+  padding-right: 0.28rem;
+}
 .stats-bubble-title {
   text-align: center;
   font-weight: 900;
@@ -1282,7 +1303,7 @@ input.inv-qty-pill.inv-qty-inp {
   margin-right: auto;
 }
 
-.stats-3sub { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.55rem; }
+.stats-3sub { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; }
 .stats-sub-title {
   text-align: center;
   font-weight: 900;
@@ -1296,13 +1317,9 @@ input.inv-qty-pill.inv-qty-inp {
   align-items: end;
 }
 
-/* French: slightly tighter Defenses spacing to avoid overflow */
+/* French: slightly tighter Defenses spacing to avoid overflow. */
 #app[data-locale="fr"] .stats-3sub .stats-sub:last-child .stats-sub-row {
   gap: 0.22rem;
-}
-
-#app[data-locale="fr"] .stats-3sub .stats-sub:last-child .stats-mini-label {
-  transform: translateX(-0.4rem);
 }
 
 /* Compact Action/Speed/Defenses block: slightly shorter pills + tighter arrows */

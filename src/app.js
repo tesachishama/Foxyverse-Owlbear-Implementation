@@ -1600,7 +1600,7 @@ function renderChatI18nLineFromPayload(payload) {
   return formatI18nTemplate(key, merged);
 }
 
-const EMPTY_CONFIRM_MODAL = { open: false, titleKey: "", bodyKey: "", bodyParams: {}, resolve: null };
+const EMPTY_CONFIRM_MODAL = { open: false, titleKey: "", bodyKey: "", bodyParams: {}, resolve: null, variant: "confirm" };
 
 function closeConfirmModal(result) {
   const snap = state._confirmModalScrollSnap;
@@ -1616,7 +1616,19 @@ function closeConfirmModal(result) {
   });
 }
 
-function openConfirmModal({ titleKey, bodyKey, bodyParams = {} }) {
+/**
+ * Open the shared in-app modal.
+ *
+ * @param {object} opts
+ * @param {string} [opts.titleKey] i18n key for the modal title.
+ * @param {string} [opts.bodyKey] i18n key for the body text (template).
+ * @param {object} [opts.bodyParams] template params for the body.
+ * @param {"confirm"|"info"} [opts.variant] - "confirm" shows OK + Cancel and
+ *   resolves to a boolean. "info" shows a single OK button and resolves to
+ *   `true`. Use info for one-shot notices (errors, validation) where the user
+ *   only needs to acknowledge.
+ */
+function openConfirmModal({ titleKey, bodyKey, bodyParams = {}, variant = "confirm" } = {}) {
   return new Promise((resolve) => {
     const appEl = typeof document !== "undefined" ? document.getElementById(ROOT_ID) : null;
     state._confirmModalScrollSnap = getScrollSnapshot(appEl);
@@ -1625,6 +1637,7 @@ function openConfirmModal({ titleKey, bodyKey, bodyParams = {} }) {
       titleKey: titleKey || "confirmModalTitle",
       bodyKey: bodyKey || "confirmDelete",
       bodyParams: bodyParams && typeof bodyParams === "object" ? bodyParams : {},
+      variant: variant === "info" ? "info" : "confirm",
       resolve,
     };
     render();
@@ -1636,14 +1649,19 @@ function renderConfirmModal() {
   const m = state.confirmModal;
   const title = t(String(m.titleKey || "confirmModalTitle"));
   const body = formatI18nTemplate(String(m.bodyKey || "confirmDelete"), m.bodyParams || {});
+  const isInfo = m.variant === "info";
+  const primaryLabel = isInfo ? t("ok") : t("confirm");
+  const cancelButton = isInfo
+    ? ""
+    : `<button type="button" id="confirm-modal-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>`;
   return `
     <div id="confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
       <div class="modal-content spell-remove-modal-content confirm-modal-content">
         <h3 id="confirm-modal-title" class="confirm-modal-title">${escapeAttr(title)}</h3>
         <p class="confirm-modal-body">${escapeAttr(body)}</p>
         <div class="roll-modal-footer confirm-modal-footer">
-          <button type="button" id="confirm-modal-ok" class="btn-sm" data-modal-primary>${escapeAttr(t("confirm"))}</button>
-          <button type="button" id="confirm-modal-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>
+          <button type="button" id="confirm-modal-ok" class="btn-sm" data-modal-primary>${escapeAttr(primaryLabel)}</button>
+          ${cancelButton}
         </div>
       </div>
     </div>
@@ -5816,12 +5834,23 @@ function bindEvents() {
       const recipCur = Math.max(0, Number(recipSheet.currentFavor) || 0);
       const remainingCapacity = Math.max(0, maxFav - recipCur);
       if (qty > remainingCapacity) {
-        try {
-          const recipName = displayNameForSheet(recipId);
-          OBR.notification.show(
-            formatI18nTemplate("favorTransferCapExceeded", { recipName, qty })
-          );
-        } catch (_) {}
+        const recipName = displayNameForSheet(recipId);
+        // In-app notice modal: explains the cap, single OK button. When the
+        // user dismisses it, we also fully close the favor transfer modal
+        // (i.e. cancel the transfer) per the design.
+        await openConfirmModal({
+          titleKey: "favorTransferCapTitle",
+          bodyKey: "favorTransferCapExceeded",
+          bodyParams: { recipName, qty },
+          variant: "info",
+        });
+        state.favorTransferOpen = false;
+        state.favorTransferMode = "draft";
+        state.favorTransferRecipientMenuOpen = false;
+        state.favorTransferRecipientSheetId = "";
+        state.favorTransferQty = 1;
+        state.favorTransferPending = null;
+        render();
         return;
       }
     }

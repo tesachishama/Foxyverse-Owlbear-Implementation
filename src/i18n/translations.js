@@ -317,7 +317,8 @@ export const translations = {
     favorTransferConfirmTitle: "Transfer favor",
     favorTransferConfirmBody: "Send {{amount}} favor to {{toName}}?",
     notEnoughFavor: "Not enough favor",
-    favorTransferCapExceeded: "{{recipName}} cannot receive {{qty}} favor",
+    favorTransferCapTitle: "Cannot transfer favor",
+    favorTransferCapExceeded: "{{recipName}} cannot receive {{qty}} favor.",
 
     /** Roll prep modal & quick-roll */
     rollQuickRollTooltip: "Shift+click : Quick Roll",
@@ -676,7 +677,8 @@ export const translations = {
     favorTransferConfirmTitle: "Transférer des faveurs",
     favorTransferConfirmBody: "Envoyer {{amount}} faveur(s) à {{toName}} ?",
     notEnoughFavor: "Pas assez de faveurs",
-    favorTransferCapExceeded: "{{recipName}} ne peut pas recevoir {{qty}} faveur(s)",
+    favorTransferCapTitle: "Transfert impossible",
+    favorTransferCapExceeded: "{{recipName}} ne peut pas recevoir {{qty}} faveur(s).",
 
     /** Jet avec talents */
     rollQuickRollTooltip: "Maj+clic : jet rapide",
