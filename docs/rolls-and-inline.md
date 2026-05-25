@@ -120,8 +120,9 @@ Formulas are case-insensitive. Whitespace is ignored.
 
 - `XdY` rolls **X** dice with **Y** faces.
 - X and Y can be expressions; without parentheses, `d` binds to the nearest atom.
+- If a **variable** is immediately followed by a dice count **without** parentheses (e.g. `cond4d6`), the parser treats the `d` before the digit as the dice operator, not part of the name: `cond` + `4d6`. Use parentheses when you need the count inside the variable: `cond(4)d6`.
 
-Examples: `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
+Examples: `2d6+3`, `1d(1d4+2)`, `(1d4)d4`, `cond4d6`.
 
 ### Arithmetic
 

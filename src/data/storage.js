@@ -754,11 +754,17 @@ export async function getRoomData() {
     listSheets(roomId),
     listPermissionsForRoom(roomId),
   ]);
+  const metaNames = (meta[ROOM_META_KEY] || {}).sheetNames || {};
   return {
     ...(meta[ROOM_META_KEY] || {}),
     sheetIds: sheets.map((sheet) => sheet.id),
     sheetNames: Object.fromEntries(
-      sheets.map((sheet) => [sheet.id, getDisplayNameFromBio(Array.isArray(sheet.bio) ? sheet.bio[0] : sheet.bio)])
+      sheets.map((sheet) => {
+        const fromBio = getDisplayNameFromBio(Array.isArray(sheet.bio) ? sheet.bio[0] : sheet.bio);
+        const override = metaNames[sheet.id];
+        const name = String(override || fromBio || "").trim();
+        return [sheet.id, name];
+      })
     ),
     permissions: normalizePermissions(permissionRows),
   };
@@ -798,8 +804,15 @@ export async function getSheetNameInRoom(sheetId) {
   return getDisplayNameFromBio(data);
 }
 
-export async function setSheetNameInRoom() {
-  return;
+export async function setSheetNameInRoom(sheetId, displayName) {
+  if (!sheetId) return;
+  const name = String(displayName || "").trim();
+  const meta = await OBR.room.getMetadata();
+  const fv = meta[ROOM_META_KEY] || {};
+  const sheetNames = { ...(fv.sheetNames || {}) };
+  if (name) sheetNames[sheetId] = name;
+  else delete sheetNames[sheetId];
+  await setRoomData({ sheetNames });
 }
 
 export async function removeSheetFromRoom(sheetId) {

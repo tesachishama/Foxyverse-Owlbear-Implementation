@@ -120,8 +120,9 @@ Formules insensibles à la casse. Les espaces sont ignorés.
 
 - `XdY` lance **X** dés à **Y** faces.
 - X et Y peuvent être des expressions ; sans parenthèses, `d` se lie à l’atome le plus proche.
+- Si une **variable** est immédiatement suivie d’un nombre de dés **sans** parenthèses (ex. `cond4d6`), le parseur interprète le `d` devant le chiffre comme l’opérateur de dés, pas comme partie du nom : `cond` + `4d6`. Utilisez des parenthèses pour mettre le nombre dans la variable : `cond(4)d6`.
 
-Exemples : `2d6+3`, `1d(1d4+2)`, `(1d4)d4`.
+Exemples : `2d6+3`, `1d(1d4+2)`, `(1d4)d4`, `cond4d6`.
 
 ### Arithmétique
 

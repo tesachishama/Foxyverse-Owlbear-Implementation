@@ -194,7 +194,7 @@ export const translations = {
     confirmImportOverwriteBody: "Replace \"{{name}}\" with the imported sheet? Unsaved changes on this sheet will be lost.",
     spellUseConfirmTitle: "Cast spell",
     spellUseConfirmMpShortfallBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder. Continue?",
-    spellUseConfirmMpShortfallDangerBody: "You have {{haveMp}} MP but this spell costs {{cost}} MP. {{needHp}} HP will be spent to cover the remainder, bringing you to {{hpAfter}} HP (below 1 HP, including 0 or negative). Continue?",
+    spellUseConfirmMpShortfallDangerBody: "You do not have enough MP for this spell and will spend HP. This will bring you to 0 HP (or below). Are you sure you want to continue?",
 
     // Inventory
     equipped: "Equipped",
@@ -302,6 +302,20 @@ export const translations = {
     importEverything: "Import everything",
     importFile: "Import from file",
     resetColorsTooltip: "Reset colors",
+    defaultSheetName: "Name Surname",
+    docRolls: "Rolls doc",
+    docSlots: "Slots doc",
+    notesFormatBold: "Bold",
+    notesFormatItalic: "Italic",
+    notesFormatUnderline: "Underline",
+    notesFormatH1: "Heading 1",
+    notesFormatH2: "Heading 2",
+    notesFormatH3: "Heading 3",
+    confirmDeleteChatMessageTitle: "Delete message",
+    confirmDeleteChatMessageBody: "Delete this chat message? This cannot be undone.",
+    favorTransferConfirmTitle: "Transfer favor",
+    favorTransferConfirmBody: "Send {{amount}} favor to {{toName}}?",
+    notEnoughFavor: "Not enough favor",
 
     /** Roll prep modal & quick-roll */
     rollQuickRollTooltip: "Shift+click : Quick Roll",
@@ -537,7 +551,7 @@ export const translations = {
     confirmImportOverwriteBody: "Remplacer « {{name}} » par la fiche importée ? Les modifications non enregistrées seront perdues.",
     spellUseConfirmTitle: "Lancer le sort",
     spellUseConfirmMpShortfallBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste. Continuer ?",
-    spellUseConfirmMpShortfallDangerBody: "Vous avez {{haveMp}} PM mais ce sort coûte {{cost}} PM. {{needHp}} PV seront dépensés pour le reste, ce qui vous mènerait à {{hpAfter}} PV (moins de 1 PV, y compris 0 ou négatif). Continuer ?",
+    spellUseConfirmMpShortfallDangerBody: "Vous n'avez pas assez de PM pour ce sort et allez dépenser des PV. Ceci va vous faire tomber à 0 PV (ou en dessous), êtes-vous sûr de vouloir continuer ?",
 
     // Inventaire
     equipped: "Équipé",
@@ -645,6 +659,20 @@ export const translations = {
     importEverything: "Tout importer",
     importFile: "Importer un fichier",
     resetColorsTooltip: "Réinitialiser les couleurs",
+    defaultSheetName: "Prénom Nom",
+    docRolls: "Doc jets",
+    docSlots: "Doc emplacements",
+    notesFormatBold: "Gras",
+    notesFormatItalic: "Italique",
+    notesFormatUnderline: "Souligné",
+    notesFormatH1: "Titre 1",
+    notesFormatH2: "Titre 2",
+    notesFormatH3: "Titre 3",
+    confirmDeleteChatMessageTitle: "Supprimer le message",
+    confirmDeleteChatMessageBody: "Supprimer ce message du chat ? Cette action est irréversible.",
+    favorTransferConfirmTitle: "Transférer des faveurs",
+    favorTransferConfirmBody: "Envoyer {{amount}} faveur(s) à {{toName}} ?",
+    notEnoughFavor: "Pas assez de faveurs",
 
     /** Jet avec talents */
     rollQuickRollTooltip: "Maj+clic : jet rapide",

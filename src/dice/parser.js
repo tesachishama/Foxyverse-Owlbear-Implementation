@@ -72,7 +72,12 @@ function tokenize(expr) {
     }
     if (isAlpha(ch)) {
       let id = "";
-      while (i < s.length && isAlpha(s[i])) id += s[i++];
+      while (i < s.length && isAlpha(s[i])) {
+        const ch2 = s[i];
+        if ((ch2 === "d" || ch2 === "D") && i + 1 < s.length && (isDigit(s[i + 1]) || s[i + 1] === "(")) break;
+        id += ch2;
+        i++;
+      }
       tokens.push({ type: "ident", value: normalizeIdent(id) });
       continue;
     }

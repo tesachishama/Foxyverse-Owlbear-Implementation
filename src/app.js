@@ -122,6 +122,26 @@ const DEFAULT_SHEET_THEME = Object.freeze({
   text: "#eba5ff",
 });
 
+const DOC_LINKS = {
+  rolls: {
+    en: "https://github.com/tesachishama/Foxyverse-Owlbear-Implementation/blob/main/docs/rolls-and-inline.md",
+    fr: "https://github.com/tesachishama/Foxyverse-Owlbear-Implementation/blob/main/docs/fr/rolls-and-inline.md",
+  },
+  slots: {
+    en: "https://github.com/tesachishama/Foxyverse-Owlbear-Implementation/blob/main/docs/equipment-slots.md",
+    fr: "https://github.com/tesachishama/Foxyverse-Owlbear-Implementation/blob/main/docs/fr/equipment-slots.md",
+  },
+};
+
+function docLink(kind) {
+  const loc = state.locale === "fr" ? "fr" : "en";
+  return DOC_LINKS[kind]?.[loc] || DOC_LINKS[kind]?.en || "#";
+}
+
+function defaultSheetNameLabel() {
+  return t("defaultSheetName");
+}
+
 // =============================================================================
 // Global state — docs/CODEBASE.md#global-state
 // In-memory UI + domain state. Updated by loaders, mutations, and handlers; `render()` reads it.
@@ -230,6 +250,14 @@ const state = {
   consumableTransferQty: 1,
   consumableTransferPending: null, // { recipientSheetId, itemId, qty }
   consumableTransferSection: "consumables", // inventory section key
+  favorTransferOpen: false,
+  favorTransferMode: "draft", // "draft" | "confirm"
+  favorTransferRecipientMenuOpen: false,
+  favorTransferRecipientSheetId: "",
+  favorTransferQty: 1,
+  favorTransferPending: null,
+  _chatSending: false,
+  _favorRerollInFlight: false,
 };
 
 // =============================================================================
@@ -264,7 +292,7 @@ async function loadRoomData() {
     Object.entries(roomData.sheetNames || {}).map(([id, name]) => {
       const normalized = String(name || "").trim();
       if (!normalized || normalized === "Name" || normalized === "Unnamed") {
-        return [id, "Name Surname"];
+        return [id, defaultSheetNameLabel()];
       }
       return [id, normalized];
     })
@@ -303,7 +331,7 @@ async function loadSheet(sheetId, options = {}) {
     if (state.isGM) {
       sheet = createEmptySheet(sheetId);
       storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
-      await storage.addSheetToRoom(sheetId, "Name Surname");
+      await storage.addSheetToRoom(sheetId, defaultSheetNameLabel());
     } else {
       state.pendingSheetId = sheetId;
       state.sheet = null;
@@ -733,23 +761,23 @@ function renderNotesBody(raw) {
       if (!trimmed) return `<div class="notes-line notes-line--empty">&nbsp;</div>`;
       if (/^\\---+$/.test(trimmed)) {
         // Escaped separator line, show as raw text.
-        const text = applyInlineMdFormatting(escapeAttr(trimmed.slice(1)));
+        const text = linkifyEscapedText(applyInlineMdFormatting(escapeAttr(trimmed.slice(1))));
         return `<div class="notes-line">${text}</div>`;
       }
       if (/^---+$/.test(trimmed)) return `<hr class="notes-hr" />`;
       const m = /^(#{1,3})\s+(.*)$/.exec(trimmed);
       if (m) {
         const level = m[1].length;
-        const text = applyInlineMdFormatting(escapeAttr(m[2] || ""));
+        const text = linkifyEscapedText(applyInlineMdFormatting(escapeAttr(m[2] || "")));
         return `<div class="notes-line notes-h notes-h${level}">${text}</div>`;
       }
       // Escaped headings: \# Title should show as "# Title"
       const escHead = /^\\(#{1,3}\s+.*)$/.exec(trimmed);
       if (escHead) {
-        const text = applyInlineMdFormatting(escapeAttr(escHead[1]));
+        const text = linkifyEscapedText(applyInlineMdFormatting(escapeAttr(escHead[1])));
         return `<div class="notes-line">${text}</div>`;
       }
-      const text = applyInlineMdFormatting(escapeAttr(trimmed));
+      const text = linkifyEscapedText(applyInlineMdFormatting(escapeAttr(trimmed)));
       return `<div class="notes-line">${text}</div>`;
     })
     .join("");
@@ -782,7 +810,7 @@ function getSheetTitle() {
   const surname = (state.sheet?.bio?.surname || "").trim();
   const display = [name, surname].filter(Boolean).join(" ");
   const fallbackId = state.pendingSheetId || state.activeSheetId;
-  const fallback = state.sheetNames[fallbackId] || "Name Surname";
+  const fallback = state.sheetNames[fallbackId] || defaultSheetNameLabel();
   return escapeAttr(display || fallback);
 }
 
@@ -991,6 +1019,76 @@ function finalizeSpellEditIfOpen() {
   state._spellEditDraft = null;
 }
 
+function finalizeItemEditIfOpen() {
+  if (!state._editingItemId || !state._itemEditDraft || !state.sheet) return;
+  const id = String(state._editingItemId);
+  const draft = state._itemEditDraft;
+  if (String(draft.id) !== id) return;
+  const next = applyLocalMutation((sheet) => {
+    const it = findItemById(sheet, id);
+    if (!it) return;
+    it.name = draft.name || "";
+    it.description = draft.description || "";
+  });
+  if (state.roomId && state.activeSheetId && next) {
+    const it = findItemById(next, id);
+    if (it) {
+      storage.updateItemFields(state.roomId, state.activeSheetId, id, {
+        name: it.name || "",
+        description: it.description || "",
+      }).catch(console.error);
+    }
+  }
+  state._editingItemId = null;
+  state._itemEditDraft = null;
+}
+
+function flushInvItemStatStripSave(itemId) {
+  if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+  const it = findItemById(state.sheet, itemId);
+  if (!it) return;
+  storage.updateItemFields(state.roomId, state.activeSheetId, itemId, {
+    constitution: clampInt(it.constitution ?? 0),
+    strength: clampInt(it.strength ?? 0),
+    intelligence: clampInt(it.intelligence ?? 0),
+    perception: clampInt(it.perception ?? 0),
+    social: clampInt(it.social ?? 0),
+    agility: clampInt(it.agility ?? 0),
+    focus: clampInt(it.focus ?? 0),
+    weapon_slots: clampInt(it.weaponSlots ?? 0),
+    physical_defense: clampInt(it.defense ?? 0),
+    magical_defense: clampInt(it.magicalDefense ?? 0),
+  }).catch(console.error);
+}
+
+function patchInvItemStatField(itemId, field, value, wrap) {
+  const nxt = clampIntForStepperWrap(value, wrap);
+  applyLocalMutation((sheet) => {
+    const it = findItemById(sheet, itemId);
+    if (!it) return;
+    if (field === "physical_defense") it.defense = nxt;
+    else if (field === "magical_defense") it.magicalDefense = nxt;
+    else it[field] = nxt;
+  });
+  return nxt;
+}
+
+function syncInvItemStatInputDom(key, value) {
+  const root = document.getElementById(ROOT_ID);
+  const inp = root?.querySelector(`[data-inv-item-stat-input="${CSS.escape(key)}"]`);
+  if (inp) inp.value = String(clampInt(value));
+}
+
+function syncTalentDraftFromModalInputs() {
+  if (!state.talentDraft) return;
+  const nameEl = document.getElementById("talent-name-inp");
+  const descEl = document.getElementById("talent-desc-inp");
+  const ovEl = document.getElementById("talent-override-inp");
+  if (nameEl) state.talentDraft.name = nameEl.value;
+  if (descEl) state.talentDraft.description = descEl.value;
+  if (ovEl) state.talentDraft.bonusOverride = String(ovEl.value || "").trim() || null;
+}
+
 // =============================================================================
 // Chat rows & display names — docs/CODEBASE.md#chat-persistence-and-realtime
 // =============================================================================
@@ -1004,10 +1102,32 @@ function resolvePlayerDisplayName(playerId) {
 }
 
 function resolveCharacterDisplayName(sheetId) {
-  if (!sheetId) return "Name Surname";
+  if (!sheetId) return defaultSheetNameLabel();
   const n = state.sheetNames?.[sheetId];
   if (n && String(n).trim()) return String(n).trim();
-  return "Name Surname";
+  return defaultSheetNameLabel();
+}
+
+function linkifyEscapedText(text) {
+  let out = String(text || "");
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, (_, label, url) => {
+    const safeUrl = escapeAttr(url);
+    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${String(label)}</a>`;
+  });
+  const placeholders = [];
+  out = out.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (m) => {
+    const i = placeholders.length;
+    placeholders.push(m);
+    return `\x00LINK${i}\x00`;
+  });
+  out = out.replace(/https?:\/\/[^\s<]+/gi, (url) => {
+    const safeUrl = escapeAttr(url);
+    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`;
+  });
+  placeholders.forEach((m, i) => {
+    out = out.replace(`\x00LINK${i}\x00`, m);
+  });
+  return out;
 }
 
 function mapChatRow(row) {
@@ -1138,7 +1258,7 @@ function renderHeader() {
   const visible = getVisibleSheets();
   const menuItems = visible
     .map((id) => {
-      const name = escapeAttr(state.sheetNames[id] || "Name Surname");
+      const name = escapeAttr(state.sheetNames[id] || defaultSheetNameLabel());
       return `<button type="button" class="sheet-menu-item ${id === (state.pendingSheetId || state.activeSheetId) ? "active" : ""}" data-sheet-id="${id}">${name}</button>`;
     })
     .join("");
@@ -1489,7 +1609,7 @@ function renderConfirmModal() {
         <h3 id="confirm-modal-title" class="confirm-modal-title">${escapeAttr(title)}</h3>
         <p class="confirm-modal-body">${escapeAttr(body)}</p>
         <div class="roll-modal-footer confirm-modal-footer">
-          <button type="button" id="confirm-modal-ok" class="btn-sm">${escapeAttr(t("confirm"))}</button>
+          <button type="button" id="confirm-modal-ok" class="btn-sm" data-modal-primary>${escapeAttr(t("confirm"))}</button>
           <button type="button" id="confirm-modal-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>
         </div>
       </div>
@@ -1552,6 +1672,17 @@ function installGlobalEscapeModalCloserOnce() {
         render();
         return;
       }
+      if (state.favorTransferOpen) {
+        e.preventDefault();
+        state.favorTransferOpen = false;
+        state.favorTransferMode = "draft";
+        state.favorTransferRecipientMenuOpen = false;
+        state.favorTransferRecipientSheetId = "";
+        state.favorTransferQty = 1;
+        state.favorTransferPending = null;
+        render();
+        return;
+      }
       if (state.currencyModalOpen) {
         e.preventDefault();
         state.currencyModalOpen = false;
@@ -1583,6 +1714,37 @@ function installGlobalEscapeModalCloserOnce() {
         e.preventDefault();
         statModal.classList.add("hidden");
         return;
+      }
+    },
+    { capture: true }
+  );
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+      const ae = document.activeElement;
+      if (ae && ae.tagName === "TEXTAREA") return;
+      const root = document.getElementById(ROOT_ID);
+      if (!root) return;
+      const modals = [
+        "#confirm-modal",
+        "#talent-modal",
+        "#currency-modal",
+        "#consumable-transfer-modal",
+        "#favor-transfer-modal",
+        "#spell-remove-modal",
+        "#item-remove-modal",
+        "#roll-prep-modal",
+      ];
+      for (const sel of modals) {
+        const modal = root.querySelector(sel);
+        if (!modal || modal.classList.contains("hidden")) continue;
+        const btn = modal.querySelector("[data-modal-primary]");
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          btn.click();
+          return;
+        }
       }
     },
     { capture: true }
@@ -2180,6 +2342,8 @@ function renderStatsTab() {
         : legacyTalentOverrideFromDescription(tl.description || "");
       const bonusTipAttr = rawOverride && rawOverride.length > 3 ? dataFvTipAttr(rawOverride) : "";
       const bonusClass = rawOverride && rawOverride.length > 3 ? "talent-bonus talent-bonus--custom" : "talent-bonus";
+      const descTip = talentDescForTooltip(tl);
+      const nameTipAttr = descTip ? dataFvTipAttr(descTip) : "";
       const isItemBound = !!tl.__itemId;
       const itemMarker = isItemBound
         ? `<div class="talent-item-marker"${dataFvTipAttr(tl.__itemName || "")}>${inlineSvg(tl.__itemSection === "armor" ? chestSlotIcon : weaponIcon, "inline-svg talent-item-marker-svg", "var(--text)")}</div>`
@@ -2191,7 +2355,7 @@ function renderStatsTab() {
       return `
         <div class="${pillClass}" data-talent-id="${escapeAttr(talentIdStr)}"${itemAttr}>
           ${itemMarker}
-          <div class="talent-name">${escapeAttr(nameDisplay)}</div>
+          <div class="talent-name"${nameTipAttr}>${escapeAttr(nameDisplay)}</div>
           <div class="talent-tier">${escapeAttr(tierLbl)}</div>
           <div class="${bonusClass}"${bonusTipAttr}>${bonusLbl.startsWith("+") || bonusLbl.startsWith("-") ? bonusLbl : escapeAttr(bonusLbl)}</div>
           ${editable ? `<button type="button" class="talent-edit-btn" data-talent-edit="${escapeAttr(talentIdStr)}"${itemAttr} aria-label="${escapeAttr(t("edit"))}"${dataFvTipAttr(t("edit"))}>${inlineSvg(editIcon, "inline-svg talent-edit-svg", "var(--text)")}</button>` : ""}
@@ -2410,7 +2574,10 @@ function renderStatsTab() {
           </div>
         </div>
         <div class="stats-bubble">
-          <div class="stats-bubble-title">${t("favor")}</div>
+          <div class="stats-bubble-title-row">
+            <div class="stats-bubble-title">${t("favor")}</div>
+            ${editable ? `<button type="button" class="stats-add-icon" id="btn-favor-transfer" aria-label="${escapeAttr(t("transfer"))}"${dataFvTipAttr(t("transfer"))}>${inlineSvg(transferIcon, "inline-svg stats-add-svg", "var(--accent)")}</button>` : ""}
+          </div>
           <div class="stats-2col stats-2col--even-pills">
             <div class="stats-col">
               <div class="stats-col-label">${t("labelMaximum")}</div>
@@ -2581,7 +2748,7 @@ function renderRollPrepModal() {
           </div>
         </div>
         <div class="roll-modal-footer roll-prep-footer">
-          <button type="button" id="roll-prep-do-roll" class="btn-sm">${escapeAttr(t("roll"))}</button>
+          <button type="button" id="roll-prep-do-roll" class="btn-sm" data-modal-primary>${escapeAttr(t("roll"))}</button>
           <button type="button" id="roll-prep-cancel" class="btn-sm">${escapeAttr(t("cancel"))}</button>
         </div>
       </div>
@@ -2618,6 +2785,7 @@ function renderRollModals() {
     ${renderCurrencyModals()}
     ${renderActiveItemRemoveModal()}
     ${renderConsumableTransferModal()}
+    ${renderFavorTransferModal()}
     ${renderConfirmModal()}
   `;
 }
@@ -2634,12 +2802,64 @@ function renderActiveItemRemoveModal() {
   return renderItemRemoveModal(key, items);
 }
 
+function renderFavorTransferModal() {
+  if (!state.favorTransferOpen || !state.sheet) return "";
+  const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+  const recipId = String(state.favorTransferRecipientSheetId || "") || (vis[0] || "");
+  const recipName = state.sheetNames[recipId] || defaultSheetNameLabel();
+  const qty = Math.max(1, clampInt(state.favorTransferQty || 1));
+  const recipMenu = vis
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-favor-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || defaultSheetNameLabel())}</button>`)
+    .join("");
+  const addSvg = inlineSvg(addIcon, "inline-svg inv-qty-ico", "var(--accent)");
+  const remSvg = inlineSvg(removeIcon, "inline-svg inv-qty-ico", "var(--accent)");
+  const pickerRow = `
+    <div class="inv-transfer-xfer-body">
+      <label class="label">${escapeAttr(t("recipient") || "Recipient")}</label>
+      <div class="sheet-picker inv-currency-recipient-picker">
+        <div class="sheet-title">${escapeAttr(recipName)}</div>
+        <button type="button" id="btn-favor-xfer-recipient-menu" class="header-icon-btn sheet-arrow-btn ${state.favorTransferRecipientMenuOpen ? "open" : ""}" aria-label="${escapeAttr(t("selectSheet") || "Select sheet")}">
+          ${inlineSvg(arrowIcon, "inline-svg header-icon-svg", "var(--text)")}
+        </button>
+        ${state.favorTransferRecipientMenuOpen ? `<div class="sheet-menu">${recipMenu}</div>` : ""}
+      </div>
+      <label class="label" style="margin-top:0.35rem">${escapeAttr(t("favor") || "Favor")}</label>
+      <div class="inv-cons-xfer-qty inv-qty-counter">
+        <button type="button" class="inv-qty-btn" id="favor-xfer-qty-minus" aria-label="${escapeAttr(t("remove"))}">${remSvg}</button>
+        <div class="inv-qty-pill inv-qty-pill--readout" id="favor-xfer-qty-val">${escapeAttr(String(qty))}</div>
+        <button type="button" class="inv-qty-btn" id="favor-xfer-qty-plus" aria-label="${escapeAttr(t("add"))}">${addSvg}</button>
+      </div>
+    </div>
+  `;
+  const confirmText = state.favorTransferMode === "confirm" && state.favorTransferPending
+    ? formatI18nTemplate(t("favorTransferConfirmBody"), {
+        amount: qty,
+        toName: recipName,
+      })
+    : "";
+  return `
+    <div id="favor-transfer-modal" class="modal">
+      <div class="modal-content inv-currency-modal-content">
+        <h3>${escapeAttr(t("favorTransferConfirmTitle") || t("transfer"))}</h3>
+        ${state.favorTransferMode === "confirm" ? `<p class="inv-currency-confirm-text">${escapeAttr(confirmText)}</p>` : pickerRow}
+        <div class="roll-modal-footer">
+          ${state.favorTransferMode === "confirm"
+            ? `<button type="button" id="favor-xfer-confirm" class="btn-sm" data-modal-primary>${t("confirm") || "Confirm"}</button>`
+            : `<button type="button" id="favor-xfer-send" class="btn-sm" data-modal-primary>${t("send") || "Send"}</button>`
+          }
+          <button type="button" id="favor-xfer-cancel" class="btn-sm">${t("cancel")}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderConsumableTransferModal() {
   if (!state.consumableTransferOpen || !state.sheet) return "";
   const s = state.sheet;
   const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
   const recipId = String(state.consumableTransferRecipientSheetId || "") || (vis[0] || "");
-  const recipName = state.sheetNames[recipId] || "Name Surname";
+  const recipName = state.sheetNames[recipId] || defaultSheetNameLabel();
   const sec = String(state.consumableTransferSection || "consumables");
   const items =
     sec === "weapons" ? (s.weapons || [])
@@ -2658,7 +2878,7 @@ function renderConsumableTransferModal() {
   const qty = Math.max(1, clampInt(state.consumableTransferQty || 1));
 
   const recipMenu = vis
-    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-cons-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || "Name Surname")}</button>`)
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === recipId ? "active" : ""}" data-cons-xfer-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || defaultSheetNameLabel())}</button>`)
     .join("");
   const itemMenu = items
     .map((it) => `<button type="button" class="sheet-menu-item ${String(it.id) === itemId ? "active" : ""}" data-cons-xfer-item-pick="${escapeAttr(String(it.id))}">${escapeAttr(xferItemDisplayLabel(it.name))}</button>`)
@@ -2706,8 +2926,8 @@ function renderConsumableTransferModal() {
         ${state.consumableTransferMode === "confirm" ? `<p class="inv-currency-confirm-text">${escapeAttr(confirmText)}</p>` : pickerRow}
         <div class="roll-modal-footer">
           ${state.consumableTransferMode === "confirm"
-            ? `<button type="button" id="cons-xfer-confirm" class="btn-sm">${t("confirm") || "Confirm"}</button>`
-            : `<button type="button" id="cons-xfer-send" class="btn-sm">${t("send") || "Send"}</button>`
+            ? `<button type="button" id="cons-xfer-confirm" class="btn-sm" data-modal-primary>${t("confirm") || "Confirm"}</button>`
+            : `<button type="button" id="cons-xfer-send" class="btn-sm" data-modal-primary>${t("send") || "Send"}</button>`
           }
           <button type="button" id="cons-xfer-cancel" class="btn-sm">${t("cancel")}</button>
         </div>
@@ -2891,10 +3111,10 @@ function renderCurrencyModals() {
   const recipientId = String(state.currencyRecipientSheetId || "");
   const canPick = vis.filter((id) => id !== state.activeSheetId);
   const safeRecipient = recipientId && canPick.includes(recipientId) ? recipientId : (canPick[0] || "");
-  const recipientName = state.sheetNames[safeRecipient] || "Name Surname";
+  const recipientName = state.sheetNames[safeRecipient] || defaultSheetNameLabel();
   const senderName = resolveCharacterDisplayName(state.activeSheetId);
   const menuItems = canPick
-    .map((id) => `<button type="button" class="sheet-menu-item ${id === safeRecipient ? "active" : ""}" data-currency-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || "Name Surname")}</button>`)
+    .map((id) => `<button type="button" class="sheet-menu-item ${id === safeRecipient ? "active" : ""}" data-currency-recipient-pick="${escapeAttr(id)}">${escapeAttr(state.sheetNames[id] || defaultSheetNameLabel())}</button>`)
     .join("");
 
   const title = mode === "transfer"
@@ -2935,14 +3155,14 @@ function renderCurrencyModals() {
 
   const confirmText = mode === "confirm" && state.currencyPendingAction ? (() => {
     const d = state.currencyPendingAction.draft || { gold: 0, silver: 0, copper: 0 };
-    const to = state.sheetNames[state.currencyPendingAction.recipientSheetId] || "Name Surname";
+    const to = state.sheetNames[state.currencyPendingAction.recipientSheetId] || defaultSheetNameLabel();
     return `${t("confirmSending") || "Confirm sending"} ${d.gold} ${t("goldCoin") || "gold"} ${d.silver} ${t("silverCoin") || "silver"} ${d.copper} ${t("copperCoin") || "copper"} ${t("to") || "to"} ${to}`;
   })() : "";
 
   const footer = mode === "confirm"
     ? `
       <div class="roll-modal-footer">
-        <button type="button" id="currency-confirm-send" class="btn-sm">${t("confirm") || "Confirm"}</button>
+        <button type="button" id="currency-confirm-send" class="btn-sm" data-modal-primary>${t("confirm") || "Confirm"}</button>
         <button type="button" id="currency-cancel" class="btn-sm">${t("cancel")}</button>
       </div>
     `
@@ -2950,7 +3170,7 @@ function renderCurrencyModals() {
       <div class="roll-modal-footer">
         ${mode === "add" || mode === "remove" ? `<button type="button" id="currency-simplify" class="btn-sm">${t("simplify") || "Simplify"}</button>` : ""}
         <button type="button" id="currency-cancel" class="btn-sm">${t("cancel")}</button>
-        <button type="button" id="currency-save" class="btn-sm">${
+        <button type="button" id="currency-save" class="btn-sm"${mode === "add" || mode === "remove" ? " data-modal-primary" : ""}>${
           mode === "transfer"
             ? (t("send") || "Send")
             : mode === "add"
@@ -3009,7 +3229,7 @@ function renderSpellRemoveModal(spells) {
           ${state.spellRemoveMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
         </div>
         <div class="roll-modal-footer">
-          <button type="button" id="spell-remove-confirm" class="btn-sm">${t("remove")}</button>
+          <button type="button" id="spell-remove-confirm" class="btn-sm" data-modal-primary>${t("remove")}</button>
           <button type="button" id="spell-remove-cancel" class="btn-sm">${t("cancel")}</button>
         </div>
       </div>
@@ -3045,7 +3265,7 @@ function renderItemRemoveModal(sectionKey, items) {
           ${state.itemRemoveMenuOpen ? `<div class="sheet-menu">${menuItems}</div>` : ""}
         </div>
         <div class="roll-modal-footer">
-          <button type="button" id="item-remove-confirm" class="btn-sm" data-item-remove-section="${escapeAttr(sectionKey)}">${t("remove")}</button>
+          <button type="button" id="item-remove-confirm" class="btn-sm" data-modal-primary data-item-remove-section="${escapeAttr(sectionKey)}">${t("remove")}</button>
           <button type="button" id="item-remove-cancel" class="btn-sm">${t("cancel")}</button>
         </div>
       </div>
@@ -3087,7 +3307,7 @@ function renderTalentModal() {
           <button type="button" id="talent-delete" class="btn-sm">${t("remove")}</button>
           <div class="talent-modal-actions">
             <button type="button" id="talent-cancel" class="btn-sm">${t("cancel")}</button>
-            <button type="button" id="talent-save" class="btn-sm">${t("save") || "Save"}</button>
+            <button type="button" id="talent-save" class="btn-sm" data-modal-primary>${t("save") || "Save"}</button>
           </div>
         </div>
       </div>
@@ -3435,9 +3655,10 @@ function renderInventoryTab() {
 
   // Currency block (layout; modals + logic in later todos)
   const cur = s.currency || { gold: 0, silver: 0, copper: 0 };
-  const transferBtn = iconBtn("btn-currency-transfer", transferIcon, "var(--accent)", t("transfer") || "Transfer");
-  const addBtn = iconBtn("btn-currency-add", addIcon, "var(--accent)", t("add") || "Add");
-  const removeBtn = iconBtn("btn-currency-remove", removeIcon, "var(--accent)", t("remove") || "Remove");
+  const canCurEdit = editable;
+  const transferBtn = canCurEdit ? iconBtn("btn-currency-transfer", transferIcon, "var(--accent)", t("transfer") || "Transfer") : "";
+  const addBtn = canCurEdit ? iconBtn("btn-currency-add", addIcon, "var(--accent)", t("add") || "Add") : "";
+  const removeBtn = canCurEdit ? iconBtn("btn-currency-remove", removeIcon, "var(--accent)", t("remove") || "Remove") : "";
   const currencyTitle = invBubbleTitleRow(
     t("currency") || "Currency",
     `<div class="inv-title-icon-row">${transferBtn}</div>`,
@@ -3447,22 +3668,24 @@ function renderInventoryTab() {
     <div class="inv-currency-row">
       <div class="inv-currency-col">
         <div class="stats-col-label">${coinLabelHtml(t("goldCoin") || "Gold Coin")}</div>
-        ${renderCoinCounter("gold", cur.gold ?? 0, { scope: "sheet" })}
+        ${renderCoinCounter("gold", cur.gold ?? 0, { scope: "sheet", disabled: !canCurEdit })}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${coinLabelHtml(t("silverCoin") || "Silver Coin")}</div>
-        ${renderCoinCounter("silver", cur.silver ?? 0, { scope: "sheet" })}
+        ${renderCoinCounter("silver", cur.silver ?? 0, { scope: "sheet", disabled: !canCurEdit })}
       </div>
       <div class="inv-currency-col">
         <div class="stats-col-label">${coinLabelHtml(t("copperCoin") || "Copper Coin")}</div>
-        ${renderCoinCounter("copper", cur.copper ?? 0, { scope: "sheet" })}
+        ${renderCoinCounter("copper", cur.copper ?? 0, { scope: "sheet", disabled: !canCurEdit })}
       </div>
     </div>
   `;
   const currencyBlock = `<div id="inv-currency-block">${bubble(`${currencyTitle}${currencyBody}`, "inv-bubble--currency")}</div>`;
 
   const sectionHeader = (key, title, { allowTransfer = false } = {}) => {
-    const left = allowTransfer ? `<div class="inv-title-icon-row">${iconBtn(`btn-${key}-transfer`, transferIcon, "var(--accent)", t("transfer") || "Transfer")}</div>` : "";
+    const left = allowTransfer && editable
+      ? `<div class="inv-title-icon-row">${iconBtn(`btn-${key}-transfer`, transferIcon, "var(--accent)", t("transfer") || "Transfer")}</div>`
+      : "";
     const right = editable
       ? `<div class="inv-title-icon-row">${iconBtn(`btn-${key}-add`, addIcon, "var(--accent)", t("add") || "Add")}${iconBtn(`btn-${key}-remove`, removeIcon, "var(--accent)", t("remove") || "Remove")}</div>`
       : "";
@@ -3516,8 +3739,12 @@ function renderInventoryTab() {
       const up = inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)");
       const down = inlineSvg(arrowIcon, "inline-svg bio-level-arrow-icon", "var(--text)");
       if (editing) {
+        const isDefense = field === "physical_defense" || field === "magical_defense";
+        const wrapAttrs = isDefense
+          ? ` data-inv-item-stat-wrap="${escapeAttr(k)}" data-min="0" data-allow-negative="0"`
+          : ` data-inv-item-stat-wrap="${escapeAttr(k)}" data-allow-negative="1"`;
         return `
-        <div class="stats-pill-stepper inv-item-stat-stepper inv-item-stat-stepper--edit" data-inv-item-stat-wrap="${escapeAttr(k)}" data-allow-negative="1">
+        <div class="stats-pill-stepper inv-item-stat-stepper inv-item-stat-stepper--edit"${wrapAttrs}>
           <input type="text" class="stats-pill-input" inputmode="numeric" data-inv-item-stat-input="${escapeAttr(k)}" value="${escapeAttr(unsignedInput)}"${ro} spellcheck="false" aria-label="${escapeAttr(field)}" />
           <div class="stats-pill-arrows">
             <button type="button" class="stats-pill-arrow stats-pill-arrow-up" data-inv-item-stat-delta="${escapeAttr(k)}" data-delta="1"${dis} aria-label="${escapeAttr(t("add"))}">${up}</button>
@@ -3760,7 +3987,7 @@ function renderChatTab() {
       <div class="chat-input-row">
         <div class="chat-input-pill">
           <textarea id="chat-input" rows="1" placeholder="${t("chatWritePlaceholder")}" autocomplete="off"></textarea>
-          <button type="button" id="chat-send" class="chat-send-btn" aria-label="${t("send")}">${sendIcon}</button>
+          <button type="button" id="chat-send" class="chat-send-btn" aria-label="${t("send")}"${state._chatSending ? " disabled" : ""}>${sendIcon}</button>
         </div>
       </div>
     </div>
@@ -3873,7 +4100,7 @@ function renderChatBody(body) {
     }
   }
   const buttons = getInlineButtons(body);
-  let text = escapeAttr(body);
+  let text = linkifyEscapedText(escapeAttr(body));
   buttons.forEach((btn) => {
     const stat = (btn.stat || "").toString();
     const formula = (btn.formula || "").toString();
@@ -4179,15 +4406,15 @@ function renderNotesTab() {
     : "";
   const toolbar = editable && state.notesEditMode
     ? `<div class="notes-toolbar" role="toolbar" aria-label="${escapeAttr(t("formatting"))}">
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="bold"><strong>B</strong></button>
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="italic"><em>I</em></button>
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="underline"><u>U</u></button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="bold"${dataFvTipAttr(t("notesFormatBold"))} aria-label="${escapeAttr(t("notesFormatBold"))}"><strong>B</strong></button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="italic"${dataFvTipAttr(t("notesFormatItalic"))} aria-label="${escapeAttr(t("notesFormatItalic"))}"><em>I</em></button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="underline"${dataFvTipAttr(t("notesFormatUnderline"))} aria-label="${escapeAttr(t("notesFormatUnderline"))}"><u>U</u></button>
         <span class="notes-tbar-sep" aria-hidden="true"></span>
         <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="hr"${dataFvTipAttr(t("separator"))} aria-label="${escapeAttr(t("separator"))}">─</button>
         <span class="notes-tbar-sep" aria-hidden="true"></span>
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h1">H1</button>
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h2">H2</button>
-        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h3">H3</button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h1"${dataFvTipAttr(t("notesFormatH1"))} aria-label="${escapeAttr(t("notesFormatH1"))}">H1</button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h2"${dataFvTipAttr(t("notesFormatH2"))} aria-label="${escapeAttr(t("notesFormatH2"))}">H2</button>
+        <button type="button" class="notes-tbar-btn btn-sm" data-notes-format="h3"${dataFvTipAttr(t("notesFormatH3"))} aria-label="${escapeAttr(t("notesFormatH3"))}">H3</button>
       </div>`
     : "";
   return `
@@ -4277,6 +4504,10 @@ function renderSettingsTab() {
         <button type="button" id="btn-import-sheet" class="settings-pill-btn">${t("importSheet")}</button>
         <button type="button" id="btn-export-sheet" class="settings-pill-btn">${t("exportSheet")}</button>
         <input type="file" id="import-file-input" accept=".json" class="hidden" />
+      </div>
+      <div class="settings-actions settings-actions-docs">
+        <a href="${escapeAttr(docLink("rolls"))}" target="_blank" rel="noopener noreferrer" class="settings-pill-btn">${escapeAttr(t("docRolls"))}</a>
+        <a href="${escapeAttr(docLink("slots"))}" target="_blank" rel="noopener noreferrer" class="settings-pill-btn">${escapeAttr(t("docSlots"))}</a>
       </div>
       ${permsSection}
       ${state.isGM ? `
@@ -5131,6 +5362,7 @@ function bindEvents() {
     btn.addEventListener("click", async () => {
       finalizeNotesEditIfOpen();
       finalizeSpellEditIfOpen();
+      finalizeItemEditIfOpen();
       state.sheetMenuOpen = false;
       state.spellRemoveModalOpen = false;
       state.spellRemoveMenuOpen = false;
@@ -5143,9 +5375,9 @@ function bindEvents() {
     const sheet = createEmptySheet();
     state.roomId = state.roomId || await storage.getRoomId();
     storage.saveSheetToStorage(state.roomId, sheet, { persistRemote: false });
-    await storage.addSheetToRoom(sheet.id, "Name Surname");
+    await storage.addSheetToRoom(sheet.id, defaultSheetNameLabel());
     state.sheetIds = await storage.getSheetList();
-    state.sheetNames = { ...state.sheetNames, [sheet.id]: "Name Surname" };
+    state.sheetNames = { ...state.sheetNames, [sheet.id]: defaultSheetNameLabel() };
     await loadSheet(sheet.id);
     render();
   });
@@ -5203,6 +5435,7 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       finalizeNotesEditIfOpen();
       finalizeSpellEditIfOpen();
+      finalizeItemEditIfOpen();
       state.spellRemoveModalOpen = false;
       state.spellRemoveMenuOpen = false;
       state.activeTab = btn.dataset.tab;
@@ -5228,8 +5461,9 @@ function bindEvents() {
       if (field.startsWith("bio.")) {
         const bioKey = field.replace("bio.", "");
         storage.updateBio(state.roomId, state.activeSheetId, { [bioKey]: val }).catch(console.error);
-        const displayName = [next.bio?.name || "", next.bio?.surname || ""].join(" ").trim() || "Name Surname";
+        const displayName = [next.bio?.name || "", next.bio?.surname || ""].join(" ").trim() || defaultSheetNameLabel();
         state.sheetNames[state.activeSheetId] = displayName;
+        storage.setSheetNameInRoom(state.activeSheetId, displayName).catch(console.error);
       } else if (field === "currentHP" || field === "tempHP" || field === "currentMP" || field === "currentFavor" || field === "actionModifier" || field === "speedModifier" || field === "notes" || field === "isElemental") {
         storage.updateSheetCore(state.roomId, state.activeSheetId, { [field]: next[field] }).catch(console.error);
       }
@@ -5470,6 +5704,85 @@ function bindEvents() {
   }
 
   // Talents (stored in sheet.knowledge)
+  app.querySelector("#btn-favor-transfer")?.addEventListener("click", () => {
+    if (!state.sheet || !canEdit(state.activeSheetId)) return;
+    const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+    state.favorTransferOpen = true;
+    state.favorTransferMode = "draft";
+    state.favorTransferRecipientMenuOpen = false;
+    state.favorTransferRecipientSheetId = vis[0] || "";
+    state.favorTransferQty = 1;
+    state.favorTransferPending = null;
+    render();
+  });
+  app.querySelector("#btn-favor-xfer-recipient-menu")?.addEventListener("click", () => {
+    state.favorTransferRecipientMenuOpen = !state.favorTransferRecipientMenuOpen;
+    render();
+  });
+  app.querySelectorAll("[data-favor-xfer-recipient-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.favorTransferRecipientSheetId = btn.getAttribute("data-favor-xfer-recipient-pick") || "";
+      state.favorTransferRecipientMenuOpen = false;
+      render();
+    });
+  });
+  app.querySelector("#favor-xfer-qty-minus")?.addEventListener("click", () => {
+    state.favorTransferQty = Math.max(1, clampInt(state.favorTransferQty) - 1);
+    render();
+  });
+  app.querySelector("#favor-xfer-qty-plus")?.addEventListener("click", () => {
+    state.favorTransferQty = Math.max(1, clampInt(state.favorTransferQty) + 1);
+    render();
+  });
+  app.querySelector("#favor-xfer-cancel")?.addEventListener("click", () => {
+    state.favorTransferOpen = false;
+    state.favorTransferMode = "draft";
+    state.favorTransferRecipientMenuOpen = false;
+    state.favorTransferRecipientSheetId = "";
+    state.favorTransferQty = 1;
+    state.favorTransferPending = null;
+    render();
+  });
+  app.querySelector("#favor-xfer-send")?.addEventListener("click", () => {
+    if (!state.sheet) return;
+    const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+    const recipId = String(state.favorTransferRecipientSheetId || "") || (vis[0] || "");
+    const qty = Math.max(1, clampInt(state.favorTransferQty || 1));
+    if (!recipId) return;
+    state.favorTransferPending = { recipientSheetId: recipId, qty };
+    state.favorTransferMode = "confirm";
+    render();
+  });
+  app.querySelector("#favor-xfer-confirm")?.addEventListener("click", async () => {
+    if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+    const pending = state.favorTransferPending;
+    if (!pending) return;
+    const toId = String(pending.recipientSheetId || "");
+    const qty = Math.max(1, clampInt(pending.qty || 1));
+    const senderCur = Math.max(0, Number(state.sheet.currentFavor) || 0);
+    if (qty > senderCur) {
+      try { OBR.notification.show(t("notEnoughFavor")); } catch (_) {}
+      return;
+    }
+    const senderNext = senderCur - qty;
+    applyLocalMutation((sheet) => { sheet.currentFavor = senderNext; });
+    storage.updateSheetCore(state.roomId, state.activeSheetId, { currentFavor: senderNext }).catch(console.error);
+    try {
+      const recipSheet = await storage.getSheet(state.roomId, toId, { forceRefresh: true });
+      const maxFav = getMaxFavor(recipSheet || state.sheet);
+      const recipCur = Math.max(0, Number(recipSheet?.currentFavor) || 0);
+      const recipNext = Math.min(maxFav, recipCur + qty);
+      storage.updateSheetCore(state.roomId, toId, { currentFavor: recipNext }).catch(console.error);
+      if (state.activeSheetId === toId && state.sheet) state.sheet.currentFavor = recipNext;
+    } catch (err) {
+      console.error(err);
+    }
+    state.favorTransferOpen = false;
+    state.favorTransferMode = "draft";
+    state.favorTransferPending = null;
+    render();
+  });
+
   app.querySelector("#btn-add-talent")?.addEventListener("click", async () => {
     if (!state.sheet || !state.roomId || !state.activeSheetId) return;
     if (!canEdit(state.activeSheetId)) return;
@@ -5617,8 +5930,16 @@ function bindEvents() {
 
   // Talent tier menu (header-style dropdown)
   app.querySelector("#btn-talent-tier-menu")?.addEventListener("click", () => {
+    syncTalentDraftFromModalInputs();
     state.talentTierMenuOpen = !state.talentTierMenuOpen;
     render();
+  });
+  app.querySelector("#talent-modal")?.addEventListener("input", (e) => {
+    if (!state.talentDraft) return;
+    const tEl = e.target;
+    if (tEl.id === "talent-name-inp") state.talentDraft.name = tEl.value;
+    else if (tEl.id === "talent-desc-inp") state.talentDraft.description = tEl.value;
+    else if (tEl.id === "talent-override-inp") state.talentDraft.bonusOverride = String(tEl.value || "").trim() || null;
   });
   app.querySelectorAll("[data-talent-tier-pick]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -5668,17 +5989,21 @@ function bindEvents() {
   });
   app.querySelector("#roll-reroll-btn")?.addEventListener("click", async () => {
     const rr = document.getElementById("roll-reroll-btn");
-    if (rr?.disabled) return;
+    if (rr?.disabled || state._favorRerollInFlight) return;
     if (!state.sheet || state.sheet.currentFavor < 1) return;
     if (!state.lastRollPayload || !state.roomId) return;
     const prevRollChatId = state.lastRollChatMessageId;
+    state._favorRerollInFlight = true;
     state.sheet.currentFavor--;
     saveSheet();
     if (state.roomId && state.activeSheetId) {
       storage.updateSheetCore(state.roomId, state.activeSheetId, { currentFavor: state.sheet.currentFavor }).catch(console.error);
     }
     const result = executeRoll(state.lastRollPayload, state.sheet);
-    if (!result) return;
+    if (!result) {
+      state._favorRerollInFlight = false;
+      return;
+    }
     state.rollModalFavorRerollDepth = (Number(state.rollModalFavorRerollDepth) || 0) + 1;
     state.lastRoll = result;
     state.rollModalOpen = true;
@@ -5695,6 +6020,8 @@ function bindEvents() {
       if (prevRollChatId != null) await supersedeChatRollMessageForFavorReroll(prevRollChatId);
     } catch (err) {
       console.error(err);
+    } finally {
+      state._favorRerollInFlight = false;
     }
     state._chatStickToBottom = true;
     render();
@@ -6030,7 +6357,7 @@ function bindEvents() {
   };
 
   app.querySelector("#btn-currency-transfer")?.addEventListener("click", () => {
-    if (!state.sheet) return;
+    if (!state.sheet || !canEdit(state.activeSheetId)) return;
     const snap = state._currencyModalScrollSnap || getScrollSnapshot(app);
     state.currencyModalOpen = true;
     state.currencyModalMode = "transfer";
@@ -6044,7 +6371,7 @@ function bindEvents() {
     restoreCurrencyScroll(snap);
   });
   app.querySelector("#btn-currency-add")?.addEventListener("click", () => {
-    if (!state.sheet) return;
+    if (!state.sheet || !canEdit(state.activeSheetId)) return;
     const snap = state._currencyModalScrollSnap || getScrollSnapshot(app);
     state.currencyModalOpen = true;
     state.currencyModalMode = "add";
@@ -6057,7 +6384,7 @@ function bindEvents() {
     restoreCurrencyScroll(snap);
   });
   app.querySelector("#btn-currency-remove")?.addEventListener("click", () => {
-    if (!state.sheet) return;
+    if (!state.sheet || !canEdit(state.activeSheetId)) return;
     const snap = state._currencyModalScrollSnap || getScrollSnapshot(app);
     state.currencyModalOpen = true;
     state.currencyModalMode = "remove";
@@ -6397,37 +6724,55 @@ function bindEvents() {
       const id = btn.getAttribute("data-inv-qty-delta") || "";
       const delta = Number(btn.getAttribute("data-delta")) || 0;
       if (!id) return;
-      const next = applyLocalMutation((sheet) => {
+      applyLocalMutation((sheet) => {
         const it = findItemById(sheet, id);
         if (!it) return;
         const cur = Math.max(0, clampInt(it.count ?? 1));
         it.count = Math.max(0, cur + delta);
       });
-      if (next) {
-        const it = findItemById(next, id);
-        if (it) storage.updateItemFields(state.roomId, state.activeSheetId, id, { quantity: Math.max(0, clampInt(it.count ?? 0)) }).catch(console.error);
+      const it = findItemById(state.sheet, id);
+      if (it) {
+        const pill = app.querySelector(`[data-inv-qty-input="${CSS.escape(id)}"]`);
+        if (pill) pill.value = String(Math.max(0, clampInt(it.count ?? 0)));
+        scheduleDebouncedSave(`item-count:${id}`, 450, () => {
+          const latest = findItemById(state.sheet, id);
+          if (!latest) return;
+          storage.updateItemFields(state.roomId, state.activeSheetId, id, {
+            quantity: Math.max(0, clampInt(latest.count ?? 0)),
+          }).catch(console.error);
+        });
       }
-      render();
     });
   });
 
   // Inventory items: quantity input (typeable even outside edit mode)
   app.querySelectorAll("[data-inv-qty-input]").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      const id = inp.getAttribute("data-inv-qty-input") || "";
+      if (!id) return;
+      const v = Math.max(0, clampInt(String(inp.value || "").replace(/[^\d-]/g, "")));
+      applyLocalMutation((sheet) => {
+        const it = findItemById(sheet, id);
+        if (!it) return;
+        it.count = v;
+      });
+      scheduleDebouncedSave(`item-count:${id}`, 450, () => {
+        const latest = findItemById(state.sheet, id);
+        if (!latest) return;
+        storage.updateItemFields(state.roomId, state.activeSheetId, id, {
+          quantity: Math.max(0, clampInt(latest.count ?? 0)),
+        }).catch(console.error);
+      });
+    });
     inp.addEventListener("change", () => {
       if (!state.sheet || !state.roomId || !state.activeSheetId) return;
       if (!canEdit(state.activeSheetId)) return;
       const id = inp.getAttribute("data-inv-qty-input") || "";
       if (!id) return;
       const v = Math.max(0, clampInt(String(inp.value || "").replace(/[^\d-]/g, "")));
-      const next = applyLocalMutation((sheet) => {
-        const it = findItemById(sheet, id);
-        if (!it) return;
-        it.count = v;
-      });
-      if (next) {
-        storage.updateItemFields(state.roomId, state.activeSheetId, id, { quantity: v }).catch(console.error);
-      }
-      render();
+      inp.value = String(v);
     });
   });
 
@@ -6446,26 +6791,42 @@ function bindEvents() {
       if (!m) return;
       const itemId = m[1];
       const field = m[2];
-      const applyClamp = (v) => clampIntForStepperWrap(v, wrap);
-      const next = applyLocalMutation((sheet) => {
-        const it = findItemById(sheet, itemId);
-        if (!it) return;
-        if (field === "physical_defense") it.defense = applyClamp((it.defense ?? 0) + delta);
-        else if (field === "magical_defense") it.magicalDefense = applyClamp((it.magicalDefense ?? 0) + delta);
-        else it[field] = applyClamp((it[field] ?? 0) + delta);
-      });
-      scheduleDebouncedSave(`inv_item_${itemId}_${field}`, 450, () => {
-        const it = findItemById(state.sheet, itemId);
-        if (!it) return;
-        const patch = {};
-        if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
-        else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
-        else patch[field] = clampInt(it[field] ?? 0);
-        storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
-      });
-      render();
+      const curIt = findItemById(state.sheet, itemId);
+      if (!curIt) return;
+      const cur =
+        field === "physical_defense"
+          ? Number(curIt.defense) || 0
+          : field === "magical_defense"
+            ? Number(curIt.magicalDefense) || 0
+            : Number(curIt[field]) || 0;
+      const nxt = patchInvItemStatField(itemId, field, cur + delta, wrap);
+      syncInvItemStatInputDom(key, nxt);
+      scheduleDebouncedSave(`item-strip:${itemId}`, 450, () => flushInvItemStatStripSave(itemId));
     });
   });
+
+  if (!app.dataset.invItemStatInputBound) {
+    app.addEventListener("input", (e) => {
+      const inp = e.target;
+      if (!inp || inp.tagName !== "INPUT" || !inp.getAttribute("data-inv-item-stat-input")) return;
+      if (!app.contains(inp)) return;
+      if (!state.sheet || !state.roomId || !state.activeSheetId) return;
+      if (!canEdit(state.activeSheetId)) return;
+      if (inp.readOnly || inp.disabled) return;
+      const key = inp.getAttribute("data-inv-item-stat-input") || "";
+      const wrap = inp.closest("[data-inv-item-stat-wrap]");
+      if (!key || !wrap) return;
+      const m = key.match(/^invitem\|([^|]+)\|(.+)$/);
+      if (!m) return;
+      const itemId = m[1];
+      const field = m[2];
+      const parsed = parseStatsStepperRawInput(inp.value, wrap);
+      if (parsed === null) return;
+      patchInvItemStatField(itemId, field, parsed, wrap);
+      scheduleDebouncedSave(`item-strip:${itemId}`, 450, () => flushInvItemStatStripSave(itemId));
+    });
+    app.dataset.invItemStatInputBound = "1";
+  }
 
   if (!app.dataset.invItemStatBlurBound) {
     app.addEventListener("focusout", (e) => {
@@ -6484,39 +6845,12 @@ function bindEvents() {
       const field = m[2];
       const parsed = parseStatsStepperRawInput(inp.value, wrap);
       if (parsed === null) {
-        render();
+        syncInvItemStatInputDom(key, findItemById(state.sheet, itemId)?.[field === "physical_defense" ? "defense" : field === "magical_defense" ? "magicalDefense" : field] ?? 0);
         return;
       }
-      const nxt = clampIntForStepperWrap(parsed, wrap);
-      const curIt = findItemById(state.sheet, itemId);
-      if (!curIt) return;
-      const cur =
-        field === "physical_defense"
-          ? Number(curIt.defense) || 0
-          : field === "magical_defense"
-            ? Number(curIt.magicalDefense) || 0
-            : Number(curIt[field]) || 0;
-      if (nxt === cur) {
-        render();
-        return;
-      }
-      applyLocalMutation((sheet) => {
-        const it = findItemById(sheet, itemId);
-        if (!it) return;
-        if (field === "physical_defense") it.defense = nxt;
-        else if (field === "magical_defense") it.magicalDefense = nxt;
-        else it[field] = nxt;
-      });
-      scheduleDebouncedSave(`inv_item_${itemId}_${field}`, 450, () => {
-        const it = findItemById(state.sheet, itemId);
-        if (!it) return;
-        const patch = {};
-        if (field === "physical_defense") patch.physical_defense = clampInt(it.defense ?? 0);
-        else if (field === "magical_defense") patch.magical_defense = clampInt(it.magicalDefense ?? 0);
-        else patch[field] = clampInt(it[field] ?? 0);
-        storage.updateItemFields(state.roomId, state.activeSheetId, itemId, patch).catch(console.error);
-      });
-      render();
+      const nxt = patchInvItemStatField(itemId, field, parsed, wrap);
+      syncInvItemStatInputDom(key, nxt);
+      scheduleDebouncedSave(`item-strip:${itemId}`, 450, () => flushInvItemStatStripSave(itemId));
     });
     app.dataset.invItemStatBlurBound = "1";
   }
@@ -6774,7 +7108,7 @@ function bindEvents() {
   // Item transfer modal open (consumables/weapons/armor/others/bags)
   ["consumables", "weapons", "armor", "others", "bags"].forEach((sec) => {
     app.querySelector(`#btn-${sec}-transfer`)?.addEventListener("click", () => {
-      if (!state.sheet) return;
+      if (!state.sheet || !canEdit(state.activeSheetId)) return;
       // Any non-edit action should close+save current edit.
       if (state._editingItemId && state._itemEditDraft) {
         const id0 = String(state._editingItemId);
@@ -6792,12 +7126,19 @@ function bindEvents() {
         state._editingItemId = null;
         state._itemEditDraft = null;
       }
+      const vis = getVisibleSheets().filter((id) => id !== state.activeSheetId);
+      const items =
+        sec === "weapons" ? (state.sheet.weapons || [])
+          : sec === "armor" ? (state.sheet.armor || [])
+            : sec === "bags" ? (state.sheet.bags || [])
+              : sec === "others" ? (state.sheet.others || [])
+                : (state.sheet.consumables || []);
       state.consumableTransferOpen = true;
       state.consumableTransferMode = "draft";
       state.consumableTransferRecipientMenuOpen = false;
       state.consumableTransferItemMenuOpen = false;
-      state.consumableTransferRecipientSheetId = "";
-      state.consumableTransferItemId = "";
+      state.consumableTransferRecipientSheetId = vis[0] || "";
+      state.consumableTransferItemId = items[0]?.id ? String(items[0].id) : "";
       state.consumableTransferQty = 1;
       state.consumableTransferPending = null;
       state.consumableTransferSection = sec;
@@ -7352,7 +7693,7 @@ function bindEvents() {
     }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
-      sendChat();
+      if (!state._chatSending) sendChat();
     }
   });
   app.querySelectorAll(".chat-msg-delete-btn").forEach((btn) => {
@@ -7364,6 +7705,11 @@ function bindEvents() {
       if (!id) return;
       const msg = state.chatMessages.find((x) => String(x.id) === String(id));
       if (!msg || !canDeleteChatMessage(msg)) return;
+      const ok = await openConfirmModal({
+        titleKey: "confirmDeleteChatMessageTitle",
+        bodyKey: "confirmDeleteChatMessageBody",
+      });
+      if (!ok) return;
       try {
         await storage.deleteChatMessage(state.roomId, id);
         handleChatMessageRemoved(id);
@@ -7376,8 +7722,12 @@ function bindEvents() {
     });
   });
   async function sendChat() {
+    if (state._chatSending) return;
     const line = chatInput?.value?.trim();
     if (!line || !state.roomId) return;
+    state._chatSending = true;
+    const sendBtn = app.querySelector("#chat-send");
+    if (sendBtn) sendBtn.disabled = true;
     const cmd = /\r\n|\r|\n/.test(line) ? null : parseChatCommand(line);
     let bodyToSend = line;
     let rollResultToShow = null;
@@ -7420,6 +7770,10 @@ function bindEvents() {
       console.error(err);
       const detail = err?.message || err?.details || String(err);
       OBR.notification.show(detail ? `Chat send failed: ${detail}` : "Chat send failed");
+    } finally {
+      state._chatSending = false;
+      const btn = app.querySelector("#chat-send");
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -7575,8 +7929,9 @@ function bindEvents() {
       storage.saveSheetToStorage(state.roomId, imported, { persistRemote: false });
       await storage.persistSheet(state.roomId, imported);
       state.sheetIds = await storage.getSheetList();
-      const names = await storage.getRoomData();
-      state.sheetNames = names.sheetNames || {};
+      const displayName = getDisplayName(imported) || defaultSheetNameLabel();
+      state.sheetNames = { ...(state.sheetNames || {}), [imported.id]: displayName };
+      await storage.setSheetNameInRoom(imported.id, displayName);
       await loadSheet(imported.id);
       render();
     } catch (err) {
@@ -7601,6 +7956,9 @@ function bindEvents() {
         });
         storage.saveSheetToStorage(state.roomId, nextSheet, { persistRemote: false });
         await storage.persistSheet(state.roomId, nextSheet);
+        const displayName = getDisplayName(nextSheet) || defaultSheetNameLabel();
+        state.sheetNames = { ...(state.sheetNames || {}), [nextSheet.id]: displayName };
+        await storage.setSheetNameInRoom(nextSheet.id, displayName);
       }
       await loadRoomData();
       if (!state.activeSheetId && state.sheetIds.length) {
@@ -7774,11 +8132,23 @@ export async function initApp() {
       const nextTokenToSheet = roomMeta.tokenToSheet || {};
       const nextPlayerDirectory = roomMeta.playerDirectory || {};
       const nextFieldLocks = roomMeta.fieldLocks || {};
+      const nextSheetNames = roomMeta.sheetNames || {};
 
       const localeChanged = nextLocale !== state.locale;
       const tokenChanged = JSON.stringify(nextTokenToSheet) !== JSON.stringify(state.tokenToSheet || {});
       const directoryChanged = JSON.stringify(nextPlayerDirectory) !== JSON.stringify(state.playerDirectory || {});
       const lockChanged = JSON.stringify(nextFieldLocks) !== JSON.stringify(state.fieldLocks || {});
+      let sheetNamesChanged = false;
+      if (nextSheetNames && typeof nextSheetNames === "object") {
+        Object.entries(nextSheetNames).forEach(([id, name]) => {
+          const n = String(name || "").trim();
+          if (!n) return;
+          if (state.sheetNames[id] !== n) {
+            state.sheetNames[id] = n;
+            sheetNamesChanged = true;
+          }
+        });
+      }
 
       state.tokenToSheet = nextTokenToSheet;
       state.playerDirectory = nextPlayerDirectory;
@@ -7795,7 +8165,7 @@ export async function initApp() {
         syncFieldLockStates();
       }
 
-      if (tokenChanged || directoryChanged) {
+      if (tokenChanged || directoryChanged || sheetNamesChanged) {
         render();
       }
     });
